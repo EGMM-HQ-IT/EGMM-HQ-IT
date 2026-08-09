@@ -2856,7 +2856,7 @@
   // 모드 전환 버튼
   $('toSignupBtn').onclick = setSignupMode;
   $('toLoginBtn').onclick = setLoginMode;
-  // EGMM 박스 → 비밀번호 확인(팝업) 후 별도 페이지(egmm.html)로 이동
+  // EGMM 박스 → 비밀번호 확인(팝업) 후 별도 페이지(EGMM/egmm.html)로 이동
   let egmmPin = '10041004';                        // EGMM 마스터 PIN(이름 선택 안 함=관리자). 저장값은 해시/레거시평문. 절대 DOM 노출 안 함
   // PIN 해시 (안전컨텍스트=HTTPS면 SHA-256, 아니면 평문 폴백). 저장값은 'h:'/'p:'/레거시평문 중 하나.
   async function hashPin(v){
@@ -2908,7 +2908,7 @@
       // 이름 선택 안 함 → 관리자 (마스터 PIN)
       if (await verifyPin(p)) {
         try{ localStorage.setItem('unifiedLogin','1'); sessionStorage.setItem('egmmGate','1'); sessionStorage.setItem('egmmUser', JSON.stringify({name:'', menus:{}})); }catch(e){}
-        window.location.href = 'egmm.html';
+        window.location.href = 'EGMM/egmm.html';
       } else { if(egmmPwErr) egmmPwErr.textContent = '마스터 PIN이 올바르지 않습니다'; }
       return;
     }
@@ -2916,14 +2916,14 @@
     var u = egmmUsers.filter(function(x){ return String(x.id)===uid; })[0];
     if (u && await matchUserPin(p, u.pin)) {
       try{ localStorage.setItem('unifiedLogin','1'); sessionStorage.setItem('egmmGate','1'); sessionStorage.setItem('egmmUser', JSON.stringify({name:u.name, menus:u.menus||{}})); }catch(e){}
-      window.location.href = 'egmm.html';
+      window.location.href = 'EGMM/egmm.html';
     } else { if(egmmPwErr) egmmPwErr.textContent = '해당 사용자의 PIN이 아닙니다'; }
   };
   const enterEgmm = () => {
     if (isEgmmAuto()) {   // 자동 로그인 ON → 안 묻고 안내 후 진입 (관리자)
       try { showToast('자동 로그인 합니다', 'success'); } catch(e) {}
       try{ localStorage.setItem('unifiedLogin','1'); sessionStorage.setItem('egmmGate','1'); sessionStorage.setItem('egmmUser', JSON.stringify({name:'', menus:{}})); }catch(e){}
-      setTimeout(()=>{ window.location.href = 'egmm.html'; }, 600);
+      setTimeout(()=>{ window.location.href = 'EGMM/egmm.html'; }, 600);
       return;
     }
     openEgmmPw();
