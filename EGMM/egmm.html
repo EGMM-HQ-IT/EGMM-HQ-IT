@@ -2813,7 +2813,6 @@
      <div class="egmm-wordmark">EGMM<span class="dot">.</span></div>
    </div>
    <div class="eg-topbar-actions">
-     <button class="eg-top-msg" id="egManagerBtn" type="button">🗂 MANAGER</button>
      <button class="eg-top-msg" id="egMsgOpenBtn" type="button">💬 메시지<span class="egmm-chat-alarm-dot"></span></button>
      <button class="eg-top-exit" id="egmmExitBtn" type="button">← 처음으로</button>
    </div>
@@ -2822,6 +2821,15 @@
  <!-- 왼쪽 사이드바 -->
  <aside class="eg-side">
  <div class="egmm-cards">
+  <!-- 박스 0: MANAGER (다른 메뉴와 동일한 리스트 형태 · 암호 없음) -->
+  <div class="egmm-card">
+    <div class="egmm-card-head"><span class="egmm-card-tick"></span><span class="egmm-card-name">MANAGER</span></div>
+
+    <button class="egmm-menu-btn" id="egmmMgrHomeBtn"><span class="egmm-menu-label mlab">HOMEPAGE MANAGER<small>홈페이지 관리</small></span></button>
+    <button class="egmm-menu-btn" id="egmmMgrAdBtn"><span class="egmm-menu-label mlab">AD MANAGER<small>광고상품 관리</small></span></button>
+    <button class="egmm-menu-btn" id="egmmMgrItemBtn"><span class="egmm-menu-label mlab">ITEM MANAGEMENT<small>아이템 관리</small></span></button>
+  </div>
+
   <!-- 박스 1: EGMM -->
   <div class="egmm-card">
     <div class="egmm-card-head"><span class="egmm-card-tick"></span><span class="egmm-card-name">MART</span></div>
@@ -2847,17 +2855,8 @@
     <button class="egmm-menu-btn" id="egmmShawnMgrBtn"><span class="egmm-menu-label mlab">MANAGER<small>THE SHAWN 클라우드</small></span></button>
   </div>
 
-  <!-- 박스: MANAGER + REQUEST (한 세로 열) -->
+  <!-- 박스: REQUEST (한 세로 열) -->
   <div class="egmm-card-col">
-    <!-- 박스: MANAGER (상단 🗂 MANAGER 3종과 동일 연결) -->
-    <div class="egmm-card">
-      <div class="egmm-card-head"><span class="egmm-card-tick"></span><span class="egmm-card-name">MANAGER</span></div>
-
-      <button class="egmm-menu-btn" id="egmmMgrHomeBtn"><span class="egmm-menu-label mlab">HOMEPAGE MANAGER<small>홈페이지 관리</small></span></button>
-      <button class="egmm-menu-btn" id="egmmMgrAdBtn"><span class="egmm-menu-label mlab">AD MANAGER<small>광고상품 관리</small></span></button>
-      <button class="egmm-menu-btn" id="egmmMgrItemBtn"><span class="egmm-menu-label mlab">ITEM MANAGEMENT<small>아이템 관리</small></span></button>
-    </div>
-
     <div class="egmm-card">
     <!-- 박스: REQUEST -->
     
@@ -3421,51 +3420,36 @@
   $('egmmPluListBtn').onclick = function(){ openInFrame('../plu-list-manager.html', this); };
   var __calBtn=$('egmmCalendarBtn'); if(__calBtn) __calBtn.onclick = function(){ openInFrame('egmm-calendar.html', this); };
   var __dpvBtn=$('egmmPurchaseBtn'); if(__dpvBtn) __dpvBtn.onclick = function(){ openInFrame('daily-purchase-view.html', this); };
-  // MANAGER: 상단 버튼 → 3종 선택 팝업 → 대형 팝업(iframe)으로 표시
+  // MANAGER: 사이드바 리스트 메뉴 → 다른 메뉴와 동일하게 오른쪽 콘텐츠 화면(iframe)으로 표시 · 암호 확인 없음
+  var __mgrHomeBtn=$('egmmMgrHomeBtn'); if(__mgrHomeBtn) __mgrHomeBtn.onclick = function(){ openInFrame('../MANAGER/homepage-manager.html', this); };
+  var __mgrAdBtn=$('egmmMgrAdBtn'); if(__mgrAdBtn) __mgrAdBtn.onclick = function(){ openInFrame('../MANAGER/advertising-manager.html', this); };
+  var __mgrItemBtn=$('egmmMgrItemBtn'); if(__mgrItemBtn) __mgrItemBtn.onclick = function(){ openInFrame('../item-management-manager.html', this); };
+  // 공용 대형 팝업 (도구 모음 등에서 사용)
   (function(){
-    var sel=document.createElement('div');
-    sel.className='eg-exit-ov'; sel.id='egMgrSel';
-    sel.innerHTML='<div class="eg-exit-modal" style="width:380px">'
-      +'<div class="eg-exit-title">🗂 MANAGER</div>'
-      +'<div class="eg-exit-btns" style="flex-direction:column">'
-      +'<button class="eg-ex-btn" data-url="../MANAGER/homepage-manager.html" type="button">HOMEPAGE MANAGER<br><small style="font-weight:600;opacity:.7">홈페이지 관리</small></button>'
-      +'<button class="eg-ex-btn" data-url="../MANAGER/advertising-manager.html" type="button">AD MANAGER<br><small style="font-weight:600;opacity:.7">광고상품 관리</small></button>'
-      +'<button class="eg-ex-btn" data-url="../item-management-manager.html" type="button">ITEM MANAGEMENT<br><small style="font-weight:600;opacity:.7">아이템 관리</small></button>'
-      +'</div></div>';
-    document.body.appendChild(sel);
-    // 대형 팝업 (레이아웃 유지 최대 크기)
     var big=document.createElement('div');
     big.id='egMgrPop';
     big.innerHTML='<div class="eg-mgr-card"><button class="eg-mgr-x" id="egMgrX" type="button">✕ 닫기</button><iframe class="eg-mgr-frame" id="egMgrFrame" src="about:blank" title="manager"></iframe></div>';
     document.body.appendChild(big);
-    var mb=document.getElementById('egManagerBtn');
-    if(mb) mb.onclick=function(){ sel.classList.add('show'); };
-    sel.addEventListener('click', function(e){
-      if(e.target===sel){ sel.classList.remove('show'); return; }
-      var b=e.target.closest('button[data-url]'); if(!b) return;
-      sel.classList.remove('show');
-      var f=document.getElementById('egMgrFrame');
-      if(f.getAttribute('src')!==b.getAttribute('data-url')) f.src=b.getAttribute('data-url');
-      big.classList.add('show');
-    });
     document.getElementById('egMgrX').onclick=function(){ big.classList.remove('show'); };
     big.addEventListener('click', function(e){ if(e.target===big) big.classList.remove('show'); });
-    // homepage-manager.html 내부의 닫기 버튼 → 팝업 닫기
-    window.addEventListener('message', function(e){ if(e && e.data==='hpm-close') big.classList.remove('show'); });
+    // homepage-manager.html 내부의 닫기 버튼 → 팝업/화면 닫기
+    window.addEventListener('message', function(e){
+      if(!(e && e.data==='hpm-close')) return;
+      big.classList.remove('show');
+      // 콘텐츠 화면(iframe)에서 열려 있으면 닫고 시작 화면으로
+      var f=__frames['../MANAGER/homepage-manager.html'];
+      if(f && f.style.display!=='none'){
+        f.style.display='none';
+        var w=$('egWelcome'); if(w) w.style.display='';
+        Array.prototype.forEach.call(document.querySelectorAll('.eg-side .egmm-menu-btn'), function(b){ b.classList.remove('active'); });
+      }
+    });
     // 공용 대형 팝업 오픈 (도구 모음 등)
     window.__egBigPop=function(url){
       var f=document.getElementById('egMgrFrame');
       if(f.getAttribute('src')!==url) f.src=url;
       big.classList.add('show');
     };
-    // 사이드바 MANAGER 카드 (상단 🗂 MANAGER 3종과 동일 연결)
-    [ ['egmmMgrHomeBtn','../MANAGER/homepage-manager.html'],
-      ['egmmMgrAdBtn','../MANAGER/advertising-manager.html'],
-      ['egmmMgrItemBtn','../item-management-manager.html']
-    ].forEach(function(p){
-      var b=document.getElementById(p[0]);
-      if(b) b.onclick=function(){ window.__egBigPop(p[1]); };
-    });
   })();
   // 처음으로: 확인 팝업
   (function(){
