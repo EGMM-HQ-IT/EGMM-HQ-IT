@@ -2849,6 +2849,15 @@
 
   <!-- 박스: MANAGER + REQUEST (한 세로 열) -->
   <div class="egmm-card-col">
+    <!-- 박스: MANAGER (상단 🗂 MANAGER 3종과 동일 연결) -->
+    <div class="egmm-card">
+      <div class="egmm-card-head"><span class="egmm-card-tick"></span><span class="egmm-card-name">MANAGER</span></div>
+
+      <button class="egmm-menu-btn" id="egmmMgrHomeBtn"><span class="egmm-menu-label mlab">HOMEPAGE MANAGER<small>홈페이지 관리</small></span></button>
+      <button class="egmm-menu-btn" id="egmmMgrAdBtn"><span class="egmm-menu-label mlab">AD MANAGER<small>광고상품 관리</small></span></button>
+      <button class="egmm-menu-btn" id="egmmMgrItemBtn"><span class="egmm-menu-label mlab">ITEM MANAGEMENT<small>아이템 관리</small></span></button>
+    </div>
+
     <div class="egmm-card">
     <!-- 박스: REQUEST -->
     
@@ -3449,6 +3458,14 @@
       if(f.getAttribute('src')!==url) f.src=url;
       big.classList.add('show');
     };
+    // 사이드바 MANAGER 카드 (상단 🗂 MANAGER 3종과 동일 연결)
+    [ ['egmmMgrHomeBtn','../MANAGER/homepage-manager.html'],
+      ['egmmMgrAdBtn','../MANAGER/advertising-manager.html'],
+      ['egmmMgrItemBtn','../item-management-manager.html']
+    ].forEach(function(p){
+      var b=document.getElementById(p[0]);
+      if(b) b.onclick=function(){ window.__egBigPop(p[1]); };
+    });
   })();
   // 처음으로: 확인 팝업
   (function(){
