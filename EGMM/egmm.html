@@ -7,19 +7,24 @@
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
 <style>
   :root {
-    --bg: #fafaf7;
-    --bg-elev: #ffffff;
-    --bg-elev-2: #f3f3ee;
-    --border: #e5e5e0;
-    --border-bright: #c8c8c0;
-    --text: #1a1a1d;
-    --text-dim: #6b6b72;
-    --text-faint: #9a9aa0;
-    --accent: #1a1a1d;
-    --accent-soft: #f0eee5;
-    --accent-warm: #c9a961;
-    --danger: #c83a3a;
+    /* ── DESIGN SYSTEM "Paper & Pine" (homepage-manager · tablet-plu-preview 공통) ── */
+    --bg: #EDEAE3;
+    --bg-elev: #FFFDFA;
+    --bg-elev-2: #F7F4ED;
+    --border: #E4DFD4;
+    --border-bright: #D6CFC0;
+    --text: #1E1B16;
+    --text-dim: #4C463C;
+    --text-faint: #8C8578;
+    --accent: #1E1B16;
+    --accent-soft: #E9EFEA;
+    --accent-warm: #2F5D46;
+    --brass: #A98A55;
+    --danger: #9C3327;
+    --danger-soft: #F5EAE7;
     --success: #2a8a4a;
+    --sh-1: 0 1px 2px rgba(30,27,22,.05);
+    --sh-2: 0 1px 2px rgba(30,27,22,.05), 0 14px 30px -20px rgba(30,27,22,.42);
     /* 카테고리 색상 */
     --cat-work: #4a6cc9;
     --cat-work-soft: #e5ebfa;
@@ -48,8 +53,8 @@
     position: fixed;
     inset: 0;
     background-image:
-      radial-gradient(circle at 20% 10%, rgba(201, 169, 97, 0.05) 0%, transparent 40%),
-      radial-gradient(circle at 80% 90%, rgba(26, 26, 29, 0.03) 0%, transparent 40%);
+      radial-gradient(circle at 20% 10%, rgba(169,138,85,0.06) 0%, transparent 40%),
+      radial-gradient(circle at 80% 90%, rgba(30,27,22,0.03) 0%, transparent 40%);
     pointer-events: none;
     z-index: 0;
   }
@@ -83,7 +88,7 @@
     border: 1px solid var(--border);
     border-radius: 16px;
     padding: 40px 32px 32px;
-    box-shadow: 0 10px 40px rgba(26,26,29,0.06);
+    box-shadow: 0 10px 40px rgba(30,27,22,0.06);
   }
 
   /* 로그인(THE SHAWN) + EGMM 두 박스를 나란히 */
@@ -95,7 +100,7 @@
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 28px; cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .12s;
   }
-  .lock-card-egmm:hover { border-color: var(--accent-warm); box-shadow: 0 12px 44px rgba(26,26,29,0.1); }
+  .lock-card-egmm:hover { border-color: var(--accent-warm); box-shadow: 0 12px 44px rgba(30,27,22,0.1); }
   .lock-card-egmm:active { transform: scale(0.99); }
   .lock-card-egmm:focus-visible { outline: 2px solid var(--accent-warm); outline-offset: 2px; }
   .lock-card-egmm .lock-title { margin-bottom: 0; }
@@ -166,7 +171,7 @@
     transition: transform 0.15s, background 0.2s;
     margin-top: 8px;
   }
-  .btn:hover { background: #2d2d33; }
+  .btn:hover { background: #332E26; }
   .btn:active { transform: scale(0.98); }
   .btn.ghost {
     background: transparent;
@@ -269,7 +274,7 @@
   .menu-card:hover {
     border-color: var(--accent-warm);
     transform: translateY(-4px);
-    box-shadow: 0 20px 40px rgba(26,26,29,0.08);
+    box-shadow: 0 20px 40px rgba(30,27,22,0.08);
   }
   .menu-card.disabled {
     cursor: not-allowed;
@@ -449,7 +454,7 @@
   .sync-status.synced::before { background: var(--success); }
   .sync-status.syncing {
     color: var(--accent-warm);
-    border-color: rgba(201,169,97,0.3);
+    border-color: rgba(47,93,70,0.28);
     background: var(--accent-soft);
   }
   .sync-status.syncing::before {
@@ -510,7 +515,7 @@
     align-items: center;
     gap: 6px;
   }
-  .add-note-btn:hover { background: #2d2d33; }
+  .add-note-btn:hover { background: #332E26; }
   .add-note-btn:active { transform: scale(0.96); }
 
   .notes-grid {
@@ -913,12 +918,12 @@
     align-items: center;
     gap: 6px;
     min-width: 120px;
-    box-shadow: 0 4px 16px rgba(26,26,29,0.15);
+    box-shadow: 0 4px 16px rgba(30,27,22,0.15);
   }
   .upc-convert-btn:hover {
     background: var(--accent-warm);
     transform: scale(1.05);
-    box-shadow: 0 6px 20px rgba(201,169,97,0.3);
+    box-shadow: 0 6px 20px rgba(47,93,70,0.28);
   }
   .upc-convert-btn:active {
     transform: scale(0.98);
@@ -951,12 +956,12 @@
     align-items: center;
     gap: 4px;
     min-width: 130px;
-    box-shadow: 0 4px 16px rgba(26,26,29,0.15);
+    box-shadow: 0 4px 16px rgba(30,27,22,0.15);
   }
   .case-convert-btn:hover {
     background: var(--accent-warm);
     transform: scale(1.05);
-    box-shadow: 0 6px 20px rgba(201,169,97,0.3);
+    box-shadow: 0 6px 20px rgba(47,93,70,0.28);
   }
   .case-convert-btn:active {
     transform: scale(0.98);
@@ -1072,12 +1077,12 @@
     cursor: pointer;
     border-radius: 10px;
     transition: all 0.2s;
-    box-shadow: 0 4px 16px rgba(26,26,29,0.15);
+    box-shadow: 0 4px 16px rgba(30,27,22,0.15);
   }
   .claude-add-btn:hover {
     background: var(--accent-warm);
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(201,169,97,0.3);
+    box-shadow: 0 6px 20px rgba(47,93,70,0.28);
   }
 
   .claude-notes-grid {
@@ -1129,7 +1134,7 @@
     font-family: var(--mono);
     font-size: 17px;
     font-weight: 800;
-    color: #2a2a2a;
+    color: #332E26;
     outline: none;
   }
   .claude-note-title-input:focus {
@@ -1149,7 +1154,7 @@
     font-family: var(--mono);
     font-size: 14px;
     line-height: 1.55;
-    color: #2a2a2a;
+    color: #332E26;
     outline: none;
   }
   .claude-note-body::placeholder {
@@ -1188,7 +1193,7 @@
   }
   .claude-note-action:hover {
     background: rgba(0,0,0,0.06);
-    color: #2a2a2a;
+    color: #332E26;
     border-color: rgba(0,0,0,0.45);
   }
   .claude-note-action.danger:hover {
@@ -1297,7 +1302,7 @@
     transition: background 0.2s;
     white-space: nowrap;
   }
-  .bible-go-btn:hover { background: #2d2d33; }
+  .bible-go-btn:hover { background: #332E26; }
 
   .bible-quick {
     display: flex;
@@ -1681,7 +1686,7 @@
   .panel-bg {
     position: fixed;
     inset: 0;
-    background: rgba(26, 26, 29, 0.35);
+    background: rgba(30,27,22,0.35);
     backdrop-filter: blur(6px);
     z-index: 200;
     display: none;
@@ -1703,7 +1708,7 @@
     overflow-y: auto;
     padding: 28px 28px 24px;
     position: relative;
-    box-shadow: 0 30px 80px rgba(26,26,29,0.15);
+    box-shadow: 0 30px 80px rgba(30,27,22,0.15);
     animation: cardIn 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
   @keyframes cardIn {
@@ -2070,7 +2075,7 @@
     pointer-events: none;
     transition: all 0.3s;
     z-index: 9999;
-    box-shadow: 0 10px 40px rgba(26,26,29,0.3);
+    box-shadow: 0 10px 40px rgba(30,27,22,0.3);
     min-width: 200px;
     text-align: center;
   }
@@ -2094,7 +2099,7 @@
   .modal-bg {
     position: fixed;
     inset: 0;
-    background: rgba(26, 26, 29, 0.45);
+    background: rgba(30,27,22,0.45);
     backdrop-filter: blur(4px);
     z-index: 500;
     display: none;
@@ -2110,7 +2115,7 @@
     padding: 28px;
     max-width: 380px;
     width: 100%;
-    box-shadow: 0 30px 80px rgba(26,26,29,0.15);
+    box-shadow: 0 30px 80px rgba(30,27,22,0.15);
   }
   .modal h3 {
     font-family: var(--serif);
@@ -2245,6 +2250,36 @@
     .today-btn { padding: 0 10px; height: 32px; font-size: 11px; }
     #addEventBtn { width: 100%; }
   }
+  /* === 진입 게이트 === */
+  html.eg-gate-lock body > *:not(#egGateOv){ visibility: hidden !important; }
+  #egGateOv{ position: fixed; inset: 0; z-index: 99999; display: flex; align-items: center; justify-content: center;
+    background: #EDEAE3; visibility: visible !important; }
+  #egGateOv .egg-card{ width: 340px; background: #FFFDFA; border: 1.5px solid #E4DFD4;
+    border-radius: 18px; padding: 30px 30px 26px; box-shadow: 0 14px 30px -20px rgba(30,27,22,.42); }
+  #egGateOv .egg-title{ margin: 0 0 18px; font-size: 24px; font-weight: 800; letter-spacing: .16em; text-align: center; color: #1E1B16; }
+  #egGateOv .egg-field{ margin-bottom: 12px; }
+  #egGateOv .egg-field label{ display: block; font-size: 11px; font-weight: 800; letter-spacing: .08em; color: #8C8578; margin-bottom: 5px; }
+  #egGateOv .egg-field input{ width: 100%; box-sizing: border-box; border: 1.5px solid #E4DFD4; border-radius: 10px;
+    padding: 12px 14px; font: inherit; font-size: 15px; font-weight: 700; color: #1E1B16; background: #FFFDFA; }
+  #egGateOv #eggId{ text-transform: uppercase; }
+  #egGateOv .egg-field input:focus{ outline: none; border-color: #2F5D46; }
+  #egGateOv .egg-err{ min-height: 18px; font-size: 12px; font-weight: 800; color: #9C3327; letter-spacing: .04em; margin: 2px 0 10px; text-align: center; }
+  #egGateOv .egg-btns{ display: flex; gap: 10px; }
+  #egGateOv .egg-btn{ flex: 1.4; border: none; border-radius: 10px; padding: 13px 0; font: inherit; font-size: 14px; font-weight: 800;
+    letter-spacing: .08em; cursor: pointer; background: #2F5D46; color: #fff; }
+  #egGateOv .egg-btn.egg-cancel{ flex: 1; background: #FFFDFA; color: #1E1B16; border: 1.5px solid #D6CFC0; }
+  /* MANAGER(THE SHAWN) 로그인 팝업 */
+  #egMgrOv{ position:fixed; inset:0; z-index:99998; display:none; align-items:center; justify-content:center; background:rgba(30,27,22,.45); }
+  #egMgrOv.show{ display:flex; }
+  #egMgrOv .egm-card{ position:relative; width:340px; background:#FFFDFA; border:1.5px solid #E4DFD4; border-radius:18px; padding:30px 30px 26px; box-shadow:0 14px 30px -20px rgba(30,27,22,.42); }
+  #egMgrOv .egm-x{ position:absolute; top:12px; right:12px; border:none; background:none; font-size:16px; color:#8C8578; cursor:pointer; }
+  #egMgrOv .egm-title{ margin:0 0 18px; font-size:24px; font-weight:800; letter-spacing:.16em; text-align:center; color:#1E1B16; }
+  #egMgrOv .egm-field{ margin-bottom:12px; }
+  #egMgrOv .egm-field label{ display:block; font-size:11px; font-weight:800; letter-spacing:.08em; color:#8C8578; margin-bottom:5px; }
+  #egMgrOv .egm-field input{ width:100%; box-sizing:border-box; border:1.5px solid #E4DFD4; border-radius:10px; padding:12px 14px; font:inherit; font-size:15px; font-weight:700; color:#1E1B16; background:#FFFDFA; }
+  #egMgrOv .egm-field input:focus{ outline:none; border-color:#2F5D46; }
+  #egMgrOv .egm-err{ min-height:18px; font-size:12px; font-weight:800; color:#9C3327; letter-spacing:.02em; margin:2px 0 10px; text-align:center; }
+  #egMgrOv .egm-btn{ width:100%; border:none; border-radius:10px; padding:13px 0; font:inherit; font-size:14px; font-weight:800; letter-spacing:.08em; cursor:pointer; background:#2F5D46; color:#fff; }
 </style>
 <style>
 /* === EGMM 영역 === */
@@ -2259,8 +2294,8 @@
   /* ── 상단바 ── */
   .eg-topbar { flex: 0 0 62px; display: flex; align-items: center; justify-content: space-between;
     padding: 0 20px; background: var(--bg-elev); border-bottom: 1px solid var(--border);
-    box-shadow: 0 2px 14px rgba(26,26,29,.05); }
-  .eg-topbar .egmm-wordmark { font-size: 26px; letter-spacing: .02em; }
+    box-shadow: 0 2px 14px rgba(30,27,22,.05); }
+  .eg-topbar .egmm-wordmark { font-size: 24px; letter-spacing: .16em; }
   .eg-topbar-actions { display: flex; align-items: center; gap: 10px; }
   .eg-top-msg, .eg-top-exit { position: relative; display: inline-flex; align-items: center; gap: 7px;
     background: var(--bg-elev); border: 1px solid var(--border); color: var(--text-dim);
@@ -2268,7 +2303,7 @@
     transition: border-color .15s, color .15s, transform .12s; }
   .eg-top-msg:hover, .eg-top-exit:hover { border-color: var(--accent-warm); color: var(--text); }
   .eg-top-msg:active, .eg-top-exit:active { transform: scale(.97); }
-  .eg-top-msg.alarm { border-color: #c0392b; color: #c0392b; }
+  .eg-top-msg.alarm { border-color: #9C3327; color: #9C3327; }
   .eg-top-msg .egmm-chat-alarm-dot { display: none; }
   .eg-top-msg.alarm .egmm-chat-alarm-dot { display: inline-block; }
   /* ── 본문: 사이드바 + 콘텐츠 ── */
@@ -2280,14 +2315,14 @@
   .eg-welcome { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
   .eg-welcome-eyebrow { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .22em; color: var(--text-dim); }
   .eg-welcome-mark { font-size: 58px; font-weight: 900; letter-spacing: .01em; color: var(--text); }
-  .eg-welcome-mark .dot { color: var(--accent-warm, #c9a961); }
+  .eg-welcome-mark .dot { color: var(--accent-warm, #2F5D46); }
   .eg-welcome-sub { font-size: 15px; color: var(--text-dim); }
   /* 처음으로 확인 팝업 */
   .eg-exit-ov { position: fixed; inset: 0; z-index: 140; display: none; align-items: center; justify-content: center;
-    background: rgba(26,26,29,.34); backdrop-filter: blur(2px); }
+    background: rgba(30,27,22,.34); backdrop-filter: blur(2px); }
   .eg-exit-ov.show { display: flex; }
   .eg-exit-modal { width: 340px; background: var(--bg-elev); border: 1px solid var(--border); border-radius: 16px;
-    padding: 22px 22px 18px; box-shadow: 0 24px 64px rgba(26,26,29,.28); text-align: center; }
+    padding: 22px 22px 18px; box-shadow: 0 24px 64px rgba(30,27,22,.28); text-align: center; }
   .eg-exit-title { font-weight: 900; font-size: 17px; color: var(--text); margin-bottom: 10px; }
   .eg-exit-text { font-size: 14px; color: var(--text-dim); margin-bottom: 18px; }
   .eg-exit-btns { display: flex; gap: 10px; }
@@ -2297,13 +2332,13 @@
   .eg-ex-btn.danger { background: #b04141; border-color: #b04141; color: #fff; }
   .eg-ex-btn.danger:hover { background: #983434; border-color: #983434; color: #fff; }
   /* MANAGER 대형 팝업 */
-  #egMgrPop { position: fixed; inset: 0; z-index: 150; display: none; background: rgba(26,26,29,.4); backdrop-filter: blur(2px); }
+  #egMgrPop { position: fixed; inset: 0; z-index: 150; display: none; background: rgba(30,27,22,.4); backdrop-filter: blur(2px); }
   #egMgrPop.show { display: block; }
   .eg-mgr-card { position: absolute; inset: 3vh 3vw; background: var(--bg-elev); border: 1px solid var(--border);
-    border-radius: 14px; overflow: hidden; box-shadow: 0 28px 80px rgba(26,26,29,.35); display: flex; flex-direction: column; }
+    border-radius: 14px; overflow: hidden; box-shadow: 0 28px 80px rgba(30,27,22,.35); display: flex; flex-direction: column; }
   .eg-mgr-x { align-self: flex-end; margin: 8px 10px 6px; border: 1px solid var(--border); background: var(--bg);
     color: var(--text-dim); border-radius: 8px; padding: 6px 12px; font-family: var(--mono); font-size: 12px; font-weight: 800; cursor: pointer; }
-  .eg-mgr-x:hover { border-color: #c0392b; color: #c0392b; }
+  .eg-mgr-x:hover { border-color: #9C3327; color: #9C3327; }
   .eg-mgr-frame { flex: 1; width: 100%; border: 0; background: #fff; }
   #egmmMenu.active { display: flex; }
 
@@ -2327,11 +2362,11 @@
   .egmm-card-col .egmm-card { flex: 1 1 auto; max-width: none; min-width: 0; width: 100%; }
   /* 매장 메시지 */
   /* 매장 메시지 팝업 — 투명 오버레이 (iframe 위 클릭도 받아 닫기) */
-  #egChatPop { position: fixed; inset: 0; z-index: 130; display: none; background: rgba(26,26,29,.06);
+  #egChatPop { position: fixed; inset: 0; z-index: 130; display: none; background: rgba(30,27,22,.06);
     width: 100vw !important; max-width: none !important; margin: 0 !important; }
   #egChatPop.show { display: block; }
   #egChatPop .egmm-chat-card { position: absolute; top: 70px; right: 16px; width: 760px; max-width: calc(100vw - 32px);
-    max-height: calc(100vh - 90px); box-shadow: 0 18px 48px rgba(26,26,29,.22); }
+    max-height: calc(100vh - 90px); box-shadow: 0 18px 48px rgba(30,27,22,.22); }
   .egmm-msg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   @media (max-width: 760px){ .egmm-msg-grid { grid-template-columns: 1fr; } }
   .egmm-msg-card { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 16px; padding: 18px 18px 16px; }
@@ -2348,7 +2383,7 @@
   .egmm-msg-time { font-size: 10px; color: var(--text-dim); }
   .egmm-msg-body { font-size: 14px; color: var(--text); white-space: pre-wrap; word-break: break-word; line-height: 1.5; }
   .egmm-msg-empty { font-size: 13px; color: var(--text-dim); padding: 14px 4px; text-align: center; }
-  .egmm-msg-del { border: none; background: none; color: #c0392b; cursor: pointer; font-size: 12px; font-weight: 700; text-decoration: underline; }
+  .egmm-msg-del { border: none; background: none; color: #9C3327; cursor: pointer; font-size: 12px; font-weight: 700; text-decoration: underline; }
   .egmm-msg-del:hover { color: #922b21; }
   /* 대화형 채팅 */
   .egmm-msg-wrap { width: 100%; max-width: 960px; margin: 26px auto 0; }
@@ -2359,9 +2394,9 @@
   .egmm-store-item { padding: 11px 14px; font-size: 13px; font-weight: 700; color: var(--text-dim); cursor: pointer; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 6px; }
   .egmm-store-item:hover { background: var(--accent-soft); }
   .egmm-store-item.active { color: var(--text); background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent-warm); }
-  .egmm-store-item .st-badge { min-width: 18px; text-align: center; font-size: 10px; font-weight: 800; color: #fff; background: #c0392b; border-radius: 999px; padding: 1px 6px; }
-  @keyframes egmmStoreBlink { 0%,100%{ color:#c0392b; } 50%{ color:#f19a94; } }
-  .egmm-store-item.blink { color: #c0392b; animation: egmmStoreBlink .8s ease-in-out infinite; }
+  .egmm-store-item .st-badge { min-width: 18px; text-align: center; font-size: 10px; font-weight: 800; color: #fff; background: #9C3327; border-radius: 999px; padding: 1px 6px; }
+  @keyframes egmmStoreBlink { 0%,100%{ color:#9C3327; } 50%{ color:#C98B80; } }
+  .egmm-store-item.blink { color: #9C3327; animation: egmmStoreBlink .8s ease-in-out infinite; }
   .chat-img { max-width: 220px; max-height: 220px; border-radius: 10px; display: block; cursor: pointer; }
   .chat-bubble.img-bubble { padding: 5px; }
   .egmm-chat-left.dragover .egmm-chat-body { outline: 2px dashed var(--accent-warm); outline-offset: -6px; background: var(--accent-soft); }
@@ -2375,10 +2410,10 @@
   .egmm-chat-head .egmm-msg-live { margin-left: auto; }
   @keyframes egmmChatAlarm { 0%,100%{ background:var(--bg-elev); } 50%{ background:#fdecec; } }
   .egmm-chat-head.alarm { animation: egmmChatAlarm 1s ease-in-out infinite; }
-  .egmm-chat-head.alarm > span:first-child { color:#c0392b; }
-  .egmm-chat-alarm-dot { display:none; width:9px; height:9px; border-radius:50%; background:#c0392b; box-shadow:0 0 0 0 rgba(192,57,43,.5); animation: egmmDotPulse 1s infinite; }
+  .egmm-chat-head.alarm > span:first-child { color:#9C3327; }
+  .egmm-chat-alarm-dot { display:none; width:9px; height:9px; border-radius:50%; background:#9C3327; box-shadow:0 0 0 0 rgba(156,51,39,.5); animation: egmmDotPulse 1s infinite; }
   .egmm-chat-head.alarm .egmm-chat-alarm-dot { display:inline-block; }
-  @keyframes egmmDotPulse { 0%{ box-shadow:0 0 0 0 rgba(192,57,43,.5);} 70%{ box-shadow:0 0 0 7px rgba(192,57,43,0);} 100%{ box-shadow:0 0 0 0 rgba(192,57,43,0);} }
+  @keyframes egmmDotPulse { 0%{ box-shadow:0 0 0 0 rgba(156,51,39,.5);} 70%{ box-shadow:0 0 0 7px rgba(156,51,39,0);} 100%{ box-shadow:0 0 0 0 rgba(156,51,39,0);} }
   .egmm-chat-body { height: 340px; overflow-y: auto; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; background: var(--bg); }
   .chat-row { display: flex; max-width: 96%; }
   .chat-row.me { align-self: flex-end; justify-content: flex-end; }
@@ -2397,7 +2432,7 @@
   .egmm-chat-send:active { transform: scale(.98); }
   .egmm-card { width: 100%; box-sizing: border-box; background: var(--bg-elev);
     border: 1px solid var(--border); border-radius: 12px; padding: 11px 11px 9px;
-    box-shadow: 0 1px 0 #fff inset, 0 14px 44px rgba(26,26,29,.07);
+    box-shadow: 0 1px 0 #fff inset, 0 14px 44px rgba(30,27,22,.07);
     opacity: 0; transform: translateY(14px); animation: egmmRise .55s cubic-bezier(.2,.8,.2,1) forwards; }
   .egmm-card:nth-child(1) { animation-delay: .05s; }
   .egmm-card:nth-child(2) { animation-delay: .13s; }
@@ -2412,7 +2447,7 @@
   .egmm-menu-btn .mlab { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; line-height: 1.15;
     min-width: 0; width: 100%; word-break: keep-all; overflow-wrap: anywhere; }
   .egmm-menu-btn .mlab small { font-size: 10px; font-weight: 600; color: var(--text-dim); letter-spacing: .02em; }
-  .egmm-menu-btn.active, .egmm-menu-btn.active:hover { border-color: #c0392b !important; box-shadow: 0 0 0 1px #c0392b inset; background: var(--accent-soft, #f0eee5); color: var(--text); font-weight: 800; }
+  .egmm-menu-btn.active, .egmm-menu-btn.active:hover { border-color: #9C3327 !important; box-shadow: 0 0 0 1px #9C3327 inset; background: var(--accent-soft, #f0eee5); color: var(--text); font-weight: 800; }
   .egmm-menu-btn.active .mlab small { color: var(--text); opacity: .75; }
 
   .egmm-section-title { font-size: 11px; font-weight: 800; letter-spacing: .16em; color: var(--text-faint);
@@ -2426,7 +2461,7 @@
     overflow: hidden; transition: border-color .16s, background .16s, transform .12s, box-shadow .16s; }
   .egmm-menu-btn::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
     background: var(--accent-warm); transform: scaleY(0); transform-origin: center; transition: transform .18s ease; }
-  .egmm-menu-btn:hover { border-color: var(--border-bright); background: #fff; box-shadow: 0 6px 18px rgba(26,26,29,.06); }
+  .egmm-menu-btn:hover { border-color: var(--border-bright); background: #fff; box-shadow: 0 6px 18px rgba(30,27,22,.06); }
   .egmm-menu-btn:hover::before { transform: scaleY(1); }
   .egmm-menu-btn:focus-visible { outline: 2px solid var(--accent-warm); outline-offset: 2px; }
   .egmm-menu-btn:active { transform: scale(.99); }
@@ -2470,7 +2505,7 @@
 
   /* 상품명 등록 가이드 (이미지) */
   .guide-body { display: flex; flex-direction: column; align-items: center; }
-  .guide-img { max-width: 100%; height: auto; border: 1.5px solid var(--border); border-radius: 14px; box-shadow: 0 6px 24px rgba(26,26,29,0.06); }
+  .guide-img { max-width: 100%; height: auto; border: 1.5px solid var(--border); border-radius: 14px; box-shadow: 0 6px 24px rgba(30,27,22,0.06); }
   .guide-loading { color: var(--text-dim); font-size: 14px; padding: 40px 0; }
 
   @media (max-width: 760px) {
@@ -2579,7 +2614,7 @@
   }
   .hana-field:hover {
     border-color: var(--accent-warm);
-    box-shadow: 0 6px 20px rgba(201,169,97,0.16);
+    box-shadow: 0 6px 20px rgba(47,93,70,0.16);
     transform: translateY(-1px);
   }
   .hana-field-num {
@@ -2631,13 +2666,141 @@
 </head>
 <body>
 <script>
-  /* === 진입 가드 === index.html에서 EGMM PIN 인증을 거치지 않으면 되돌림.
-     (자동로그인 ON인 본인 기기는 통과 / 다른 컴퓨터·미인증은 차단) */
+  /* === 진입 게이트(인페이지) === 메인 화면이 보이기 전 ID/PASSWORD 로그인 필수.
+     계정: HOMEPAGE MANAGER · app-config/egmm-users (MANAGER 계정 manager-users 포함 — 전체 권한)
+     ACCESS 차단 · ANYWHERE · 등록 IP 검사 그대로 적용.
+     자동 로그인 없음 — 매 진입마다 직접 로그인 (자동 반복 원천 차단) */
   (function(){
-    try{
-      var ok = sessionStorage.getItem('egmmGate')==='1' || localStorage.getItem('egmmAutoLogin')==='1' || localStorage.getItem('unifiedLogin')==='1';
-      if(!ok){ location.replace('../index.html'); }
-    }catch(e){ try{ location.replace('../index.html'); }catch(_){} }
+    'use strict';
+    function fbReady(cb){ if(window.firebaseFns && window.firebaseDb) cb(); else window.addEventListener('plu-firebase-ready', cb, {once:true}); }
+    function getDocData(col,id){
+      return new Promise(function(res,rej){
+        fbReady(function(){
+          window.firebaseFns.getDoc(window.firebaseFns.doc(window.firebaseDb,col,id))
+            .then(function(snap){ res((snap&&snap.exists&&snap.exists())?(snap.data()||{}):null); })
+            .catch(rej);
+        });
+      });
+    }
+    function hashPw(v){
+      v=String(v);
+      if(window.crypto && window.crypto.subtle){
+        return window.crypto.subtle.digest('SHA-256', new TextEncoder().encode('THE-SHAWN::'+v)).then(function(buf){
+          return 'h:'+Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+        }).catch(function(){ return null; });
+      }
+      return Promise.resolve(null);
+    }
+    function myIp(){
+      return fetch('https://api.ipify.org?format=json').then(function(r){return r.json();})
+        .then(function(j){ return String((j&&j.ip)||'').trim(); }).catch(function(){ return null; });
+    }
+    var REQUIRED_SCOPE='EGMM';
+    var GATE_COLS=[['egmm-users','egmm'],['manager-users','master']];   // EGMM은 MANAGER/EGMM 계정만 입장
+    function findUser(name){
+      function pick(d){ var us=(d&&Array.isArray(d.users))?d.users:[];
+        for(var i=0;i<us.length;i++){ if(us[i] && String(us[i].name||'').trim().toUpperCase()===name) return us[i]; } return null; }
+      var i=0;
+      function next(){
+        if(i>=GATE_COLS.length) return Promise.resolve(null);
+        var c=GATE_COLS[i++];
+        return getDocData('app-config',c[0]).then(function(d){ var u=pick(d); return u?{u:u, tier:c[1]}:next(); });
+      }
+      return next();
+    }
+    function verifyAcct(name, pw){
+      name=String(name).trim().toUpperCase();
+      return findUser(name).then(function(hit){
+        if(!hit) return {err:'ID NOT FOUND'};
+        var u=hit.u, pin=String(u.pin||'');
+        function checks(){
+          var anywhere=!!u.anywhere;
+          if(!anywhere && u.access===false) return Promise.resolve({err:'BLOCKED ID · ASK MANAGER'});
+          if(anywhere) return Promise.resolve(null);
+          var ips=Array.isArray(u.ips)?u.ips.map(function(x){return String(x).trim();}).filter(Boolean):[];
+          if(!ips.length) return Promise.resolve({err:'IP NOT REGISTERED · ASK MANAGER'});
+          return myIp().then(function(ip){
+            if(!ip) return {err:'IP CHECK FAILED — CHECK NETWORK'};
+            if(ips.indexOf(ip)<0) return {err:'IP NOT ALLOWED ('+ip+')'};
+            return null;
+          });
+        }
+        function done(){
+          if(hit.tier!=='master'){
+            var sc=(u.perms&&Array.isArray(u.perms.scopes))?u.perms.scopes.map(function(x){return String(x).toUpperCase();}):[];
+            if(!(sc.indexOf('*')>=0 || sc.indexOf(REQUIRED_SCOPE)>=0))
+              return Promise.resolve({err:'NO ACCESS PERMISSION ('+REQUIRED_SCOPE+')'});
+          }
+          return checks().then(function(bad){
+            if(bad) return bad;
+            return {ok:true, tier:hit.tier,
+              user:{ name:u.name, fullName:u.fullName||'', position:u.position||'', role:u.role||'' },
+              menus:(u.menus&&typeof u.menus==='object')?u.menus:{} };
+          });
+        }
+        return hashPw(pw).then(function(h){
+          if(h && pin===h) return done();
+          if(pin==='p:'+pw || (pin!=='' && pin===pw)) return done();
+          return {err:'WRONG PASSWORD'};
+        });
+      }).catch(function(){ return {err:'CONNECTION ERROR — TRY AGAIN'}; });
+    }
+    function unlock(){
+      var ov=document.getElementById('egGateOv'); if(ov) ov.remove();
+      document.documentElement.classList.remove('eg-gate-lock');
+    }
+    function pass(r){
+      try{ sessionStorage.setItem('egmmGate','1'); }catch(e){}
+      try{ sessionStorage.setItem('egmmUser', JSON.stringify({name:r.user.name, menus:r.menus})); }catch(e){}
+      try{ sessionStorage.setItem('egmmAuth', JSON.stringify({mode:'account', tier:r.tier, user:r.user})); }catch(e){}
+      unlock();
+    }
+    function show(msg){
+      document.documentElement.classList.add('eg-gate-lock');
+      var ov=document.getElementById('egGateOv');
+      if(!ov){
+        ov=document.createElement('div'); ov.id='egGateOv';
+        ov.innerHTML='<div class="egg-card">'
+          +'<h1 class="egg-title">EGMM</h1>'
+          +'<div class="egg-field"><label>ID</label><input type="text" id="eggId" placeholder="ID" autocomplete="off" autocapitalize="characters"></div>'
+          +'<div class="egg-field"><label>PASSWORD</label><input type="password" id="eggPw" placeholder="••••••" autocomplete="off"></div>'
+          +'<div class="egg-err" id="eggErr"></div>'
+          +'<div class="egg-btns"><button class="egg-btn" id="eggEnter" type="button">ENTER</button>'
+          +'<button class="egg-btn egg-cancel" id="eggCancel" type="button">CANCEL</button></div>'
+        +'</div>';
+        (document.body||document.documentElement).appendChild(ov);
+        document.getElementById('eggEnter').onclick=submit;
+        document.getElementById('eggCancel').onclick=function(){ location.replace('../index.html'); };
+        document.getElementById('eggPw').addEventListener('keydown',function(e){ if(e.key==='Enter') submit(); });
+        document.getElementById('eggId').addEventListener('keydown',function(e){ if(e.key==='Enter'){ document.getElementById('eggPw').focus(); } });
+        setTimeout(function(){ document.getElementById('eggId').focus(); },80);
+      }
+      var er=document.getElementById('eggErr'); if(er) er.textContent=msg||'';
+    }
+    var busy=false;
+    function submit(){
+      if(busy) return;
+      var idIn=document.getElementById('eggId'), pwIn=document.getElementById('eggPw'), er=document.getElementById('eggErr');
+      var idv=(idIn&&idIn.value||'').trim().toUpperCase();
+      var pwv=(pwIn&&pwIn.value||'').trim();
+      if(er) er.textContent='';
+      if(!idv){ if(er) er.textContent='ENTER ID'; idIn.focus(); return; }
+      if(!pwv){ if(er) er.textContent='ENTER PASSWORD'; pwIn.focus(); return; }
+      busy=true; if(er) er.textContent='CHECKING…';
+      verifyAcct(idv,pwv).then(function(r){
+        busy=false;
+        if(!r || r.err){ if(er) er.textContent=(r&&r.err)||'ERROR'; pwIn.value=''; pwIn.focus(); return; }
+        pass(r);
+      });
+    }
+    document.documentElement.classList.add('eg-gate-lock');
+    document.addEventListener('DOMContentLoaded', function(){
+      try{ localStorage.removeItem('egmmAutoLogin'); }catch(e){}
+      var ok=false;
+      try{ ok = sessionStorage.getItem('egmmGate')==='1' && !!sessionStorage.getItem('egmmAuth'); }catch(e){}
+      if(ok){ unlock(); return; }   // 같은 탭 새로고침 = 로그인 유지
+      show('');
+    });
   })();
 </script>
 <div class="toast" id="toast"></div>
@@ -2666,9 +2829,10 @@
     <button class="egmm-menu-btn" id="egmmPluListBtn"><span class="egmm-menu-label mlab">PLU LIST<small>PLU 리스트</small></span></button>
     <button class="egmm-menu-btn" id="egmmUpcListBtn"><span class="egmm-menu-label mlab">UPC LIST / ITEM CODE<small>UPC 아이템 리스트</small></span></button>
 
-    <button class="egmm-menu-btn" id="egmmPluMemorizeBtn"><span class="egmm-menu-label mlab">PLU MEMORIZE<small>PLU 암기 연습</small></span></button>
 
     <button class="egmm-menu-btn" id="egmmCalendarBtn"><span class="egmm-menu-label mlab">CALENDAR<small>캘린더</small></span></button>
+
+    <button class="egmm-menu-btn" id="egmmPurchaseBtn"><span class="egmm-menu-label mlab">DAILY PURCHASE<small>매입일지 보기</small></span></button>
   </div>
 
   <!-- 박스 2: ODP -->
@@ -2679,6 +2843,8 @@
 
 
     <button class="egmm-menu-btn" id="egmmToolsBtn"><span class="egmm-menu-label mlab">TOOLS<small>도구 모음</small></span></button>
+    <button class="egmm-menu-btn" id="egmmItemAnalyzeBtn"><span class="egmm-menu-label mlab">ITEM ANALYZE<small>품목 분석</small></span></button>
+    <button class="egmm-menu-btn" id="egmmShawnMgrBtn"><span class="egmm-menu-label mlab">MANAGER<small>THE SHAWN 클라우드</small></span></button>
   </div>
 
   <!-- 박스: MANAGER + REQUEST (한 세로 열) -->
@@ -3244,9 +3410,8 @@
   $('egmmUpcListBtn').onclick = function(){ openInFrame('../upc-list-manager.html', this); };
   var __ocrBtn=$('egmmOcrBtn'); if(__ocrBtn) __ocrBtn.onclick = function(){ openInFrame('../upc-list-convert-ocr.html', this); };
   $('egmmPluListBtn').onclick = function(){ openInFrame('../plu-list-manager.html', this); };
-  var __calBtn=$('egmmCalendarBtn'); if(__calBtn) __calBtn.onclick = function(){ openInFrame('../egmm-calendar.html', this); };
-  // PLU MEMORIZE 활성화
-  var __pmBtn=$('egmmPluMemorizeBtn'); if(__pmBtn) __pmBtn.onclick = function(){ openInFrame('../plu-quiz.html', this); };
+  var __calBtn=$('egmmCalendarBtn'); if(__calBtn) __calBtn.onclick = function(){ openInFrame('egmm-calendar.html', this); };
+  var __dpvBtn=$('egmmPurchaseBtn'); if(__dpvBtn) __dpvBtn.onclick = function(){ openInFrame('daily-purchase-view.html', this); };
   // MANAGER: 상단 버튼 → 3종 선택 팝업 → 대형 팝업(iframe)으로 표시
   (function(){
     var sel=document.createElement('div');
@@ -3254,8 +3419,8 @@
     sel.innerHTML='<div class="eg-exit-modal" style="width:380px">'
       +'<div class="eg-exit-title">🗂 MANAGER</div>'
       +'<div class="eg-exit-btns" style="flex-direction:column">'
-      +'<button class="eg-ex-btn" data-url="../homepage-manager.html" type="button">HOMEPAGE MANAGER<br><small style="font-weight:600;opacity:.7">홈페이지 관리</small></button>'
-      +'<button class="eg-ex-btn" data-url="../advertising.html" type="button">AD MANAGER<br><small style="font-weight:600;opacity:.7">광고상품 관리</small></button>'
+      +'<button class="eg-ex-btn" data-url="../MANAGER/homepage-manager.html" type="button">HOMEPAGE MANAGER<br><small style="font-weight:600;opacity:.7">홈페이지 관리</small></button>'
+      +'<button class="eg-ex-btn" data-url="../MANAGER/advertising-manager.html" type="button">AD MANAGER<br><small style="font-weight:600;opacity:.7">광고상품 관리</small></button>'
       +'<button class="eg-ex-btn" data-url="../item-management-manager.html" type="button">ITEM MANAGEMENT<br><small style="font-weight:600;opacity:.7">아이템 관리</small></button>'
       +'</div></div>';
     document.body.appendChild(sel);
@@ -3294,13 +3459,82 @@
     $('egmmExitBtn').onclick = function(){ ov.classList.add('show'); };
     ov.addEventListener('click', function(e){ if(e.target===ov) ov.classList.remove('show'); });
     document.getElementById('egExCancel').onclick=function(){ ov.classList.remove('show'); };
-    document.getElementById('egExOk').onclick=function(){ ov.classList.remove('show'); window.location.href='../index.html'; };
+    document.getElementById('egExOk').onclick=function(){ ov.classList.remove('show'); try{ sessionStorage.removeItem('egmmGate'); sessionStorage.removeItem('egmmAuth'); sessionStorage.removeItem('egmmUser'); }catch(e){} window.location.href='../index.html'; };
   })();
   $('odpLogoutBtn').onclick = showMenu;
   $('itemBackBtn').onclick = showMenu;
   $('guideBackBtn').onclick = showMenu;
   $('egmmHanaBtn').onclick = showHana;
   var __toolsBtn=$('egmmToolsBtn'); if(__toolsBtn) __toolsBtn.onclick = function(){ if(window.__egBigPop){ window.__egBigPop('../egmm-tools.html'); } };
+  // ITEM ANALYZE (index에서 이식) — EGMM 로그인으로 이미 인증됨 → 게이트 세션 부여 후 열기
+  var __iaBtn=$('egmmItemAnalyzeBtn'); if(__iaBtn) __iaBtn.onclick = function(){
+    try{ sessionStorage.setItem('analyzeGate','1'); }catch(e){}
+    openInFrame('../item-management-analyze.html', this);
+  };
+  // MANAGER · THE SHAWN 클라우드 (index에서 이식) — 이메일 로그인 → ../shawn.html
+  (function(){
+    var ADMIN_EMAIL='dreamsoundco@gmail.com';
+    var busy=false;
+    function ov(){ return document.getElementById('egMgrOv'); }
+    function err(m){ var e=document.getElementById('egMgrErr'); if(e) e.textContent=m||''; }
+    function openPop(){
+      var o=ov();
+      if(!o){
+        o=document.createElement('div'); o.id='egMgrOv';
+        o.innerHTML='<div class="egm-card">'
+          +'<button class="egm-x" id="egMgrClose" type="button">✕</button>'
+          +'<h1 class="egm-title">MANAGER</h1>'
+          +'<div class="egm-field"><label>이메일</label><input type="email" id="egMgrEmail" placeholder="you@email.com" autocomplete="email"></div>'
+          +'<div class="egm-field"><label>비밀번호</label><input type="password" id="egMgrPw" placeholder="••••••••" autocomplete="current-password"></div>'
+          +'<div class="egm-err" id="egMgrErr"></div>'
+          +'<button class="egm-btn" id="egMgrLogin" type="button">들어가기</button>'
+        +'</div>';
+        document.body.appendChild(o);
+        document.getElementById('egMgrClose').onclick=function(){ o.classList.remove('show'); };
+        o.addEventListener('click',function(ev){ if(ev.target===o) o.classList.remove('show'); });
+        document.getElementById('egMgrLogin').onclick=doLogin;
+        document.getElementById('egMgrPw').addEventListener('keydown',function(ev){ if(ev.key==='Enter') doLogin(); });
+      }
+      err(''); o.classList.add('show');
+      setTimeout(function(){ var el=document.getElementById('egMgrEmail'); if(el) el.focus(); },80);
+    }
+    async function doLogin(){
+      if(busy) return;
+      var email=(document.getElementById('egMgrEmail').value||'').trim();
+      var pw=document.getElementById('egMgrPw').value||'';
+      if(!email||!pw){ err('이메일과 비밀번호를 입력하세요'); return; }
+      busy=true; err('로그인 중…');
+      try{
+        var A=await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
+        var auth=A.getAuth();
+        var cred=await A.signInWithEmailAndPassword(auth, email, pw);
+        var user=cred.user;
+        // 승인 검사 (registrations/{uid}) — index와 동일 규칙
+        var allowed=false;
+        if((user.email||'').toLowerCase()===ADMIN_EMAIL){ allowed=true; }
+        else{
+          try{
+            var snap=await window.firebaseFns.getDoc(window.firebaseFns.doc(window.firebaseDb,'registrations',user.uid));
+            allowed = !!(snap && snap.exists() && (snap.data()||{}).status==='approved');
+          }catch(e){ allowed=true; }   // 일시 오류 시 잠금 방지
+        }
+        if(!allowed){
+          try{ await A.signOut(auth); }catch(e){}
+          busy=false; err('승인되지 않은 계정입니다. 관리자에게 문의하세요.');
+          return;
+        }
+        window.location.href='../shawn.html';
+      }catch(e){
+        busy=false;
+        var c=String((e&&e.code)||'');
+        if(c.indexOf('invalid-credential')>=0||c.indexOf('wrong-password')>=0||c.indexOf('user-not-found')>=0) err('이메일 또는 비밀번호가 올바르지 않습니다');
+        else if(c.indexOf('too-many-requests')>=0) err('시도가 너무 많습니다. 잠시 후 다시');
+        else if(c.indexOf('network')>=0) err('인터넷 연결을 확인해주세요');
+        else err('로그인 오류: '+((e&&e.message)||e));
+      }
+    }
+    var b=$('egmmShawnMgrBtn'); if(b) b.onclick=openPop;
+  })();
   $('hanaBackBtn').onclick = showMenu;
 
   // 진입 시 EGMM 메뉴 표시
@@ -3310,21 +3544,21 @@
 
 <!-- ===== DELI REQUEST 수신·승인 (hmart 제출 → egmm 승인) ===== -->
 <style>
-  .egmm-req-count{ display:none; align-items:center; justify-content:center; min-width:20px; height:20px; padding:0 6px; margin-left:8px; border-radius:10px; background:#c0392b; color:#fff; font-family:var(--mono); font-size:11px; font-weight:800; }
+  .egmm-req-count{ display:none; align-items:center; justify-content:center; min-width:20px; height:20px; padding:0 6px; margin-left:8px; border-radius:10px; background:#9C3327; color:#fff; font-family:var(--mono); font-size:11px; font-weight:800; }
   .egmm-menu-btn.has-req{ border-color:var(--accent-warm); }
   /* 대기 요청 알림: 빨강 점멸 */
-  @keyframes egmmAlarmBlink { 0%,100%{ background:var(--bg); border-color:var(--border); } 50%{ background:#fdecec; border-color:#c0392b; box-shadow:0 0 0 2px rgba(192,57,43,.22); } }
+  @keyframes egmmAlarmBlink { 0%,100%{ background:var(--bg); border-color:var(--border); } 50%{ background:#fdecec; border-color:#9C3327; box-shadow:0 0 0 2px rgba(156,51,39,.22); } }
   @keyframes egmmCountBlink { 50%{ opacity:.3; } }
   .egmm-menu-btn.alarm{ animation:egmmAlarmBlink 1s ease-in-out infinite; }
-  .egmm-menu-btn.alarm .egmm-menu-label{ color:#c0392b; }
+  .egmm-menu-btn.alarm .egmm-menu-label{ color:#9C3327; }
   .egmm-req-count.alarm{ animation:egmmCountBlink .8s steps(1) infinite; }
   @media (prefers-reduced-motion: reduce){
-    .egmm-menu-btn.alarm{ animation:none; background:#fdecec; border-color:#c0392b; }
+    .egmm-menu-btn.alarm{ animation:none; background:#fdecec; border-color:#9C3327; }
     .egmm-req-count.alarm{ animation:none; }
   }
-  .dreq-ov{ position:fixed; inset:0; background:rgba(26,26,29,.42); backdrop-filter:blur(7px); display:none; align-items:center; justify-content:center; z-index:1200; padding:20px; }
+  .dreq-ov{ position:fixed; inset:0; background:rgba(30,27,22,.42); backdrop-filter:blur(7px); display:none; align-items:center; justify-content:center; z-index:1200; padding:20px; }
   .dreq-ov.show{ display:flex; }
-  .dreq-modal{ background:var(--bg-elev); border:1px solid var(--border-bright); border-radius:20px; width:96%; max-width:620px; max-height:92vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 24px 70px rgba(26,26,29,.28); }
+  .dreq-modal{ background:var(--bg-elev); border:1px solid var(--border-bright); border-radius:20px; width:96%; max-width:620px; max-height:92vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 24px 70px rgba(30,27,22,.28); }
   .dreq-head{ position:relative; display:flex; align-items:center; gap:12px; padding:19px 22px; background:#1f1d1a; }
   .dreq-tick{ width:6px; height:24px; border-radius:2px; background:var(--accent-warm); flex:0 0 auto; }
   .dreq-head-text{ display:flex; flex-direction:column; gap:2px; min-width:0; }
@@ -3349,8 +3583,8 @@
   .dreq-mgr input:focus{ outline:none; border-color:var(--accent-warm); }
   .dreq-approve{ border:none; background:#15803d; color:#fff; border-radius:9px; padding:9px 14px; font-weight:800; font-size:13px; cursor:pointer; white-space:nowrap; }
   .dreq-approve:hover{ background:#12692f; }
-  .dreq-del{ border:1px solid #e3a3a3; background:#fff; color:#c0392b; border-radius:8px; padding:4px 10px; font-family:var(--mono); font-size:12px; font-weight:800; cursor:pointer; }
-  .dreq-del:hover{ background:#c0392b; color:#fff; border-color:#c0392b; }
+  .dreq-del{ border:1px solid #e3a3a3; background:#fff; color:#9C3327; border-radius:8px; padding:4px 10px; font-family:var(--mono); font-size:12px; font-weight:800; cursor:pointer; }
+  .dreq-del:hover{ background:#9C3327; color:#fff; border-color:#9C3327; }
   .dreq-empty{ text-align:center; color:var(--text-dim); padding:26px; }
   @media (max-width:560px){ .dreq-mgr{ grid-template-columns:1fr 1fr; } }
 </style>
@@ -3370,11 +3604,20 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
   const firebaseConfig = { apiKey:"AIzaSyC6t78BS99LX3261cRmApBG8AcZ8HPVxr0", authDomain:"the-shawn.firebaseapp.com", projectId:"the-shawn", storageBucket:"the-shawn.firebasestorage.app", messagingSenderId:"519898602513", appId:"1:519898602513:web:0f35e3dc9c29dce21665b0", measurementId:"G-NKGYGC63JN" };
   const app = initializeApp(firebaseConfig);
   window.firebaseDb = getFirestore(app);
   window.firebaseFns = { doc, getDoc, setDoc, deleteDoc, collection, onSnapshot };
-  window.dispatchEvent(new Event('plu-firebase-ready'));
+  /* Firestore 보안규칙(로그인 필요) 대응: 익명 인증 후 준비 신호 · 3초 폴백 */
+  var __fired=false;
+  function __fire(){ if(__fired) return; __fired=true; window.dispatchEvent(new Event('plu-firebase-ready')); }
+  try{
+    const __auth=getAuth(app);
+    onAuthStateChanged(__auth, function(u){ if(u) __fire(); });
+    signInAnonymously(__auth).catch(function(e){ console.warn('[익명 인증 실패]', e&&e.code||e); __fire(); });
+  }catch(e){ __fire(); }
+  setTimeout(__fire, 3000);
 </script>
 
 <script>
