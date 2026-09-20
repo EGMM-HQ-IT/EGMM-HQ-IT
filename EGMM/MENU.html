@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MENU · 메뉴 관리</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<style>
+  :root{
+    --bg:#EDEAE3; --bg-elev:#FFFDFA; --bg-elev-2:#F7F4ED;
+    --border:#E4DFD4; --border-bright:#D6CFC0;
+    --text:#1E1B16; --text-dim:#4C463C; --text-faint:#8C8578;
+    --accent-soft:#E9EFEA; --accent-warm:#2F5D46;
+    --danger:#9C3327; --danger-soft:#F5EAE7; --success:#2a8a4a;
+    --mono:'Pretendard','Malgun Gothic','맑은 고딕',system-ui,sans-serif;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ background:var(--bg); color:var(--text); font-family:var(--mono); min-height:100vh; }
+  .wrap{ max-width:1100px; margin:0 auto; padding:20px 20px 60px; }
+  .page-topbar{ display:flex; align-items:center; gap:12px; padding-bottom:14px; border-bottom:1px solid var(--border); margin-bottom:16px; }
+  .page-topbar h1{ font-size:22px; font-weight:800; }
+  .page-topbar h1 small{ display:block; font-size:11px; font-weight:800; letter-spacing:.16em; color:var(--text-faint); margin-top:3px; text-transform:uppercase; }
+  .live{ margin-left:auto; font-size:11px; font-weight:800; color:#2f7d32; letter-spacing:.1em; }
+  .banner{ display:none; background:#fdf3e2; border:1.5px solid #e0b25a; color:#7a5a12; border-radius:12px; padding:12px 16px; font-size:13px; font-weight:700; margin-bottom:14px; line-height:1.6; }
+  .banner.show{ display:block; }
+  .banner code{ background:#fff; border:1px solid #e0b25a; border-radius:6px; padding:1px 6px; font-weight:800; }
+
+  .panel{ background:var(--bg-elev); border:1.5px solid var(--border); border-radius:16px; padding:16px; margin-bottom:16px; }
+  .panel h2{ font-size:15px; font-weight:800; display:flex; align-items:center; gap:8px; padding-bottom:10px; border-bottom:1px solid var(--border); margin-bottom:12px; }
+  .panel h2 .ico{ width:28px; height:28px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:15px; background:#e1f0ff; }
+  .panel h2 .cnt{ margin-left:auto; font-size:11px; font-weight:800; color:var(--text-faint); }
+
+  .addgrid{ display:grid; grid-template-columns:1.2fr .8fr 1.2fr 1fr auto; gap:8px; align-items:end; }
+  .field label{ display:block; font-size:12px; font-weight:800; color:var(--text-dim); margin-bottom:5px; }
+  .field input, .field select{ width:100%; border:1.5px solid var(--border); border-radius:10px; padding:11px 13px; font:inherit; font-size:14px; font-weight:700; background:var(--bg); }
+  .field input:focus, .field select:focus{ outline:none; border-color:var(--accent-warm); background:#fff; }
+  #mCode{ text-transform:uppercase; }
+  .hint{ font-size:11px; color:var(--text-faint); font-weight:600; margin-top:8px; line-height:1.5; }
+
+  .btn{ border:none; border-radius:10px; padding:12px 18px; font:inherit; font-size:14px; font-weight:800; cursor:pointer; background:var(--accent-warm); color:#fff; transition:transform .1s; white-space:nowrap; }
+  .btn:active{ transform:scale(.97); }
+  .btn.ghost{ background:var(--bg-elev); color:var(--text-dim); border:1.5px solid var(--border); }
+  .btn.ghost:hover{ color:var(--text); border-color:var(--border-bright); }
+  .btn.danger{ background:var(--bg-elev); color:var(--danger); border:1.5px solid var(--danger); }
+  .btn.danger:hover{ background:var(--danger); color:#fff; }
+  .btn.sm{ padding:8px 13px; font-size:12px; }
+
+  .tabs{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+  .tab{ border:1.5px solid var(--border); background:var(--bg); color:var(--text-dim); border-radius:20px; padding:7px 15px; font-size:12px; font-weight:800; cursor:pointer; }
+  .tab.active{ border-color:var(--accent-warm); background:var(--accent-soft); color:var(--accent-warm); }
+
+  .mlist{ display:flex; flex-direction:column; gap:7px; }
+  .mrow{ display:grid; grid-template-columns:180px 1fr 90px auto; gap:10px; align-items:center;
+    border:1.5px solid var(--border); border-radius:12px; padding:11px 14px; background:var(--bg); }
+  .mrow.edit{ border-color:var(--accent-warm); background:var(--accent-soft); }
+  .mrow.off{ opacity:.55; }
+  .mrow .mc{ font-size:13px; font-weight:800; color:var(--accent-warm); word-break:break-all; }
+  .mrow .mn{ font-size:15px; font-weight:800; min-width:0; }
+  .mrow .mn small{ display:block; font-size:11px; color:var(--text-faint); font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .mrow .mp{ font-size:11px; font-weight:800; text-align:center; padding:4px 8px; border-radius:10px; background:var(--bg-elev-2); color:var(--text-dim); border:1px solid var(--border); }
+  .mrow .acts{ display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+  .permsum{ font-size:10px; color:var(--text-faint); font-weight:700; }
+  .empty{ text-align:center; color:var(--text-faint); font-size:13px; font-weight:700; padding:26px 6px; border:2px dashed var(--border); border-radius:12px; }
+
+  .toast{ position:fixed; top:26px; left:50%; transform:translateX(-50%) translateY(-16px); background:var(--text); color:#fff;
+    padding:14px 24px; border-radius:12px; font-size:15px; font-weight:800; opacity:0; pointer-events:none; transition:all .25s; z-index:9999; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  .toast.success{ background:var(--success); } .toast.error{ background:var(--danger); }
+  .modal-bg{ position:fixed; inset:0; background:rgba(30,27,22,.45); backdrop-filter:blur(4px); z-index:500; display:none; align-items:center; justify-content:center; padding:20px; }
+  .modal-bg.show{ display:flex; }
+  .modal{ background:var(--bg-elev); border:1px solid var(--border-bright); border-radius:16px; padding:26px; max-width:420px; width:100%; box-shadow:0 30px 80px rgba(30,27,22,.2); }
+  .modal h3{ font-size:19px; font-weight:800; margin-bottom:10px; }
+  .modal h3.warn{ color:var(--danger); }
+  .modal p{ color:var(--text-dim); font-size:14px; font-weight:600; line-height:1.6; margin-bottom:18px; white-space:pre-wrap; word-break:break-word; }
+  .modal .macts{ display:flex; gap:8px; justify-content:flex-end; }
+
+  /* 권한 모달 */
+  .perm-modal{ max-width:560px; max-height:88vh; overflow-y:auto; }
+  .psec{ margin-bottom:14px; }
+  .psec .pt{ font-size:13px; font-weight:800; color:var(--text-dim); margin-bottom:8px; padding-bottom:6px; border-bottom:1px dashed var(--border); }
+  .chkgrid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(160px,1fr)); gap:6px; max-height:180px; overflow-y:auto; }
+  .chk{ display:flex; align-items:center; gap:7px; border:1px solid var(--border); border-radius:8px; padding:7px 9px; background:var(--bg); font-size:12px; font-weight:700; cursor:pointer; }
+  .chk:hover{ border-color:var(--border-bright); }
+  .chk input{ accent-color:var(--accent-warm); }
+  .chk small{ display:block; font-size:10px; color:var(--text-faint); font-weight:700; }
+  .chk .cd{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .pnote{ font-size:11px; color:var(--text-faint); font-weight:600; line-height:1.5; margin-bottom:14px; }
+
+  .gate-note{ position:fixed; inset:0; z-index:9000; display:none; align-items:center; justify-content:center; background:var(--bg); }
+  .gate-note.show{ display:flex; }
+  .gate-note .gc{ background:var(--bg-elev); border:1.5px solid var(--border); border-radius:16px; padding:34px 40px; text-align:center; font-weight:800; color:var(--text-dim); line-height:1.8; }
+
+  @media (max-width:860px){
+    .addgrid{ grid-template-columns:1fr 1fr; }
+    .addgrid .btn{ grid-column:1/-1; }
+    .mrow{ grid-template-columns:1fr auto; }
+    .mrow .mp{ display:none; }
+  }
+</style>
+</head>
+<body>
+<div class="toast" id="toast"></div>
+<div class="gate-note" id="gateNote"><div class="gc">🔒 EGMM 포털을 통해 접속하세요<br><span style="font-size:12px;color:var(--text-faint)">egmm.html 로그인 후 SYSTEM &gt; MENU 메뉴</span></div></div>
+
+<div class="wrap">
+  <div class="page-topbar">
+    <h1>📑 MENU<small>메뉴 생성 · 아이디/직급별 권한 · 코드 관리 (MENU-XXX)</small></h1>
+    <span class="live">● LIVE</span>
+  </div>
+  <div class="banner" id="fbBanner"></div>
+
+  <div class="panel">
+    <h2><span class="ico">＋</span> <span id="addTitle">메뉴 추가</span></h2>
+    <div class="addgrid">
+      <div class="field"><label>메뉴 이름</label><input type="text" id="mName" placeholder="예: PLU LIST" autocomplete="off"></div>
+      <div class="field"><label>포털</label><select id="mPortal">
+        <option value="EGMM">EGMM</option><option value="HMART">HMART</option>
+        <option value="공통">공통</option><option value="기타">기타</option></select></div>
+      <div class="field"><label>메뉴 코드</label><input type="text" id="mCode" placeholder="자동: MENU-…" autocomplete="off"></div>
+      <div class="field"><label>연결 파일/URL (선택)</label><input type="text" id="mUrl" placeholder="예: plu-list-manager.html" autocomplete="off"></div>
+      <button class="btn" id="mSaveBtn" type="button">＋ 추가</button>
+    </div>
+    <div class="hint">메뉴도 이름이 아닌 <b>코드</b>로 관리됩니다 (예: MENU-PLU-LIST). 코드는 직급·부서·메뉴 전체에서 중복될 수 없습니다.
+      각 메뉴의 [권한] 버튼에서 <b>아이디별 · 직급별</b>로 보기/사용 허용을 설정합니다.
+      파일에는 <code>Function-Access-Gate.js</code> 로 메뉴 코드를 지정하면 이 설정대로 입장이 제어됩니다.</div>
+    <div style="margin-top:10px; display:none;" id="editActs">
+      <button class="btn ghost sm" id="mCancelEditBtn" type="button">수정 취소</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2><span class="ico">📑</span> 메뉴 목록 <span class="cnt" id="mCnt"></span></h2>
+    <div class="tabs" id="portalTabs"></div>
+    <div class="mlist" id="mList"></div>
+  </div>
+</div>
+
+<!-- 확인/경고 모달 -->
+<div class="modal-bg" id="modalBg"><div class="modal">
+  <h3 id="mtTitle"></h3><p id="mtText"></p>
+  <div class="macts"><button class="btn ghost sm" id="mtCancel" type="button">취소</button><button class="btn sm" id="mtOk" type="button">확인</button></div>
+</div></div>
+
+<!-- 권한 모달 -->
+<div class="modal-bg" id="permBg"><div class="modal perm-modal">
+  <h3 id="pTitle">권한 설정</h3>
+  <div class="pnote">체크된 <b>직급</b> 또는 <b>아이디</b>는 이 메뉴를 보고 사용할 수 있습니다.
+    (계정 자체에 전체 권한(*)이나 이 메뉴 코드가 직접 부여된 경우에도 허용됩니다)</div>
+  <div class="psec"><div class="pt">직급별 허용</div><div class="chkgrid" id="pRanks"></div></div>
+  <div class="psec"><div class="pt">아이디별 허용</div><div class="chkgrid" id="pUsers"></div></div>
+  <label class="chk" style="margin-bottom:14px;"><input type="checkbox" id="pActive"> 메뉴 사용함 (해제 시 전체 입장 차단)</label>
+  <div class="macts">
+    <button class="btn ghost sm" id="pCancel" type="button">취소</button>
+    <button class="btn sm" id="pSave" type="button">💾 권한 저장</button>
+  </div>
+</div></div>
+
+<script src="../Function-Firebase-Egmm.js"></script>
+<script>
+(function(){
+  'use strict';
+  var $=function(id){ return document.getElementById(id); };
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+
+  var gated=false;
+  try{ gated = sessionStorage.getItem('egmmGate')==='1' || sessionStorage.getItem('egmmAccessAuth'); }catch(e){}
+  if(!gated){ $('gateNote').classList.add('show'); }
+
+  var toastTimer;
+  function toast(m,t){ var el=$('toast'); clearTimeout(toastTimer); el.textContent=m; el.className='toast show '+(t||'');
+    toastTimer=setTimeout(function(){ el.className='toast '+(t||''); },2400); }
+
+  var modalCb=null;
+  function askConfirm(title,text,cb,okLabel,warn){
+    $('mtTitle').textContent=title; $('mtTitle').className=warn?'warn':'';
+    $('mtText').textContent=text; $('mtCancel').style.display='';
+    $('mtOk').textContent=okLabel||'확인'; modalCb=cb; $('modalBg').classList.add('show');
+  }
+  function warnPopup(title,text){
+    $('mtTitle').textContent=title; $('mtTitle').className='warn';
+    $('mtText').textContent=text; $('mtCancel').style.display='none';
+    $('mtOk').textContent='닫기'; modalCb=null; $('modalBg').classList.add('show');
+  }
+  $('mtOk').onclick=function(){ $('modalBg').classList.remove('show'); if(modalCb){ var cb=modalCb; modalCb=null; cb(); } };
+  $('mtCancel').onclick=function(){ $('modalBg').classList.remove('show'); modalCb=null; };
+  $('modalBg').addEventListener('click',function(e){ if(e.target===$('modalBg')){ $('modalBg').classList.remove('show'); modalCb=null; } });
+
+  var fb=null, menus={}, depts={}, ranks=[], users={}, editingCode=null, curPortal='전체', permCode=null;
+
+  function fbFail(msg){
+    var b=$('fbBanner');
+    b.innerHTML='⚠️ '+esc(msg)+' — <code>Function-Firebase-Egmm.js</code> 상단의 egmm-hq-it 설정(apiKey 등)을 입력한 뒤 새로고침하세요.';
+    b.classList.add('show');
+  }
+  if(!window.EgmmFB){ fbFail('공용 Firebase 모듈을 찾을 수 없습니다'); return; }
+  window.EgmmFB.ready.then(function(f){
+    fb=f;
+    fb.onSnapshot(fb.collection(fb.db,'MENU'), function(snap){
+      menus={}; snap.forEach(function(ds){ if(ds.id.charAt(0)==='_') return; menus[ds.id]=ds.data()||{}; });
+      renderTabs(); renderList();
+    }, function(e){ console.error(e); fbFail('MENU 실시간 연결 오류'); });
+    fb.onSnapshot(fb.collection(fb.db,'DEPARTMENT'), function(snap){
+      depts={}; snap.forEach(function(ds){ if(ds.id.charAt(0)==='_') return; depts[ds.id]=ds.data()||{}; });
+    }, function(e){ console.error(e); });
+    fb.onSnapshot(fb.collection(fb.db,'ACCESS'), function(snap){
+      users={}; ranks=[];
+      snap.forEach(function(ds){
+        if(ds.id==='_RANKS'){ var d=ds.data()||{}; ranks=Array.isArray(d.items)?d.items.slice():[]; return; }
+        users[ds.id]=ds.data()||{};
+      });
+      ranks.sort(function(a,b){ return (a.order||0)-(b.order||0); });
+    }, function(e){ console.error(e); });
+  }).catch(function(){ fbFail('Firebase 설정이 비어 있습니다'); });
+
+  function allCodes(exceptMenuCode){
+    var set={};
+    ranks.forEach(function(r){ if(r.code) set[String(r.code).toUpperCase()]='직급 '+r.name; });
+    Object.keys(depts).forEach(function(c){ set[c.toUpperCase()]='부서 '+(depts[c].name||c); });
+    Object.keys(menus).forEach(function(c){ if(c!==exceptMenuCode) set[c.toUpperCase()]='메뉴 '+(menus[c].name||c); });
+    return set;
+  }
+
+  /* ── 목록 ── */
+  function portals(){
+    var set={'전체':1,'EGMM':1,'HMART':1};
+    Object.keys(menus).forEach(function(c){ var p=menus[c].portal||'기타'; set[p]=1; });
+    return Object.keys(set);
+  }
+  function renderTabs(){
+    $('portalTabs').innerHTML = portals().map(function(p){
+      return '<button class="tab'+(p===curPortal?' active':'')+'" data-p="'+esc(p)+'" type="button">'+esc(p)+'</button>';
+    }).join('');
+    Array.prototype.forEach.call($('portalTabs').querySelectorAll('.tab'),function(b){
+      b.onclick=function(){ curPortal=b.getAttribute('data-p'); renderTabs(); renderList(); };
+    });
+  }
+  function renderList(){
+    var codes=Object.keys(menus).sort(function(a,b){
+      var pa=menus[a].portal||'', pb=menus[b].portal||'';
+      if(pa!==pb) return pa<pb?-1:1;
+      return (menus[a].order||0)-(menus[b].order||0) || (a<b?-1:1);
+    });
+    var html='', shown=0;
+    codes.forEach(function(c){
+      var m=menus[c];
+      if(curPortal!=='전체' && (m.portal||'기타')!==curPortal) return;
+      shown++;
+      var ar=Array.isArray(m.allowRanks)?m.allowRanks.length:0;
+      var au=Array.isArray(m.allowUsers)?m.allowUsers.length:0;
+      html+='<div class="mrow'+(c===editingCode?' edit':'')+(m.active===false?' off':'')+'">'
+        +'<span class="mc">'+esc(c)+'</span>'
+        +'<span class="mn">'+esc(m.name||'')+(m.active===false?' <span style="color:var(--danger);font-size:11px;">(사용 안 함)</span>':'')
+          +'<small>'+esc(m.url||'')+'</small>'
+          +'<span class="permsum">직급 '+ar+' · 아이디 '+au+'</span></span>'
+        +'<span class="mp">'+esc(m.portal||'기타')+'</span>'
+        +'<span class="acts">'
+        +'<button class="btn sm" data-perm="'+esc(c)+'" type="button">권한</button>'
+        +'<button class="btn ghost sm" data-edit="'+esc(c)+'" type="button">수정</button>'
+        +'<button class="btn danger sm" data-del="'+esc(c)+'" type="button">삭제</button>'
+        +'</span></div>';
+    });
+    $('mList').innerHTML = shown? html : '<div class="empty">메뉴가 없습니다. 위에서 추가하세요.</div>';
+    $('mCnt').textContent = Object.keys(menus).length? (Object.keys(menus).length+'개') : '';
+    Array.prototype.forEach.call($('mList').querySelectorAll('button[data-perm]'),function(b){ b.onclick=function(){ openPerm(b.getAttribute('data-perm')); }; });
+    Array.prototype.forEach.call($('mList').querySelectorAll('button[data-edit]'),function(b){ b.onclick=function(){ startEdit(b.getAttribute('data-edit')); }; });
+    Array.prototype.forEach.call($('mList').querySelectorAll('button[data-del]'),function(b){ b.onclick=function(){ delMenu(b.getAttribute('data-del')); }; });
+  }
+
+  /* ── 추가/수정 ── */
+  $('mName').addEventListener('input',function(){
+    if(!$('mCode').dataset.touched){
+      var v=$('mName').value.trim();
+      $('mCode').value = v? ('MENU-'+window.EgmmFB.sanitizeCode(v)) : '';
+    }
+  });
+  $('mCode').addEventListener('input',function(){ $('mCode').dataset.touched='1'; });
+
+  function resetAdd(){
+    editingCode=null;
+    $('addTitle').textContent='메뉴 추가';
+    $('mSaveBtn').textContent='＋ 추가';
+    $('mName').value=''; $('mUrl').value=''; $('mCode').value=''; $('mPortal').value='EGMM';
+    delete $('mCode').dataset.touched;
+    $('editActs').style.display='none';
+    renderList();
+  }
+  function startEdit(code){
+    var m=menus[code]; if(!m) return;
+    editingCode=code;
+    $('addTitle').textContent='메뉴 수정: '+code;
+    $('mSaveBtn').textContent='💾 저장';
+    $('mName').value=m.name||''; $('mUrl').value=m.url||'';
+    var p=m.portal||'기타';
+    if(['EGMM','HMART','공통','기타'].indexOf(p)<0){
+      var opt=document.createElement('option'); opt.value=p; opt.textContent=p; $('mPortal').appendChild(opt);
+    }
+    $('mPortal').value=p;
+    $('mCode').value=code; $('mCode').dataset.touched='1';
+    $('editActs').style.display='';
+    renderList(); window.scrollTo(0,0);
+  }
+  $('mCancelEditBtn').onclick=resetAdd;
+
+  /* 코드 변경 시 ACCESS 계정 perms 참조 갱신 */
+  function migratePermsRefs(oldCode,newCode){
+    var jobs=[];
+    Object.keys(users).forEach(function(id){
+      var u=users[id];
+      var perms=Array.isArray(u.perms)?u.perms.slice():[];
+      var i=perms.indexOf(oldCode);
+      if(i>=0){
+        if(newCode) perms[i]=newCode; else perms.splice(i,1);
+        jobs.push(fb.updateDoc(fb.doc(fb.db,'ACCESS',id),{ perms:perms, updatedAt:Date.now() }));
+      }
+    });
+    return Promise.all(jobs);
+  }
+
+  $('mSaveBtn').onclick=function(){
+    if(!fb){ toast('연결 준비 중 — 잠시 후 다시','error'); return; }
+    var name=$('mName').value.trim();
+    var url=$('mUrl').value.trim();
+    var portal=$('mPortal').value||'기타';
+    var code=window.EgmmFB.sanitizeCode($('mCode').value || ('MENU-'+name));
+    if(!name){ toast('메뉴 이름을 입력하세요','error'); $('mName').focus(); return; }
+    if(!code){ toast('메뉴 코드를 입력하세요','error'); $('mCode').focus(); return; }
+    if(code.charAt(0)==='_'){ toast('사용할 수 없는 코드','error'); return; }
+
+    var dup=allCodes(editingCode);
+    if(dup[code]){ warnPopup('⚠️ 코드 중복','코드 "'+code+'" 는 이미 ['+dup[code]+'] 에서 사용 중입니다.\n다른 코드를 입력하세요.'); return; }
+
+    var base = editingCode ? (menus[editingCode]||{}) : {};
+    var data={
+      code:code, name:name, portal:portal, url:url,
+      active: base.active!==false,
+      allowRanks: Array.isArray(base.allowRanks)?base.allowRanks:[],
+      allowUsers: Array.isArray(base.allowUsers)?base.allowUsers:[],
+      order:(base.order!=null?base.order:Object.keys(menus).length),
+      createdAt: base.createdAt||Date.now(), updatedAt: Date.now()
+    };
+
+    function write(){
+      fb.setDoc(fb.doc(fb.db,'MENU',code), data).then(function(){
+        if(editingCode && editingCode!==code){
+          return fb.deleteDoc(fb.doc(fb.db,'MENU',editingCode))
+            .then(function(){ return migratePermsRefs(editingCode, code); });
+        }
+      }).then(function(){
+        toast(editingCode? '저장 완료: '+code : '메뉴 추가됨: '+code,'success');
+        resetAdd();
+      }).catch(function(e){ console.error(e); toast('저장 실패 — 권한/네트워크 확인','error'); });
+    }
+    if(editingCode && editingCode!==code){
+      askConfirm('코드 변경','메뉴 코드를 "'+editingCode+'" → "'+code+'" 로 변경할까요?\n계정 권한(perms)에 있는 기존 코드도 함께 새 코드로 바뀝니다.', write, '변경');
+    } else write();
+  };
+
+  function delMenu(code){
+    askConfirm('메뉴 삭제','메뉴 "'+(menus[code]&&menus[code].name||code)+'" ('+code+') 를 삭제할까요?\n계정 권한(perms)에서 이 코드도 함께 제거됩니다.',function(){
+      fb.deleteDoc(fb.doc(fb.db,'MENU',code))
+        .then(function(){ return migratePermsRefs(code, null); })
+        .then(function(){ toast('삭제됨: '+code,'success'); if(editingCode===code) resetAdd(); })
+        .catch(function(e){ console.error(e); toast('삭제 실패 — 권한 확인','error'); });
+    },'삭제',true);
+  }
+
+  /* ── 권한 모달 ── */
+  function openPerm(code){
+    var m=menus[code]; if(!m) return;
+    permCode=code;
+    $('pTitle').textContent='권한 설정 — '+(m.name||code)+' ('+code+')';
+    var ar=Array.isArray(m.allowRanks)?m.allowRanks:[], au=Array.isArray(m.allowUsers)?m.allowUsers:[];
+    $('pRanks').innerHTML = ranks.length? ranks.map(function(r){
+      return '<label class="chk"><input type="checkbox" value="'+esc(r.code)+'"'+(ar.indexOf(r.code)>=0?' checked':'')+'>'
+        +'<span class="cd">'+esc(r.name)+'<small>'+esc(r.code)+'</small></span></label>';
+    }).join('') : '<div class="empty" style="grid-column:1/-1">직급이 없습니다 — ACCESS 관리에서 생성</div>';
+    var ids=Object.keys(users).sort();
+    $('pUsers').innerHTML = ids.length? ids.map(function(id){
+      var u=users[id];
+      return '<label class="chk"><input type="checkbox" value="'+esc(id)+'"'+(au.indexOf(id)>=0?' checked':'')+'>'
+        +'<span class="cd">'+esc(id)+(u.fullName?'<small>'+esc(u.fullName)+'</small>':'')+'</span></label>';
+    }).join('') : '<div class="empty" style="grid-column:1/-1">계정이 없습니다 — ACCESS 관리에서 생성</div>';
+    $('pActive').checked = m.active!==false;
+    $('permBg').classList.add('show');
+  }
+  $('pCancel').onclick=function(){ $('permBg').classList.remove('show'); permCode=null; };
+  $('permBg').addEventListener('click',function(e){ if(e.target===$('permBg')){ $('permBg').classList.remove('show'); permCode=null; } });
+  $('pSave').onclick=function(){
+    if(!permCode || !fb) return;
+    var ar=[], au=[];
+    Array.prototype.forEach.call($('pRanks').querySelectorAll('input[type=checkbox]'),function(c){ if(c.checked) ar.push(c.value); });
+    Array.prototype.forEach.call($('pUsers').querySelectorAll('input[type=checkbox]'),function(c){ if(c.checked) au.push(c.value); });
+    fb.updateDoc(fb.doc(fb.db,'MENU',permCode),{ allowRanks:ar, allowUsers:au, active:$('pActive').checked, updatedAt:Date.now() })
+      .then(function(){ toast('권한 저장 완료','success'); $('permBg').classList.remove('show'); permCode=null; })
+      .catch(function(e){ console.error(e); toast('저장 실패 — 권한/네트워크 확인','error'); });
+  };
+
+  renderTabs();
+})();
+</script>
+</body>
+</html>
