@@ -1,0 +1,789 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>ADVERTISING MANAGER · THE SHAWN</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"></script>
+<style>
+  :root{
+    --bg:#fafaf7; --bg-elev:#ffffff; --bg-elev-2:#f3f3ee; --border:#e5e5e0; --border-bright:#c8c8c0;
+    --text:#1a1a1d; --text-dim:#6b6b72; --text-faint:#9a9aa0; --accent-soft:#f0eee5;
+    --accent-warm:#c9a961; --danger:#c83a3a; --success:#2a8a4a;
+    --serif:'Pretendard','Malgun Gothic','맑은 고딕',system-ui,sans-serif;
+    --mono:'Pretendard','Malgun Gothic','맑은 고딕',system-ui,sans-serif;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ background:var(--bg); color:var(--text); font-family:var(--mono); -webkit-font-smoothing:antialiased; }
+  .wrap{ max-width:1400px; margin:0 auto; padding:22px 20px 60px; }
+
+  .ad-top{ display:flex; align-items:center; justify-content:space-between; gap:14px; padding:18px 22px; border-radius:18px;
+    background:linear-gradient(135deg,#1f1d1a,#2c2823); color:#fff; box-shadow:0 14px 40px rgba(20,18,15,.18); margin-bottom:20px; }
+  .ad-top h1{ font-family:var(--serif); font-size:24px; font-weight:800; letter-spacing:.02em; }
+  .ad-top .sub{ font-size:12.5px; color:#cfc9bd; margin-top:3px; }
+  .ad-top .right{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
+
+  .btn{ border:1.5px solid var(--border); background:var(--bg-elev); color:var(--text); border-radius:10px; padding:9px 14px;
+    font-family:var(--mono); font-size:13px; font-weight:800; cursor:pointer; transition:.12s; white-space:nowrap; }
+  .btn:hover{ border-color:var(--accent-warm); }
+  .btn:active{ transform:scale(.97); }
+  .btn.warm{ background:var(--accent-warm); border-color:var(--accent-warm); color:#fff; }
+  .btn.ghost{ background:transparent; color:#fff; border-color:rgba(255,255,255,.35); }
+  .btn.ghost.warm{ background:var(--accent-warm); border-color:var(--accent-warm); }
+  .btn.sm{ padding:6px 10px; font-size:12px; border-radius:8px; }
+  .btn.danger{ border-color:#e0b4b4; color:var(--danger); }
+  .btn.danger:hover{ background:#fbeaea; }
+  .btn:disabled{ opacity:.5; cursor:not-allowed; }
+
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+  @media (max-width:780px){ .grid2{ grid-template-columns:1fr; } }
+
+  .card{ background:var(--bg-elev); border:1.5px solid var(--border); border-radius:16px; padding:18px 20px; margin-bottom:16px; }
+  .card h2{ font-family:var(--serif); font-size:15px; font-weight:800; display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+  .card h2 .tag{ font-size:10.5px; color:var(--text-faint); font-weight:700; letter-spacing:.08em; }
+  .card .hint{ font-size:12px; color:var(--text-dim); margin:6px 0 12px; line-height:1.6; }
+
+  .drop{ border:2px dashed var(--border-bright); border-radius:12px; padding:16px; text-align:center; cursor:pointer; transition:.12s; background:var(--bg-elev-2); }
+  .drop:hover,.drop.over{ border-color:var(--accent-warm); background:#fbf8ee; }
+  .drop .di{ font-size:24px; }
+  .drop .dt{ font-size:13px; font-weight:800; margin-top:5px; }
+  .drop .ds{ font-size:11px; color:var(--text-dim); margin-top:2px; }
+  .drop.loaded{ border-style:solid; border-color:var(--success); background:#f0faf3; }
+
+  .ti-field{ margin-bottom:10px; }
+  .ti-field label{ display:block; font-size:11px; font-weight:800; color:var(--text-dim); letter-spacing:.06em; margin-bottom:5px; }
+  .ti-field input{ width:100%; border:1.5px solid var(--border); border-radius:10px; padding:10px 12px; font-family:var(--mono); font-size:15px; font-weight:800; background:var(--bg); color:var(--text); }
+  .ti-field input:focus{ outline:none; border-color:var(--accent-warm); background:#fffdf6; }
+
+  .maprow{ display:grid; grid-template-columns:84px 1fr; gap:7px 10px; align-items:center; margin-top:8px; }
+  .maprow label{ font-size:12px; font-weight:800; color:var(--text-dim); }
+  select.msel{ width:100%; border:1.5px solid var(--border); border-radius:9px; padding:7px 9px; font-family:var(--mono); font-size:12.5px; font-weight:700; background:var(--bg); color:var(--text); }
+  select.msel:focus{ outline:none; border-color:var(--accent-warm); }
+
+  .status{ font-size:12px; font-weight:800; margin-top:8px; }
+  .status.ok{ color:var(--success); } .status.warn{ color:#b4791f; } .status.err{ color:var(--danger); }
+
+  .im-linkbox{ border:1.5px solid var(--border); border-radius:12px; background:var(--bg-elev-2,#f6f4ee); padding:12px 14px; margin-top:4px; }
+  .im-linkrow{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:5px 0; font-size:13px; }
+  .im-linkrow + .im-linkrow{ border-top:1px solid var(--border); }
+  .im-linklabel{ color:var(--text-dim); font-weight:700; }
+  .im-linkval{ font-weight:800; color:var(--text); }
+  .im-linkval b{ color:var(--accent-warm,#c9a961); }
+  .im-linkbox.warn{ border-color:#e0a33a; background:#fff7ec; }
+  .im-linkbox.warn .im-linkval#imLinkState{ color:#b06a00; }
+  .mstate{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:12px; padding-top:12px; border-top:1px dashed var(--border); }
+  .mstate .big{ font-family:var(--serif); font-size:15px; font-weight:900; color:var(--text); }
+  .mstate .big b{ color:var(--accent-warm); font-size:19px; }
+  .mstate .sp{ flex:1; }
+
+  .pillrow{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:10px; }
+  .pill{ font-size:12px; font-weight:800; padding:5px 11px; border-radius:999px; border:1.5px solid var(--border); }
+  .pill.ok{ background:#f0faf3; border-color:#bfe6cb; color:var(--success); }
+  .pill.warn{ background:#fdf6e8; border-color:#ecd9a8; color:#b4791f; }
+
+  .saved-list{ display:flex; flex-direction:column; gap:8px; }
+  .weekly-bar{ display:flex; justify-content:flex-end; min-height:20px; margin:2px 0 8px; }
+  .saved-item{ display:flex; align-items:center; gap:10px; padding:10px 12px; border:1.5px solid var(--border); border-radius:11px; background:var(--bg-elev-2); }
+  .saved-item .sd{ font-family:var(--serif); font-weight:900; font-size:14px; }
+  .saved-item .sc{ font-size:12px; color:var(--text-dim); }
+  .saved-item .sp{ flex:1; }
+  @keyframes adUpdatedBlink { 0%,100%{ opacity:1; } 50%{ opacity:.25; } }
+  .weekly-badge{ display:none; font-size:12.5px; font-weight:900; color:#c0392b; letter-spacing:.02em; white-space:nowrap; animation: adUpdatedBlink 1s ease-in-out infinite; }
+  .weekly-badge.show{ display:inline-block; }
+
+  .tbl-wrap{ overflow:auto; border:1.5px solid var(--border); border-radius:12px; }
+  table.adt{ width:100%; border-collapse:collapse; font-size:12.5px; }
+  table.adt th, table.adt td{ border-bottom:1px solid var(--border); padding:8px 10px; text-align:center; white-space:nowrap; }
+  table.adt thead th{ background:#1f1d1a; color:#fff; font-weight:800; position:sticky; top:0; }
+  table.adt thead th.no{ color:var(--accent-warm); }
+  table.adt td.upc{ font-family:var(--mono); font-weight:900; color:#1d4ed8; }
+  table.adt td.upc.x{ color:var(--danger); }
+  table.adt td.code{ font-family:var(--mono); font-weight:700; }
+  table.adt td.desc{ text-align:left; max-width:260px; overflow:hidden; text-overflow:ellipsis; }
+  table.adt td.etc{ font-family:var(--mono); color:var(--text-dim); }
+  table.adt tbody tr:nth-child(even){ background:var(--bg-elev-2); }
+  table.adt svg.bc{ display:block; margin:0 auto; }
+
+  .empty{ text-align:center; color:var(--text-faint); padding:28px; font-size:13px; }
+  .spin{ display:inline-block; width:13px; height:13px; border:2px solid var(--border); border-top-color:var(--accent-warm); border-radius:50%; animation:sp .7s linear infinite; vertical-align:-2px; }
+  @keyframes sp{ to{ transform:rotate(360deg); } }
+  .hidden{ display:none !important; }
+  .toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#1f1d1a; color:#fff; padding:12px 20px; border-radius:12px; font-size:13px; font-weight:800; box-shadow:0 12px 30px rgba(0,0,0,.25); opacity:0; transition:.25s; z-index:9999; }
+  .toast.show{ opacity:1; bottom:34px; }
+  @keyframes adSavePulse { 0%,100%{ box-shadow:0 0 0 0 rgba(201,169,97,0); } 50%{ box-shadow:0 0 0 6px rgba(201,169,97,.45); } }
+  #adSaveInlineBtn.dirty{ animation: adSavePulse 1.6s ease-in-out infinite; }
+  /* 아이템 편집 팝업 */
+  .ov{ position:fixed; inset:0; background:rgba(20,18,16,.55); display:none; align-items:center; justify-content:center; z-index:9000; padding:20px; }
+  .ov.show{ display:flex; }
+  .ov-card{ background:var(--bg-elev); border:1px solid var(--border); border-radius:16px; width:100%; max-width:720px; max-height:86vh; display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,.3); }
+  .ov-head{ display:flex; align-items:center; gap:10px; padding:16px 20px; border-bottom:1px solid var(--border); }
+  .ov-head h3{ font-family:var(--serif); font-size:16px; font-weight:900; margin:0; }
+  .ov-head .sp{ flex:1; }
+  .ov-x{ border:none; background:none; font-size:20px; cursor:pointer; color:var(--text-dim); }
+  .ov-body{ padding:16px 20px; overflow:auto; }
+  .ov-foot{ display:flex; gap:8px; justify-content:flex-end; padding:14px 20px; border-top:1px solid var(--border); }
+  .ov-note{ font-size:12px; color:var(--text-dim); margin-bottom:10px; }
+  .ov-tbl{ width:100%; border-collapse:collapse; font-size:12.5px; }
+  .ov-tbl th{ background:var(--bg-elev-2); border-bottom:1.5px solid var(--border); padding:7px 8px; text-align:left; font-size:11px; color:var(--text-dim); white-space:nowrap; }
+  .ov-tbl td{ border-bottom:1px solid var(--border); padding:6px 8px; }
+  .ov-del-row{ display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid var(--border); border-radius:10px; margin-bottom:6px; }
+  .ov-del-row .txt{ flex:1; min-width:0; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ov-del-row .code{ font-size:11px; color:var(--text-dim); }
+  .mform{ display:grid; grid-template-columns:90px 1fr; gap:8px 12px; align-items:center; }
+  .mform label{ font-size:12px; font-weight:800; color:var(--text-dim); }
+  .mform input{ border:1.5px solid var(--border); border-radius:9px; padding:9px 11px; font-family:var(--mono); font-size:14px; }
+  .etc-inputs{ display:flex; flex-direction:column; gap:6px; }
+  .ptitle{ font-family:var(--serif); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="ad-top">
+    <div>
+      <h1 id="pgTitle">ADVERTISING MANAGER</h1>
+      <div class="sub" id="pgSub">아이템마스터(누적)로 UPC를 매칭해 광고리스트를 만듭니다</div>
+    </div>
+    <div class="right">
+      <button class="btn ghost sm" id="exportBtn">⬇ 내보내기</button>
+      <button class="btn ghost sm" id="printBtn">🖨 인쇄</button>
+      <button class="btn ghost sm" id="backBtn">← 돌아가기</button>
+    </div>
+  </div>
+
+  <!-- ===== 관리 모드 ===== -->
+  <div id="manageUI">
+    <div class="grid2">
+      <!-- 좌: 아이템 마스터 (ITEM MANAGEMENT 연결 · 읽기 전용) -->
+      <div class="card">
+        <h2>📦 ITEM MASTER <span class="tag">ITEM MANAGEMENT 연결</span> <button class="btn sm" id="masterDownloadBtn" style="margin-left:auto;background:#fff;color:#1a1a1d;border:1.5px solid #d8d3c8;">⬇ EXCEL EXPORT</button></h2>
+        <div class="hint">ITEM MANAGEMENT(ITEM ANALYZE)의 <b>ITEM MASTER</b> 자료를 그대로 사용합니다. 여기서는 업로드하지 않으며, ITEM MANAGEMENT에서 ITEM MASTER를 갱신하면 자동으로 반영됩니다.</div>
+        <div class="im-linkbox" id="imLinkBox">
+          <div class="im-linkrow"><span class="im-linklabel">연결 상태</span><span class="im-linkval" id="imLinkState">불러오는 중…</span></div>
+          <div class="im-linkrow"><span class="im-linklabel">ITEM MASTER 상품</span><span class="im-linkval"><b id="masterRows">0</b> 개</span></div>
+          <div class="im-linkrow"><span class="im-linklabel">ITEMCODE ↔ UPC 매칭</span><span class="im-linkval"><b id="masterCount">0</b> 개 코드</span></div>
+        </div>
+        <div class="status" id="stMaster"></div>
+      </div>
+
+      <!-- 우: 광고상품 -->
+      <div class="card">
+        <h2>🏷️ AD PRODUCTS <span class="tag">ITEMCODE·DESC·COST·SRP</span></h2>
+        <div class="ti-field"><label>TITLE NAME (광고리스트 이름)</label><input id="adTitle" maxlength="60" placeholder="예: WEEKLY SALE 06/30" autocomplete="off"></div>
+        <div class="drop" id="dropAd"><div class="di">🏷️</div><div class="dt">광고상품 엑셀 선택</div><div class="ds">UPC 없으면 X 로 표시 (리스트 유지)</div></div>
+        <input type="file" id="fileAd" accept=".xlsx,.xls,.csv" class="hidden">
+        <div id="mapAd" class="hidden">
+          <div class="maprow"><label>ITEMCODE</label><select class="msel" id="mAdCode"></select></div>
+          <div class="maprow"><label>DESC</label><select class="msel" id="mAdDesc"></select></div>
+          <div class="maprow"><label>COST</label><select class="msel" id="mAdCost"></select></div>
+          <div class="maprow"><label>SRP</label><select class="msel" id="mAdSrp"></select></div>
+          <div class="pillrow" id="adPills"></div>
+          <div class="status" id="stAd"></div>
+        </div>
+        <div class="mstate">
+          <span class="big">광고데이터 총 <b id="adTotal">0</b>개 중 <b id="adSaved" style="color:var(--success)">0</b>개 저장 / <b id="adNone" style="color:var(--danger)">0</b>개 데이터없음</span>
+          <span class="sp"></span>
+          <button class="btn warm sm" id="adSaveInlineBtn">⭐ 광고리스트등록 / 업데이트</button>
+          <button class="btn sm" id="adManualBtn">✎ 수동 입력</button>
+          <button class="btn sm danger" id="adDelBtn">🗑 아이템 삭제</button>
+          <button class="btn sm" id="adNewBtn">＋ NEW 광고등록</button>
+        </div>
+        <input type="file" id="fileAddAd" accept=".xlsx,.xls,.csv" class="hidden">
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🗂 저장된 광고 데이터 <span class="tag">H-MART 광고상품 보기에 노출</span></h2>
+      <div class="saved-list" id="savedList"><div class="empty">불러오는 중…</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 id="previewTitle" class="ptitle">미리보기</h2>
+    <div class="tbl-wrap"><div id="previewBox"><div class="empty">아직 데이터가 없습니다.</div></div></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<!-- 추가 업로드 확인 팝업 -->
+<!-- 저장 확인 팝업 (최초 업로드) -->
+
+<div class="ov" id="ovAdd"><div class="ov-card">
+<!-- placeholder -->
+  <div class="ov-head"><h3>추가 업로드 미리보기</h3><span class="sp"></span><button class="ov-x" id="ovAddX">✕</button></div>
+  <div class="ov-body">
+    <div class="ov-note" id="ovAddNote"></div>
+    <div id="ovAddPreview"></div>
+  </div>
+  <div class="ov-foot"><button class="btn sm" id="ovAddCancel">취소</button><button class="btn warm sm" id="ovAddConfirm">＋ 기존 리스트에 추가</button></div>
+</div></div>
+
+<!-- 아이템 삭제 팝업 -->
+<div class="ov" id="ovDel"><div class="ov-card">
+  <div class="ov-head"><h3>아이템 삭제</h3><span class="sp"></span><button class="ov-x" id="ovDelX">✕</button></div>
+  <div class="ov-body"><div class="ov-note">삭제할 아이템의 🗑 버튼을 누르면 즉시 목록에서 제거됩니다.</div><div id="ovDelList"></div></div>
+  <div class="ov-foot"><button class="btn sm" id="ovDelClose">닫기</button></div>
+</div></div>
+
+<!-- 수동 입력 팝업 -->
+<div class="ov" id="ovManual"><div class="ov-card">
+  <div class="ov-head"><h3>수동 입력 · 아이템 추가</h3><span class="sp"></span><button class="ov-x" id="ovManualX">✕</button></div>
+  <div class="ov-body">
+    <div class="ov-note">UPC를 입력하면 ITEMCODE를, ITEMCODE를 입력하면 UPC를 아이템마스터에서 자동으로 찾아 채웁니다. COST·SRP는 자동으로 $·소수점 2자리로 정리됩니다. “추가”하면 목록과 미리보기에 바로 반영되고 이어서 계속 입력할 수 있습니다.</div>
+    <div class="mform">
+      <label>UPC</label><input id="mfUpc" placeholder="UPC (없으면 비움 → X)">
+      <label>ITEMCODE</label><input id="mfCode" placeholder="ITEMCODE (UPC로 자동검색)">
+      <label>DESC</label><input id="mfDesc" placeholder="상품 설명">
+      <label>COST</label><input id="mfCost" placeholder="예: 3.5 → $3.50">
+      <label>SRP</label><input id="mfSrp" placeholder="예: 4.99 → $4.99">
+      <label>ETC</label><div class="etc-inputs" id="mfEtc"></div>
+    </div>
+    <div class="ov-note" id="mfStatus" style="margin-top:10px;color:var(--success);"></div>
+  </div>
+  <div class="ov-foot"><button class="btn sm" id="ovManualCancel">나가기</button><button class="btn warm sm" id="ovManualAdd">＋ 추가</button></div>
+</div></div>
+
+<!-- 매칭 엔진 -->
+<script>
+(function(global){
+  'use strict';
+  function norm(s){ return String(s==null?'':s).trim(); }
+  function normKey(s){ return norm(s).toUpperCase().replace(/[\s\-_.\/~*\[\]#]/g,''); }
+  function digitsOnly(s){ return norm(s).replace(/[^0-9]/g,''); }
+  function resolveColIndex(headerRow, mapVal){
+    if(mapVal===''||mapVal==null) return -1;
+    if(typeof mapVal==='number') return mapVal>=0?mapVal:-1;
+    if(typeof mapVal==='string' && /^[0-9]+$/.test(mapVal)){
+      var exact=headerRow.findIndex(function(h){return norm(h)===mapVal;});
+      if(exact>=0) return exact; return parseInt(mapVal,10);
+    }
+    var want=normKey(mapVal);
+    for(var i=0;i<headerRow.length;i++){ if(normKey(headerRow[i])===want) return i; }
+    for(var j=0;j<headerRow.length;j++){ var h=normKey(headerRow[j]); if(h && (h.indexOf(want)>=0||want.indexOf(h)>=0)) return j; }
+    return -1;
+  }
+  // 업로드 → {code:[upcs]} 인덱스
+  function buildItemIndex(masterAOA, map){
+    var idx={}, header=masterAOA[0]||[];
+    var ci=resolveColIndex(header, map.itemcode), ui=resolveColIndex(header, map.upc);
+    if(ci<0||ui<0) return {index:idx, error:'ITEMCODE/UPC 열을 찾을 수 없습니다'};
+    for(var r=1;r<masterAOA.length;r++){ var row=masterAOA[r]||[]; var code=normKey(row[ci]); var upc=digitsOnly(row[ui]);
+      if(!code||!upc) continue; if(!idx[code]) idx[code]=[]; if(idx[code].indexOf(upc)<0) idx[code].push(upc); }
+    return {index:idx, itemcodeCol:ci, upcCol:ui};
+  }
+  // 누적 병합 (중복 제외) → 추가된 (code,upc) 쌍 개수
+  function mergeIndex(base, extra){
+    var added=0, k;
+    for(k in extra){ if(!base[k]) base[k]=[]; extra[k].forEach(function(u){ if(base[k].indexOf(u)<0){ base[k].push(u); added++; } }); }
+    return added;
+  }
+  // 파일 ETC(위치 유지) + 마스터 추가 UPC 병합
+  function mergeEtc(fileEtc, extras){
+    var out=(fileEtc||[]).slice();
+    (extras||[]).forEach(function(u){ u=String(u||'').trim(); if(u && out.indexOf(u)<0) out.push(u); });
+    return out;
+  }
+  // 광고상품 매칭: UPC 없으면 'X' 로 유지
+  function buildAdList(adAOA, itemIndex, adMap){
+    var header=adAOA[0]||[]; var ci=resolveColIndex(header, adMap.itemcode);
+    if(ci<0) return {error:'광고상품 ITEMCODE 열을 찾을 수 없습니다'};
+    var di=resolveColIndex(header, adMap.desc), coi=resolveColIndex(header, adMap.cost), si=resolveColIndex(header, adMap.srp);
+    // 업로드 파일의 ETC 열 자동 매칭 (ETC / ETC #1 / ETC#2 / ETC 2 등)
+    var etcIdx=[]; header.forEach(function(h,idx){ var t=String(h||'').trim(); if(/^ETC\b/i.test(t)) etcIdx.push({idx:idx, n:(parseInt((t.match(/\d+/)||['0'])[0],10)||0)}); });
+    etcIdx.sort(function(a,b){ return a.n-b.n || a.idx-b.idx; });
+    var items=[], maxEtc=0, noUpc=0;
+    for(var r=1;r<adAOA.length;r++){ var row=adAOA[r]||[]; var rawCode=norm(row[ci]); var code=normKey(rawCode); if(!code) continue;
+      var upcs=itemIndex[code]||[];
+      var rec={ itemcode:rawCode, desc:(di>=0?norm(row[di]):''), cost:(coi>=0?norm(row[coi]):''), srp:(si>=0?norm(row[si]):''), etc:[] };
+      rec.etcFile=etcIdx.map(function(x){ return norm(row[x.idx]); });
+      while(rec.etcFile.length && rec.etcFile[rec.etcFile.length-1]==='') rec.etcFile.pop();
+      if(upcs.length){ rec.upc=upcs[0]; }
+      else { rec.upc='X'; noUpc++; }
+      rec.etc=rec.etcFile.slice();   // ETC는 광고 엑셀 파일 값만 사용
+      if(rec.etc.length>maxEtc) maxEtc=rec.etc.length;
+      items.push(rec);
+    }
+    return {items:items, maxEtc:maxEtc, noUpc:noUpc};
+  }
+  global.AdEngine={ norm:norm, normKey:normKey, digitsOnly:digitsOnly, resolveColIndex:resolveColIndex,
+    buildItemIndex:buildItemIndex, mergeIndex:mergeIndex, buildAdList:buildAdList };
+})(window);
+</script>
+
+<!-- Firebase -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  const firebaseConfig = { apiKey:"AIzaSyC6t78BS99LX3261cRmApBG8AcZ8HPVxr0", authDomain:"the-shawn.firebaseapp.com", projectId:"the-shawn", storageBucket:"the-shawn.firebasestorage.app", messagingSenderId:"519898602513", appId:"1:519898602513:web:0f35e3dc9c29dce21665b0", measurementId:"G-NKGYGC63JN" };
+  const app=initializeApp(firebaseConfig);
+  window.fbDb=getFirestore(app);
+  window.fbFns={ doc, getDoc, setDoc, deleteDoc, collection, getDocs, onSnapshot };
+  window.dispatchEvent(new Event('fb-ready'));
+</script>
+
+<!-- 앱 -->
+<script>
+(function(){
+  var $=function(id){ return document.getElementById(id); };
+  var E=window.AdEngine;
+  var AD_COL='advertising', MASTER_ID='STI LIST', AD_DRAFT_ID='_AD_DRAFT';
+  /* ITEM MANAGEMENT(ITEM ANALYZE)의 ITEM MASTER 자료 — 여기서 읽어와 광고 매칭에 사용 (읽기 전용) */
+  var IM_CFG_COL='app-config';
+  var IM_DOC='item-management-itemmaster';              // 메타 { rowCount, chunks, uploadedAt }
+  var IM_FIELDS_DOC='item-management-itemmaster-fields'; // 필드 정의 [{key,role,...}]
+  var imMasterRows=0, imMasterFields=[], imMasterAt=0, imLinkErr='';
+  /* 관리 전용 — 매장 보기(view/newitem)는 advertising-viewer.html 로 분리 */
+
+  var masterIndex={};            // {code:[upcs]} — 누적 임시저장 (STI LIST)
+  var masterMeta={};             // {upc:{kor,eng,size}} — 다운로드용 부가정보
+  var lastMasterUpload=null;     // 직전 업로드 aoa
+  var adAoa=null;
+  var curList=[], curMaxEtc=0, curTitle='';
+
+  function toast(m){ var t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(function(){t.classList.remove('show');},2200); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function fbReady(){ return window.fbDb && window.fbFns; }
+  function whenFb(cb){ if(fbReady()) cb(); else window.addEventListener('fb-ready', cb, {once:true}); }
+  function titleId(t){ return norm(t).replace(/[\/.#$\[\]~*]/g,'-').slice(0,120); }
+  function norm(s){ return String(s==null?'':s).trim(); }
+
+  /* 엑셀 읽기 */
+  function readExcel(file, cb){
+    var rd=new FileReader();
+    rd.onload=function(e){ try{ var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      var ws=wb.Sheets[wb.SheetNames[0]]; var aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false});
+      while(aoa.length && aoa[0].every(function(c){return String(c).trim()==='';})) aoa.shift(); cb(null,aoa);
+    }catch(err){ cb(err); } };
+    rd.onerror=function(){ cb(new Error('파일 읽기 실패')); };
+    rd.readAsArrayBuffer(file);
+  }
+  function fillColSelect(sel, header, auto){
+    var seen={}, opts='<option value="">— 없음 —</option>';
+    header.forEach(function(h,i){ var name=String(h).trim()||('(열 '+(i+1)+')'); var val=(name && !seen[name])?name:String(i); seen[name]=1;
+      opts+='<option value="'+esc(val)+'">'+esc(name)+'  ·  '+(i+1)+'열</option>'; });
+    sel.innerHTML=opts;
+    if(auto){ var gi=E.resolveColIndex(header, auto); if(gi>=0){ var h=String(header[gi]).trim(); sel.value=(h && header.indexOf(header[gi])===gi)?h:String(gi); if(!sel.value) sel.value=String(gi); } }
+  }
+  function wireDrop(dropId, inputId, onLoad){
+    var drop=$(dropId), input=$(inputId); if(!drop||!input) return;
+    drop.onclick=function(){ input.click(); };
+    input.onchange=function(){ if(input.files&&input.files[0]) readExcel(input.files[0], function(err,aoa){ if(err){toast('읽기 실패');return;} onLoad(aoa); input.value=''; }); };
+    drop.addEventListener('dragover',function(e){ e.preventDefault(); drop.classList.add('over'); });
+    drop.addEventListener('dragleave',function(){ drop.classList.remove('over'); });
+    drop.addEventListener('drop',function(e){ e.preventDefault(); drop.classList.remove('over'); var f=e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) readExcel(f,function(err,aoa){ if(err){toast('읽기 실패');return;} onLoad(aoa); }); });
+  }
+
+  /* ===== 아이템 마스터 — ITEM MANAGEMENT(ITEM ANALYZE) ITEM MASTER 연결 (읽기 전용) =====
+     ITEM MANAGEMENT 마스터 행에서 코드(ITEM CODE·PLU 등 code 역할)와 UPC(upc 역할)를 뽑아
+     광고 매칭용 {ITEMCODE → [UPC]} 인덱스를 만든다. */
+  function masterCount(){ return Object.keys(masterIndex).length; }
+  function digitsOnly2(s){ return String(s==null?'':s).replace(/[^0-9]/g,''); }
+  function normKey2(s){ return String(s==null?'':s).trim().toUpperCase().replace(/[\s\-_.\/~*\[\]#]/g,''); }
+  function isUpcLike2(v){ return /^[0-9][0-9\s\-]*$/.test(String(v==null?'':v).trim()); }
+  function updateMasterUI(){
+    if($('masterCount')) $('masterCount').textContent=masterCount();
+    if($('masterRows')) $('masterRows').textContent=imMasterRows.toLocaleString('en-US');
+    var box=$('imLinkBox'), st=$('imLinkState');
+    if(!box||!st) return;
+    box.classList.remove('warn');
+    if(imLinkErr){ box.classList.add('warn'); st.textContent='⚠ '+imLinkErr; }
+    else if(!imMasterRows){ box.classList.add('warn'); st.textContent='ITEM MASTER 없음 — ITEM MANAGEMENT에서 먼저 업로드하세요'; }
+    else if(!masterCount()){ box.classList.add('warn'); st.textContent='⚠ ITEMCODE↔UPC 매칭 0 — ITEM MASTER의 UPC·ITEM CODE 연결 확인'; }
+    else st.textContent='✓ 연결됨'+(imMasterAt?(' · '+ymdShort(imMasterAt)):'');
+  }
+  function ymdShort(ms){ if(!ms) return ''; var d=new Date(ms); var p=function(x){return (x<10?'0':'')+x;}; return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
+  // 필드 정의에서 code/upc/name 역할 키 추출 (역할 미지정이면 이름으로 추정)
+  function imRoleKeys(){
+    var codeKeys=[], upcKeys=[], nameKeys=[];
+    (imMasterFields||[]).forEach(function(f){
+      var role=String(f.role||''), key=String(f.key||'');
+      var kk=normKey2(key);
+      if(role==='upc') upcKeys.push(key);
+      else if(role==='code') codeKeys.push(key);
+      else if(role==='name') nameKeys.push(key);
+      else { // 역할 미지정 — 이름으로 추정
+        if(/UPC|BARCODE|바코드/.test(kk)) upcKeys.push(key);
+        else if(/ITEMCODE|^PLU$|SKU|상품코드|품목코드/.test(kk)) codeKeys.push(key);
+      }
+    });
+    // 아무것도 못 찾으면 관용적 기본값
+    if(!upcKeys.length) upcKeys=['UPC'];
+    if(!codeKeys.length) codeKeys=['ITEM CODE','PLU'];
+    return { codeKeys:codeKeys, upcKeys:upcKeys, nameKeys:nameKeys };
+  }
+  var masterCodeRaw={};   // 정규화코드 → 원본 표기 (다운로드용)
+  function buildIndexFromRows(rows){
+    var rk=imRoleKeys(); var idx={}, meta={}; masterCodeRaw={};
+    (rows||[]).forEach(function(r){
+      // UPC 값 (첫 유효)
+      var upc='';
+      for(var i=0;i<rk.upcKeys.length;i++){ var u=digitsOnly2(r[rk.upcKeys[i]]); if(u){ upc=u; break; } }
+      // 코드 값들 (여러 코드 필드 각각 등록 — ITEM CODE·PLU 모두로 검색 가능)
+      var codes=[];
+      rk.codeKeys.forEach(function(ck){ var raw=String(r[ck]==null?'':r[ck]).trim(); var c=normKey2(raw); if(c && codes.indexOf(c)<0){ codes.push(c); if(!masterCodeRaw[c]) masterCodeRaw[c]=raw; } });
+      // UPC 필드에 코드가, 코드 필드에 UPC 가 섞인 경우도 관용 처리
+      if(!upc){ rk.codeKeys.forEach(function(ck){ var raw=String(r[ck]==null?'':r[ck]).trim(); if(isUpcLike2(raw)){ var uu=digitsOnly2(raw); if(uu&&!upc) upc=uu; } }); }
+      if(!codes.length && upc) codes.push('U'+upc);   // 코드가 없으면 UPC 자체를 코드로도 등록
+      if(!upc && !codes.length) return;
+      // 부가정보 (다운로드용)
+      var kor='', eng='';
+      rk.nameKeys.forEach(function(nk){ var v=String(r[nk]==null?'':r[nk]).trim(); if(!v) return; if(/KOR|한/i.test(nk)||/[\uAC00-\uD7A3]/.test(v)){ if(!kor) kor=v; } else if(!eng) eng=v; });
+      codes.forEach(function(code){ if(!idx[code]) idx[code]=[]; if(upc && idx[code].indexOf(upc)<0) idx[code].push(upc); });
+      if(upc && !meta[upc]) meta[upc]={ kor:kor, eng:eng, size:'' };
+    });
+    return { index:idx, meta:meta };
+  }
+  function masterLoad(){
+    if(!fbReady()) return;
+    var F=window.fbFns, db=window.fbDb;
+    // 필드 정의 구독
+    try{ F.onSnapshot(F.doc(db, IM_CFG_COL, IM_FIELDS_DOC), function(s){
+      var d=(s&&s.exists&&s.exists())?(s.data()||{}):{};
+      imMasterFields=Array.isArray(d.fields)?d.fields:[];
+      reloadMasterData();
+    }, function(){ imMasterFields=[]; reloadMasterData(); }); }catch(e){}
+    // 메타 구독 → 청크 로드
+    try{ F.onSnapshot(F.doc(db, IM_CFG_COL, IM_DOC), function(s){
+      var d=(s&&s.exists&&s.exists())?(s.data()||{}):null;
+      imLinkErr='';
+      if(!d || !d.rowCount){ imMasterRows=0; imMasterAt=0; masterIndex={}; masterMeta={}; updateMasterUI(); refreshAd(); return; }
+      imMasterRows=d.rowCount||0; imMasterAt=d.uploadedAt||0; loadMasterChunks(d);
+    }, function(){ imLinkErr='ITEM MASTER 불러오기 실패 (Firestore 규칙 확인)'; masterIndex={}; masterMeta={}; updateMasterUI(); }); }catch(e){}
+  }
+  var __imMeta=null;
+  function reloadMasterData(){ if(__imMeta) loadMasterChunks(__imMeta); }
+  function loadMasterChunks(meta){
+    __imMeta=meta;
+    var F=window.fbFns, db=window.fbDb; var n=meta.chunks||0, jobs=[];
+    for(var i=0;i<n;i++) jobs.push(F.getDoc(F.doc(db, IM_CFG_COL, IM_DOC+'-c'+i)));
+    Promise.all(jobs).then(function(snaps){
+      var rows=[]; snaps.forEach(function(sn){ var dd=(sn&&sn.exists&&sn.exists())?(sn.data()||{}):{}; if(Array.isArray(dd.rows)) rows=rows.concat(dd.rows); });
+      var built=buildIndexFromRows(rows);
+      masterIndex=built.index; masterMeta=built.meta;
+      imLinkErr='';
+      updateMasterUI(); refreshAd();
+    }).catch(function(){ imLinkErr='ITEM MASTER 데이터 불러오기 실패 (Firestore 규칙 확인)'; masterIndex={}; masterMeta={}; updateMasterUI(); });
+  }
+
+  /* (ITEM MANAGEMENT 연결로 전환 — 자체 업로드/저장/중복확인 로직 제거됨)
+     다운로드는 연결된 ITEM MASTER(현재 매칭 인덱스)를 그대로 내보낸다. */
+  function masterDownload(){
+    if(typeof XLSX==='undefined'){ toast('엑셀 라이브러리 로드 실패'); return; }
+    var keys=Object.keys(masterIndex);
+    if(!keys.length){ toast('연결된 ITEM MASTER 자료가 없습니다'); return; }
+    var aoa=[['UPC','ITEMCODE','KOR DESC','ENG DESC','UNIT SIZE']];
+    keys.sort().forEach(function(k){
+      var disp=masterCodeRaw[k]||k;
+      var upcs=masterIndex[k]||[];
+      if(!upcs.length){ aoa.push(['',disp,'','','']); return; }
+      upcs.forEach(function(u){ var mm=masterMeta[u]||{}; aoa.push([u, disp, mm.kor||'', mm.eng||'', mm.size||'']); });
+    });
+    var ws=XLSX.utils.aoa_to_sheet(aoa), wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'ITEM_MASTER');
+    var d=new Date(), ymd=d.getFullYear()+('0'+(d.getMonth()+1)).slice(-2)+('0'+d.getDate()).slice(-2);
+    XLSX.writeFile(wb, 'ITEM_LIST('+ymd+').xlsx');
+    toast('다운로드 시작');
+  }
+
+  /* ===== 광고상품 매칭 ===== */
+  function onAdLoaded(aoa){
+    adAoa=aoa; $('mapAd').classList.remove('hidden'); $('dropAd').classList.add('loaded');
+    $('dropAd').querySelector('.dt').textContent='✓ 로드됨 ('+(aoa.length-1)+'행)';
+    fillColSelect($('mAdCode'),aoa[0]||[],'ITEMCODE'); fillColSelect($('mAdDesc'),aoa[0]||[],'DESC');
+    fillColSelect($('mAdCost'),aoa[0]||[],'COST'); fillColSelect($('mAdSrp'),aoa[0]||[],'SRP');
+    rematch();
+  }
+  function rematch(){
+    if(!adAoa) return;
+    var res=E.buildAdList(adAoa, masterIndex, {itemcode:$('mAdCode').value, desc:$('mAdDesc').value, cost:$('mAdCost').value, srp:$('mAdSrp').value});
+    var st=$('stAd');
+    if(res.error){ st.className='status err'; st.textContent='⚠ '+res.error; return; }
+    curList=res.items; curMaxEtc=res.maxEtc; curTitle=norm($('adTitle').value);
+    var matched=res.items.length-res.noUpc;
+    $('adPills').innerHTML='<span class="pill ok">UPC 매칭 '+matched+'개</span>'+(res.noUpc?('<span class="pill warn">UPC 없음(X) '+res.noUpc+'개</span>'):'')+(res.maxEtc?('<span class="pill">ETC 최대 '+res.maxEtc+'</span>'):'');
+    st.className='status ok'; st.textContent='✓ 매칭 완료 · 총 '+res.items.length+'개';
+    renderPreview(curList, curMaxEtc, curTitle||'미리보기');
+    updateAdCount(); saveDraft(); markDirty();
+  }
+  function updateAdCount(){
+    var total=curList.length, none=0;
+    curList.forEach(function(it){ if(String(it.upc||'').toUpperCase()==='X'||!it.upc) none++; });
+    var t=$('adTotal'),sv=$('adSaved'),nn=$('adNone');
+    if(t) t.textContent=total; if(sv) sv.textContent=(total-none); if(nn) nn.textContent=none;
+  }
+  /* 아이템마스터가 갱신되면 광고데이터 REFRESH (새 UPC 반영) */
+  function refreshAdFromMaster(){
+    if(!curList.length) return 0;
+    var maxEtc=0, changed=0;
+    curList.forEach(function(it){
+      var upcs=masterIndex[E.normKey(it.itemcode)]||[]; var before=it.upc;
+      if(upcs.length){ it.upc=upcs[0]; } else { it.upc='X'; }
+      it.etc=(it.etcFile||it.etc||[]).slice();   // ETC(파일 값) 보존 — 마스터 UPC로 덮지 않음
+      if(it.etc.length>maxEtc) maxEtc=it.etc.length;
+      if(it.upc!==before) changed++;
+    });
+    curMaxEtc=maxEtc; updateAdCount(); renderPreview(curList, curMaxEtc, curTitle||'미리보기'); saveDraft();
+    return changed;
+  }
+  function refreshAd(){ if(adAoa) rematch(); else return refreshAdFromMaster(); }
+
+  /* ===== 아이템 편집 도구 (추가 업로드 / 삭제 / 수동 입력) ===== */
+  function hasBaseList(){ return curList && curList.length>0; }
+  function needUploadWarn(){ toast('이전 광고파일이 없습니다. 광고파일을 업로드 해주세요'); }
+  function markDirty(){ var b=$('adSaveInlineBtn'); if(b) b.classList.add('dirty'); }
+  function clearDirty(){ var b=$('adSaveInlineBtn'); if(b) b.classList.remove('dirty'); }
+  function afterListChange(){ curMaxEtc=Math.max(curMaxEtc||0, maxEtcOf(curList)); renderPreview(curList, curMaxEtc, curTitle||'미리보기'); updateAdCount(); saveDraft(); markDirty(); }
+  function maxEtcOf(list){ var m=0; (list||[]).forEach(function(it){ if(it.etc && it.etc.length>m) m=it.etc.length; }); return m; }
+
+  // 1) 추가 업로드: 파일 → 파싱 → 팝업 미리보기 → 기존 리스트에 append
+  var pendingAdd=null;
+  function openAddUpload(){
+    var inp=$('fileAddAd'); if(!inp) return;
+    inp.value='';
+    inp.onchange=function(){ if(inp.files&&inp.files[0]) readExcel(inp.files[0], function(err,aoa){ if(err){ toast('읽기 실패'); return; } buildAddPreview(aoa); }); };
+    inp.click();
+  }
+  function buildAddPreview(aoa){
+    var res=E.buildAdList(aoa, masterIndex, {itemcode:$('mAdCode').value, desc:$('mAdDesc').value, cost:$('mAdCost').value, srp:$('mAdSrp').value});
+    if(res.error){ toast('⚠ '+res.error); return; }
+    if(!res.items || !res.items.length){ toast('추가할 데이터가 없습니다'); return; }
+    pendingAdd={ items:res.items, maxEtc:res.maxEtc||0 };
+    $('ovAddNote').textContent='새로 올린 '+res.items.length+'개를 지정된 필드 형태로 표시했습니다. 빠진 값은 빈칸으로 표시됩니다. 기존 리스트에 추가할까요?';
+    $('ovAddPreview').innerHTML=previewTableHTML(res.items, res.maxEtc||0);
+    $('ovAdd').classList.add('show');
+  }
+  function previewTableHTML(list, maxEtc){
+    maxEtc=Math.max(maxEtc||0, 2);
+    var etcH=''; for(var e=1;e<=maxEtc;e++) etcH+='<th>ETC #'+e+'</th>';
+    var head='<thead><tr><th>#</th><th>UPC</th><th>ITEMCODE</th><th>DESC</th><th>COST</th><th>SRP</th>'+etcH+'</tr></thead>';
+    var rows=list.map(function(it,i){ var isX=(String(it.upc||'').toUpperCase()==='X'||!it.upc); var etcT=''; for(var e=0;e<maxEtc;e++){ etcT+='<td>'+esc((it.etc&&it.etc[e])||'')+'</td>'; }
+      return '<tr><td>'+(i+1)+'</td><td>'+(isX?'X':esc(it.upc))+'</td><td>'+esc(it.itemcode||'')+'</td><td>'+esc(it.desc||'')+'</td><td>'+esc(it.cost||'')+'</td><td>'+esc(it.srp||'')+'</td>'+etcT+'</tr>'; }).join('');
+    return '<table class="ov-tbl">'+head+'<tbody>'+rows+'</tbody></table>';
+  }
+  function confirmAdd(){
+    if(!pendingAdd) return;
+    curList=curList.concat(pendingAdd.items);
+    pendingAdd=null; $('ovAdd').classList.remove('show');
+    afterListChange(); toast('추가되었습니다 · 총 '+curList.length+'개');
+  }
+
+  // 2) 아이템 삭제: 팝업 리스트, 개별 삭제
+  function openDelete(){
+    if(!hasBaseList()){ needUploadWarn(); return; }
+    renderDelList(); $('ovDel').classList.add('show');
+  }
+  function renderDelList(){
+    var box=$('ovDelList');
+    if(!curList.length){ box.innerHTML='<div class="ov-note">남은 아이템이 없습니다.</div>'; return; }
+    box.innerHTML=curList.map(function(it,i){ var isX=(String(it.upc||'').toUpperCase()==='X'||!it.upc);
+      return '<div class="ov-del-row"><span class="txt">'+(i+1)+'. '+esc(it.desc||'(설명없음)')+' <span class="code">['+esc(it.itemcode||'')+' · '+(isX?'X':esc(it.upc))+']</span></span><button class="btn sm danger" data-i="'+i+'">🗑 삭제</button></div>'; }).join('');
+    Array.prototype.forEach.call(box.querySelectorAll('button[data-i]'), function(b){
+      b.onclick=function(){ var i=+b.getAttribute('data-i'); curList.splice(i,1); afterListChange(); renderDelList(); toast('삭제됨 · 남은 '+curList.length+'개'); };
+    });
+  }
+
+  // 3) 수동 입력: 팝업 폼 → 마지막에 추가
+  // 아이템마스터 매칭 + 금액 포맷 헬퍼
+  function codeToUpc(code){ var a=masterIndex[E.normKey(code)]; return (a&&a.length)?a[0]:''; }
+  function upcToCode(upc){ upc=norm(upc); for(var k in masterIndex){ if((masterIndex[k]||[]).indexOf(upc)>=0) return k; } return ''; }
+  function money2(v){ v=String(v==null?'':v).replace(/[^0-9.]/g,''); if(v==='') return ''; var n=parseFloat(v); return isNaN(n)?'':('$'+n.toFixed(2)); }
+
+  function openManual(){
+    if(!hasBaseList()){ needUploadWarn(); return; }
+    ['mfUpc','mfCode','mfDesc','mfCost','mfSrp'].forEach(function(id){ var el=$(id); if(el) el.value=''; });
+    var st=$('mfStatus'); if(st) st.textContent='';
+    var n=Math.max(2, curMaxEtc||0), h='';
+    for(var e=0;e<n;e++) h+='<input class="mf-etc" placeholder="ETC #'+(e+1)+'">';
+    $('mfEtc').innerHTML=h;
+    // 자동 매칭 · 금액 포맷 이벤트(한 번만)
+    var up=$('mfUpc'), cd=$('mfCode'), co=$('mfCost'), sr=$('mfSrp');
+    if(up && !up.__wired){ up.__wired=1; up.addEventListener('blur', function(){ var u=norm(up.value); if(!u){ return; } var c=upcToCode(u); if(c && !norm(cd.value)){ cd.value=c; } var d=descLookup(cd.value||c, u); if(d && !norm($('mfDesc').value)){ $('mfDesc').value=d; } }); }
+    if(cd && !cd.__wired){ cd.__wired=1; cd.addEventListener('blur', function(){ var c=norm(cd.value); if(!c){ return; } var u=codeToUpc(c); if(u && !norm(up.value)){ up.value=u; } var d=descLookup(c, up.value||u); if(d && !norm($('mfDesc').value)){ $('mfDesc').value=d; } }); }
+    if(co && !co.__wired){ co.__wired=1; co.addEventListener('blur', function(){ co.value=money2(co.value); }); }
+    if(sr && !sr.__wired){ sr.__wired=1; sr.addEventListener('blur', function(){ sr.value=money2(sr.value); }); }
+    $('ovManual').classList.add('show');
+    setTimeout(function(){ if(up) up.focus(); }, 60);
+  }
+  function manualAdd(){
+    var etc=[]; Array.prototype.forEach.call($('mfEtc').querySelectorAll('.mf-etc'), function(inp){ etc.push(norm(inp.value)); });
+    while(etc.length && etc[etc.length-1]==='') etc.pop();
+    var etcFile=etc.slice();   // 수동 입력 ETC도 재매칭 시 보존
+    var upc=norm($('mfUpc').value);
+    var code=norm($('mfCode').value);
+    if(upc && !code){ var c=upcToCode(upc); if(c) code=c; }
+    if(code && !upc){ var u=codeToUpc(code); if(u) upc=u; }
+    var desc=norm($('mfDesc').value); if(!desc){ desc=descLookup(code, upc); }
+    var item={ upc: upc||'X', itemcode:code, desc:desc, cost:money2($('mfCost').value), srp:money2($('mfSrp').value), etc:etc, etcFile:etcFile };
+    if(!item.itemcode && !item.desc){ toast('ITEMCODE 또는 DESC 중 하나는 입력하세요'); return; }
+    curList.push(item);
+    afterListChange();   // 목록·미리보기 갱신 + 등록 버튼 반짝임
+    var st=$('mfStatus'); if(st){ st.style.color='var(--success)'; st.textContent='✓ 목록에 추가됨 · 총 '+curList.length+'개 (계속 입력 가능 · "광고리스트등록/업데이트"로 저장)'; }
+    ['mfUpc','mfCode','mfDesc','mfCost','mfSrp'].forEach(function(id){ var el=$(id); if(el) el.value=''; });
+    Array.prototype.forEach.call($('mfEtc').querySelectorAll('.mf-etc'), function(inp){ inp.value=''; });
+    var up=$('mfUpc'); if(up) up.focus();
+  }
+  // 현재 광고리스트에서 같은 코드/UPC 상품의 DESC 찾기
+  function descLookup(code, upc){
+    var ck=code?E.normKey(code):''; var u=norm(upc);
+    for(var i=0;i<curList.length;i++){ var it=curList[i];
+      if(ck && E.normKey(it.itemcode)===ck && it.desc) return it.desc;
+      if(u && u!=='X' && norm(it.upc)===u && it.desc) return it.desc; }
+    return '';
+  }
+
+  function bindAdEditTools(){
+    var b;
+    if(b=$('adDelBtn')) b.onclick=openDelete;
+    if(b=$('adManualBtn')) b.onclick=openManual;
+    if(b=$('ovAddConfirm')) b.onclick=confirmAdd;
+    if(b=$('ovAddCancel')) b.onclick=function(){ pendingAdd=null; $('ovAdd').classList.remove('show'); };
+    if(b=$('ovAddX')) b.onclick=function(){ pendingAdd=null; $('ovAdd').classList.remove('show'); };
+    if(b=$('ovDelClose')) b.onclick=function(){ $('ovDel').classList.remove('show'); };
+    if(b=$('ovDelX')) b.onclick=function(){ $('ovDel').classList.remove('show'); };
+    if(b=$('ovManualAdd')) b.onclick=manualAdd;
+    if(b=$('ovManualCancel')) b.onclick=function(){ $('ovManual').classList.remove('show'); };
+    if(b=$('ovManualX')) b.onclick=function(){ $('ovManual').classList.remove('show'); };
+    ['ovAdd','ovDel','ovManual'].forEach(function(id){ var ov=$(id); if(ov) ov.addEventListener('click', function(e){ if(e.target===ov) ov.classList.remove('show'); }); });
+  }
+  /* 광고상품 작업데이터 유지(드래프트) */
+  function saveDraft(){
+    if(!fbReady()) return;
+    var payload={ type:'draft', title:curTitle||'', items:curList.map(function(it){ return {upc:it.upc||'X',itemcode:it.itemcode||'',desc:it.desc||'',cost:it.cost||'',srp:it.srp||'',etc:(it.etc||[])}; }), maxEtc:curMaxEtc||0, count:curList.length, updatedAt:Date.now() };
+    window.fbFns.setDoc(window.fbFns.doc(window.fbDb, AD_COL, AD_DRAFT_ID), payload, {merge:false}).catch(function(){});
+  }
+  function loadDraft(){
+    if(!fbReady()) return;
+    window.fbFns.getDoc(window.fbFns.doc(window.fbDb, AD_COL, AD_DRAFT_ID)).then(function(s){
+      if(!s.exists()) { updateAdCount(); return; }
+      var v=s.data()||{}; curList=v.items||[]; curMaxEtc=v.maxEtc||0; curTitle=v.title||'';
+      if($('adTitle')) $('adTitle').value=curTitle;
+      if(curList.length){
+        $('dropAd').classList.add('loaded');
+        $('dropAd').querySelector('.dt').textContent='✓ 유지된 광고데이터 '+curList.length+'개 · 새 파일을 올리면 교체';
+        renderPreview(curList, curMaxEtc, curTitle||'미리보기');
+      }
+      updateAdCount();
+    }).catch(function(){ updateAdCount(); });
+  }
+  function newAd(){
+    if(curList.length && !confirm('기존 광고상품 데이터('+curList.length+'개)를 비우고 새로 등록할까요?')) return;
+    adAoa=null; curList=[]; curMaxEtc=0; curTitle='';
+    if($('adTitle')) $('adTitle').value='';
+    $('mapAd').classList.add('hidden'); $('adPills').innerHTML=''; $('stAd').textContent='';
+    $('dropAd').classList.remove('loaded'); $('dropAd').querySelector('.dt').textContent='광고상품 엑셀 선택';
+    renderPreview([],0,'미리보기'); updateAdCount();
+    if(fbReady()) window.fbFns.deleteDoc(window.fbFns.doc(window.fbDb, AD_COL, AD_DRAFT_ID)).catch(function(){});
+    toast('새로 등록 — 광고상품 엑셀을 올리세요');
+    setTimeout(function(){ var fi=$('fileAd'); if(fi) fi.click(); }, 250);
+  }
+
+  /* ===== 바코드 ===== */
+  function barcodeSVG(upc){
+    var d=String(upc||'').replace(/[^0-9]/g,''); if(!d) return '<span style="font-family:var(--mono);color:#c83a3a;font-weight:800">—</span>';
+    var fmt='CODE128'; if(d.length===12) fmt='UPC'; else if(d.length===13) fmt='EAN13'; else if(d.length===8) fmt='EAN8';
+    var svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('class','bc');
+    try{ JsBarcode(svg,d,{format:fmt,width:1.4,height:34,fontSize:11,margin:2,displayValue:true}); }
+    catch(e){ try{ JsBarcode(svg,d,{format:'CODE128',width:1.2,height:34,fontSize:11,margin:2,displayValue:true}); }catch(_){ return '<span style="font-family:var(--mono);font-size:11px">'+esc(d)+'</span>'; } }
+    return svg.outerHTML;
+  }
+
+  /* ===== 미리보기 ===== */
+  function renderPreview(list, maxEtc, title){
+    $('previewTitle').textContent=title||'미리보기';
+    var box=$('previewBox');
+    if(!list||!list.length){ box.innerHTML='<div class="empty">표시할 광고상품이 없습니다.</div>'; return; }
+    maxEtc=Math.max(maxEtc||0, 2);   // ETC #1·#2 상시 표시
+    var etcH=''; for(var e=1;e<=maxEtc;e++) etcH+='<th>ETC #'+e+'</th>';
+    var head='<thead><tr><th class="no">#</th><th>UPC</th><th>ITEMCODE</th><th>DESC</th><th>COST</th><th>SRP</th><th>BARCODE</th>'+etcH+'</tr></thead>';
+    var rows=list.map(function(it,i){ var isX=(String(it.upc||'').toUpperCase()==='X'||!it.upc);
+      var etcT=''; for(var e=0;e<maxEtc;e++){ etcT+='<td class="etc">'+esc((it.etc&&it.etc[e])||'')+'</td>'; }
+      return '<tr><td>'+(i+1)+'</td>'+
+        '<td class="upc'+(isX?' x':'')+'">'+(isX?'X':esc(it.upc))+'</td>'+
+        '<td class="code">'+esc(it.itemcode||'')+'</td>'+
+        '<td class="desc" title="'+esc(it.desc||'')+'">'+esc(it.desc||'')+'</td>'+
+        '<td>'+esc(it.cost||'')+'</td><td>'+esc(it.srp||'')+'</td>'+
+        '<td>'+(isX?'<span style="color:#c83a3a;font-weight:800">—</span>':barcodeSVG(it.upc))+'</td>'+etcT+'</tr>';
+    }).join('');
+    box.innerHTML='<table class="adt">'+head+'<tbody>'+rows+'</tbody></table>';
+  }
+
+  /* ===== 광고리스트 저장 (H-MART 노출) ===== */
+  function saveAdList(){
+    if(!fbReady()){ toast('Firebase 연결 대기중'); return; }
+    var title=norm($('adTitle')?$('adTitle').value:'') || curTitle;
+    if(!title){ toast('TITLE NAME 을 입력하세요'); if($('adTitle')) $('adTitle').focus(); return; }
+    if(!curList.length){ toast('저장할 광고상품이 없습니다'); return; }
+    var id=titleId(title); if(id===MASTER_ID){ toast('그 이름은 사용할 수 없습니다'); return; }
+    var payload={ type:'adlist', title:title, items:curList.map(function(it){ return {upc:it.upc||'X',itemcode:it.itemcode||'',desc:it.desc||'',cost:it.cost||'',srp:it.srp||'',etc:(it.etc||[])}; }),
+                  maxEtc:curMaxEtc||0, count:curList.length, updatedAt:Date.now() };
+    toast('저장중…');
+    window.fbFns.setDoc(window.fbFns.doc(window.fbDb, AD_COL, id), payload, {merge:false})
+      .then(function(){ toast('광고리스트 저장 완료 · H-MART에서 보기 가능'); clearDirty(); loadSavedList(); })
+      .catch(function(err){ toast('저장 실패: '+(err&&err.message||err)); });
+  }
+
+  /* ===== 저장된 광고 데이터 목록 ===== */
+  function loadSavedList(){
+    var box=$('savedList'); if(!fbReady()){ setTimeout(loadSavedList,500); return; }
+    box.innerHTML='<div class="empty"><span class="spin"></span> 불러오는 중…</div>';
+    window.fbFns.getDocs(window.fbFns.collection(window.fbDb, AD_COL)).then(function(snap){
+      var arr=[]; snap.forEach(function(d){ var v=d.data()||{}; if(d.id===MASTER_ID || d.id===AD_DRAFT_ID || v.type==='master' || v.type==='draft') return; arr.push({ id:d.id, title:(v.title||d.id), count:(v.count!=null?v.count:(v.items?v.items.length:0)), updatedAt:(v.updatedAt||0) }); });
+      arr.sort(function(a,b){ return (b.updatedAt||0)-(a.updatedAt||0); });
+      if(!arr.length){ box.innerHTML='<div class="empty">저장된 광고리스트가 없습니다.</div>'; return; }
+      box.innerHTML=arr.map(function(x){ return '<div class="saved-item" data-id="'+esc(x.id)+'">'+
+        '<span class="sd">AD LIST · '+esc(x.title)+'</span><span class="sc">'+x.count+'개</span><span class="sp"></span>'+
+        '<button class="btn sm" data-act="view">보기</button><button class="btn sm danger" data-act="del">삭제</button></div>'; }).join('');
+    }).catch(function(err){ box.innerHTML='<div class="empty">목록 오류: '+esc(err&&err.message||String(err))+'</div>'; });
+  }
+  function viewSaved(id){ window.fbFns.getDoc(window.fbFns.doc(window.fbDb, AD_COL, id)).then(function(s){ if(!s.exists()){toast('없음');return;} var v=s.data()||{}; curList=v.items||[]; curMaxEtc=v.maxEtc||0; curTitle=v.title||id; renderPreview(curList,curMaxEtc,curTitle); window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'}); }); }
+  function delSaved(id){ if(!confirm('이 광고리스트를 삭제할까요?')) return; window.fbFns.deleteDoc(window.fbFns.doc(window.fbDb, AD_COL, id)).then(function(){ toast('삭제됨'); loadSavedList(); }).catch(function(err){ toast('삭제 실패: '+(err&&err.message||err)); }); }
+
+  /* ===== 내보내기 / 인쇄 ===== */
+  function exportXlsx(){
+    if(!curList.length){ toast('내보낼 항목이 없습니다'); return; }
+    var maxEtc=2; curList.forEach(function(it){ if(it.etc&&it.etc.length>maxEtc) maxEtc=it.etc.length; });   // ETC #1·#2 항상 출력
+    var head=['UPC','ITEMCODE','DESC','COST','SRP']; for(var e=1;e<=maxEtc;e++) head.push('ETC #'+e);
+    var aoa=[head]; curList.forEach(function(it){ var r=[(it.upc||'X'),it.itemcode||'',it.desc||'',it.cost||'',it.srp||'']; for(var e=0;e<maxEtc;e++) r.push((it.etc&&it.etc[e])||''); aoa.push(r); });
+    var ws=XLSX.utils.aoa_to_sheet(aoa); var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'AD'); XLSX.writeFile(wb,(curTitle||'AD_LIST')+'.xlsx');
+  }
+  function printList(){
+    if(!curList.length){ toast('인쇄할 항목이 없습니다'); return; }
+    var titleTxt=curTitle||'AD LIST', head, body;
+    {
+      var maxEtc=2; curList.forEach(function(it){ if(it.etc&&it.etc.length>maxEtc) maxEtc=it.etc.length; });   // ETC #1·#2 항상 출력
+      var etcH=''; for(var e=1;e<=maxEtc;e++) etcH+='<th>ETC #'+e+'</th>';
+      head='<th>UPC</th><th>ITEMCODE</th><th>DESC</th><th>COST</th><th>SRP</th><th>BARCODE</th>'+etcH;
+      body=curList.map(function(it){ var isX=(String(it.upc||'').toUpperCase()==='X'||!it.upc); var etcT=''; for(var e=0;e<maxEtc;e++) etcT+='<td>'+esc((it.etc&&it.etc[e])||'')+'</td>';
+        return '<tr><td class="u'+(isX?' x':'')+'">'+(isX?'X':esc(it.upc))+'</td><td>'+esc(it.itemcode||'')+'</td><td class="l">'+esc(it.desc||'')+'</td><td>'+esc(it.cost||'')+'</td><td>'+esc(it.srp||'')+'</td><td>'+(isX?'—':barcodeSVG(it.upc))+'</td>'+etcT+'</tr>'; }).join('');
+    }
+    var css='body{font-family:Arial,sans-serif;margin:14px;color:#1a1a1d}h1{font-size:16px;margin:0 0 10px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #999;padding:4px 6px;text-align:center}thead th{background:#1f1d1a;color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}td.u{font-weight:700;color:#1d4ed8}td.u.x{color:#c83a3a}td.l{text-align:left}svg{display:block;margin:0 auto}@page{margin:10mm}';
+    var html='<!doctype html><html><head><meta charset="utf-8"><title>'+esc(titleTxt)+'</title><style>'+css+'</style></head><body><h1>'+esc(titleTxt)+' ('+curList.length+'개)</h1>'+
+      '<table><thead><tr>'+head+'</tr></thead><tbody>'+body+'</tbody></table></body></html>';
+    var w=window.open('','_blank'); if(!w){ toast('팝업 허용 후 다시 시도'); return; } w.document.open(); w.document.write(html); w.document.close(); setTimeout(function(){ try{w.focus();w.print();}catch(e){} },500);
+  }
+
+  /* ===== 부트 ===== */
+  function boot(){
+    /* EGMM MANAGER 팝업(iframe) 안에서 열림 → 닫기 메시지, 단독 접근 시 EGMM으로 */
+    $('backBtn').onclick=function(){
+      try{ if(window.parent && window.parent!==window){ window.parent.postMessage('hpm-close','*'); return; } }catch(e){}
+      window.location.href='../EGMM/egmm.html';
+    };
+    try{ if(window.parent && window.parent!==window) $('backBtn').textContent='✕ 닫기'; }catch(e){}
+    $('exportBtn').onclick=exportXlsx; $('printBtn').onclick=printList;
+    var sB=$('adSaveInlineBtn'); if(sB) sB.onclick=saveAdList;
+    {
+      wireDrop('dropAd','fileAd', onAdLoaded);
+      ['mAdCode','mAdDesc','mAdCost','mAdSrp'].forEach(function(id){ $(id).onchange=rematch; });
+      $('adTitle').addEventListener('input', function(){ curTitle=norm(this.value); if(curList.length){ $('previewTitle').textContent=curTitle||'미리보기'; clearTimeout(window.__dft); window.__dft=setTimeout(saveDraft,600); } });
+      var dlb=$('masterDownloadBtn'); if(dlb) dlb.onclick=masterDownload;
+      var nb=$('adNewBtn'); if(nb) nb.onclick=newAd;
+      bindAdEditTools();
+      $('savedList').addEventListener('click', function(e){ var b=e.target.closest('button'); if(!b) return; var it=e.target.closest('.saved-item'); var id=it&&it.getAttribute('data-id'); if(!id) return; if(b.getAttribute('data-act')==='view') viewSaved(id); else delSaved(id); });
+      whenFb(function(){ masterLoad(); loadDraft(); loadSavedList(); });
+    }
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+})();
+</script>
+</body>
+</html>
