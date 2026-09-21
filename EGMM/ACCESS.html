@@ -238,6 +238,15 @@
   $('mCancel').onclick=function(){ $('modalBg').classList.remove('show'); modalCb=null; };
   $('modalBg').addEventListener('click',function(e){ if(e.target===$('modalBg')){ $('modalBg').classList.remove('show'); modalCb=null; } });
 
+  /* 아이디 입력: 무조건 영문(A-Z)·숫자만 — 한글 등 다른 문자는 입력 즉시 제거 */
+  (function(){
+    var el=$('fId'); if(!el) return;
+    function fix(){ var f=el.value.toUpperCase().replace(/[^A-Z0-9-]/g,''); if(el.value!==f) el.value=f; }
+    el.addEventListener('input', fix);
+    el.addEventListener('compositionend', fix);
+    el.addEventListener('blur', fix);
+  })();
+
   /* ── Firebase ── */
   var fb=null, users={}, ranks=[], menus={}, depts={}, stores={}, editingId=null;
 
