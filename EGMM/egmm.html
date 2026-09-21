@@ -2835,6 +2835,7 @@
     <div class="egmm-card-head"><span class="egmm-card-tick"></span><span class="egmm-card-name">SYSTEM</span></div>
 
     <button class="egmm-menu-btn" id="egmmAccessBtn"><span class="egmm-menu-label mlab">ACCESS<small>아이디 · 비번 · 직급 · 권한 · 차단</small></span></button>
+    <button class="egmm-menu-btn" id="egmmStoreBtn"><span class="egmm-menu-label mlab">STORE<small>마트 생성 · 관리 (STORE-코드)</small></span></button>
     <button class="egmm-menu-btn" id="egmmDeptBtn"><span class="egmm-menu-label mlab">DEPARTMENT<small>부서 생성 · 관리 (DEPT-코드)</small></span></button>
     <button class="egmm-menu-btn" id="egmmMenuMgrBtn"><span class="egmm-menu-label mlab">MENU<small>메뉴 생성 · 권한 (MENU-코드)</small></span></button>
     <button class="egmm-menu-btn" id="egmmFuncCodeBtn"><span class="egmm-menu-label mlab">FUNCTION CODE<small>직급 · 부서 · 메뉴 코드 관리</small></span></button>
@@ -3436,6 +3437,7 @@
   var __mgrItemBtn=$('egmmMgrItemBtn'); if(__mgrItemBtn) __mgrItemBtn.onclick = function(){ openInFrame('../item-management-manager.html', this); };
   // SYSTEM: 계정·부서·메뉴·코드 관리 (egmm.html 과 같은 폴더 · 암호 확인 없음)
   var __accBtn=$('egmmAccessBtn'); if(__accBtn) __accBtn.onclick = function(){ openInFrame('ACCESS.html', this); };
+  var __storeBtn=$('egmmStoreBtn'); if(__storeBtn) __storeBtn.onclick = function(){ openInFrame('STORE.html', this); };
   var __deptBtn=$('egmmDeptBtn'); if(__deptBtn) __deptBtn.onclick = function(){ openInFrame('DEPARTMENT.html', this); };
   var __menuMgrBtn=$('egmmMenuMgrBtn'); if(__menuMgrBtn) __menuMgrBtn.onclick = function(){ openInFrame('MENU.html', this); };
   var __fcodeBtn=$('egmmFuncCodeBtn'); if(__fcodeBtn) __fcodeBtn.onclick = function(){ openInFrame('FUNCTION-CODE.html', this); };

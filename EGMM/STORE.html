@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DEPARTMENT · 부서 관리</title>
+<title>STORE · 매장 관리</title>
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
 <style>
   :root{
@@ -27,14 +27,14 @@
 
   .panel{ background:var(--bg-elev); border:1.5px solid var(--border); border-radius:16px; padding:16px; margin-bottom:16px; }
   .panel h2{ font-size:15px; font-weight:800; display:flex; align-items:center; gap:8px; padding-bottom:10px; border-bottom:1px solid var(--border); margin-bottom:12px; }
-  .panel h2 .ico{ width:28px; height:28px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:15px; background:#d9f5ec; }
+  .panel h2 .ico{ width:28px; height:28px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:15px; background:#ffedd6; }
   .panel h2 .cnt{ margin-left:auto; font-size:11px; font-weight:800; color:var(--text-faint); }
 
   .addgrid{ display:grid; grid-template-columns:1fr 1fr 1.2fr auto; gap:8px; align-items:end; }
   .field label{ display:block; font-size:12px; font-weight:800; color:var(--text-dim); margin-bottom:5px; }
   .field input{ width:100%; border:1.5px solid var(--border); border-radius:10px; padding:11px 13px; font:inherit; font-size:14px; font-weight:700; background:var(--bg); }
   .field input:focus{ outline:none; border-color:var(--accent-warm); background:#fff; }
-  #dName, #dCode{ text-transform:uppercase; }
+  #sName, #sCode{ text-transform:uppercase; }
   .hint{ font-size:11px; color:var(--text-faint); font-weight:600; margin-top:8px; line-height:1.5; }
 
   .btn{ border:none; border-radius:10px; padding:12px 18px; font:inherit; font-size:14px; font-weight:800; cursor:pointer; background:var(--accent-warm); color:#fff; transition:transform .1s; white-space:nowrap; }
@@ -80,33 +80,34 @@
 </head>
 <body>
 <div class="toast" id="toast"></div>
-<div class="gate-note" id="gateNote"><div class="gc">🔒 EGMM 포털을 통해 접속하세요<br><span style="font-size:12px;color:var(--text-faint)">egmm.html 로그인 후 SYSTEM &gt; DEPARTMENT 메뉴</span></div></div>
+<div class="gate-note" id="gateNote"><div class="gc">🔒 EGMM 포털을 통해 접속하세요<br><span style="font-size:12px;color:var(--text-faint)">egmm.html 로그인 후 SYSTEM &gt; STORE 메뉴</span></div></div>
 
 <div class="wrap">
   <div class="page-topbar">
-    <h1>🏬 DEPARTMENT<small>매장 부서 생성 · 코드 관리 (DEPT-XXX)</small></h1>
+    <h1>🏪 STORE<small>마트 생성 · 코드 관리 (STORE-XXX)</small></h1>
     <span class="live">● LIVE</span>
   </div>
   <div class="banner" id="fbBanner"></div>
 
   <div class="panel">
-    <h2><span class="ico">＋</span> <span id="addTitle">부서 추가</span></h2>
+    <h2><span class="ico">＋</span> <span id="addTitle">마트 추가</span></h2>
     <div class="addgrid">
-      <div class="field"><label>부서 이름 (영문)</label><input type="text" id="dName" placeholder="예: FISH" autocomplete="off"></div>
-      <div class="field"><label>한글명 (선택)</label><input type="text" id="dKo" placeholder="예: 생선" autocomplete="off"></div>
-      <div class="field"><label>부서 코드</label><input type="text" id="dCode" placeholder="자동: DEPT-FISH" autocomplete="off"></div>
-      <button class="btn" id="dSaveBtn" type="button">＋ 추가</button>
+      <div class="field"><label>마트 이름 (영문)</label><input type="text" id="sName" placeholder="예: TACOMA" autocomplete="off"></div>
+      <div class="field"><label>한글명 (선택)</label><input type="text" id="sKo" placeholder="예: 타코마점" autocomplete="off"></div>
+      <div class="field"><label>마트 코드</label><input type="text" id="sCode" placeholder="자동: STORE-TACOMA" autocomplete="off"></div>
+      <button class="btn" id="sSaveBtn" type="button">＋ 추가</button>
     </div>
-    <div class="hint">부서는 이름이 아닌 <b>코드</b>로 관리됩니다 — 예: FISH 부서 → <b>DEPT-FISH</b> 코드로 저장/호출.
-      코드는 직급·부서·메뉴 전체에서 중복될 수 없으며, 중복 시 경고가 표시됩니다. 코드 수정은 FUNCTION-CODE 관리에서도 가능합니다.</div>
+    <div class="hint">앞으로 만들어지는 모든 마트는 여기서 생성·관리합니다. 마트도 이름이 아닌 <b>코드</b>로 관리됩니다 —
+      예: TACOMA 마트 → <b>STORE-TACOMA</b> 코드로 저장/호출. 코드는 직급·부서·메뉴·마트 전체에서 중복될 수 없으며, 중복 시 경고가 표시됩니다.
+      코드 수정은 FUNCTION-CODE 관리에서도 가능합니다. 다른 앱이 저장한 매장 문서의 기존 필드는 그대로 보존됩니다.</div>
     <div style="margin-top:10px; display:none;" id="editActs">
-      <button class="btn ghost sm" id="dCancelBtn" type="button">수정 취소</button>
+      <button class="btn ghost sm" id="sCancelBtn" type="button">수정 취소</button>
     </div>
   </div>
 
   <div class="panel">
-    <h2><span class="ico">🏬</span> 부서 목록 <span class="cnt" id="dCnt"></span></h2>
-    <div class="dlist" id="dList"></div>
+    <h2><span class="ico">🏪</span> 마트 목록 <span class="cnt" id="sCnt"></span></h2>
+    <div class="dlist" id="sList"></div>
   </div>
 </div>
 
@@ -145,128 +146,131 @@
   $('mCancel').onclick=function(){ $('modalBg').classList.remove('show'); modalCb=null; };
   $('modalBg').addEventListener('click',function(e){ if(e.target===$('modalBg')){ $('modalBg').classList.remove('show'); modalCb=null; } });
 
-  var fb=null, depts={}, menus={}, ranks=[], stores={}, editingCode=null;
+  var fb=null, stores={}, depts={}, menus={}, ranks=[], editingCode=null;
 
   function fbFail(msg){
     var b=$('fbBanner');
-    b.innerHTML='⚠️ '+esc(msg)+' — <code>Function-Firebase-Egmm.js</code> 상단의 egmm-hq-it 설정(apiKey 등)을 입력한 뒤 새로고침하세요.';
+    b.innerHTML='⚠️ '+esc(msg)+' — <code>Function-Firebase-Egmm.js</code> 확인 후 새로고침하세요.';
     b.classList.add('show');
   }
   if(!window.EgmmFB){ fbFail('공용 Firebase 모듈을 찾을 수 없습니다'); return; }
   window.EgmmFB.ready.then(function(f){
     fb=f;
+    fb.onSnapshot(fb.collection(fb.db,'STORE'), function(snap){
+      stores={}; snap.forEach(function(ds){ if(ds.id.charAt(0)==='_') return; stores[ds.id]=ds.data()||{}; });
+      renderList();
+    }, function(e){ console.error(e); fbFail('STORE 실시간 연결 오류'); });
     fb.onSnapshot(fb.collection(fb.db,'DEPARTMENT'), function(snap){
       depts={}; snap.forEach(function(ds){ if(ds.id.charAt(0)==='_') return; depts[ds.id]=ds.data()||{}; });
-      renderList();
-    }, function(e){ console.error(e); fbFail('DEPARTMENT 실시간 연결 오류'); });
+    }, function(e){ console.error(e); });
     fb.onSnapshot(fb.collection(fb.db,'MENU'), function(snap){
       menus={}; snap.forEach(function(ds){ if(ds.id.charAt(0)==='_') return; menus[ds.id]=ds.data()||{}; });
     }, function(e){ console.error(e); });
     fb.onSnapshot(fb.collection(fb.db,'ACCESS'), function(snap){
       ranks=[]; snap.forEach(function(ds){ if(ds.id==='_RANKS'){ var d=ds.data()||{}; ranks=Array.isArray(d.items)?d.items:[]; } });
     }, function(e){ console.error(e); });
-    fb.onSnapshot(fb.collection(fb.db,'STORE'), function(snap){
-      stores={}; snap.forEach(function(ds){ if(ds.id.charAt(0)==='_') return; stores[ds.id]=ds.data()||{}; });
-    }, function(e){ console.error(e); });
   }).catch(function(){ fbFail('Firebase 설정이 비어 있습니다'); });
 
-  function allCodes(exceptDeptCode){
+  function allCodes(exceptStoreCode){
     var set={};
     ranks.forEach(function(r){ if(r.code) set[String(r.code).toUpperCase()]='직급 '+r.name; });
-    Object.keys(depts).forEach(function(c){ if(c!==exceptDeptCode) set[c.toUpperCase()]='부서 '+(depts[c].name||c); });
+    Object.keys(depts).forEach(function(c){ set[c.toUpperCase()]='부서 '+(depts[c].name||c); });
     Object.keys(menus).forEach(function(c){ set[c.toUpperCase()]='메뉴 '+(menus[c].name||c); });
-    Object.keys(stores).forEach(function(c){ set[c.toUpperCase()]='마트 '+(stores[c].name||c); });
+    Object.keys(stores).forEach(function(c){ if(c!==exceptStoreCode) set[c.toUpperCase()]='마트 '+(stores[c].name||c); });
     return set;
   }
 
   function renderList(){
-    var codes=Object.keys(depts).sort();
+    var codes=Object.keys(stores).sort();
     var html='';
     codes.forEach(function(c){
-      var d=depts[c];
+      var d=stores[c];
       html+='<div class="drow'+(c===editingCode?' edit':'')+'">'
         +'<span class="dc">'+esc(c)+'</span>'
-        +'<span class="dn">'+esc(d.name||'')+'</span>'
+        +'<span class="dn">'+esc(d.name||c)+'</span>'
         +'<span class="dk">'+esc(d.nameKo||'')+'</span>'
         +'<span class="acts">'
         +'<button class="btn ghost sm" data-edit="'+esc(c)+'" type="button">수정</button>'
         +'<button class="btn danger sm" data-del="'+esc(c)+'" type="button">삭제</button>'
         +'</span></div>';
     });
-    $('dList').innerHTML = html || '<div class="empty">부서가 없습니다. 위에서 추가하세요.</div>';
-    $('dCnt').textContent = codes.length? (codes.length+'개') : '';
-    Array.prototype.forEach.call($('dList').querySelectorAll('button[data-edit]'),function(b){
+    $('sList').innerHTML = html || '<div class="empty">마트가 없습니다. 위에서 추가하세요.</div>';
+    $('sCnt').textContent = codes.length? (codes.length+'개') : '';
+    Array.prototype.forEach.call($('sList').querySelectorAll('button[data-edit]'),function(b){
       b.onclick=function(){ startEdit(b.getAttribute('data-edit')); };
     });
-    Array.prototype.forEach.call($('dList').querySelectorAll('button[data-del]'),function(b){
-      b.onclick=function(){ delDept(b.getAttribute('data-del')); };
+    Array.prototype.forEach.call($('sList').querySelectorAll('button[data-del]'),function(b){
+      b.onclick=function(){ delStore(b.getAttribute('data-del')); };
     });
   }
 
-  $('dName').addEventListener('input',function(){
-    if(!$('dCode').dataset.touched){
-      var v=$('dName').value.trim();
-      $('dCode').value = v? ('DEPT-'+window.EgmmFB.sanitizeCode(v)) : '';
+  $('sName').addEventListener('input',function(){
+    if(!$('sCode').dataset.touched){
+      var v=$('sName').value.trim();
+      $('sCode').value = v? ('STORE-'+window.EgmmFB.sanitizeCode(v)) : '';
     }
   });
-  $('dCode').addEventListener('input',function(){ $('dCode').dataset.touched='1'; });
+  $('sCode').addEventListener('input',function(){ $('sCode').dataset.touched='1'; });
 
   function resetAdd(){
     editingCode=null;
-    $('addTitle').textContent='부서 추가';
-    $('dSaveBtn').textContent='＋ 추가';
-    $('dName').value=''; $('dKo').value=''; $('dCode').value='';
-    delete $('dCode').dataset.touched;
+    $('addTitle').textContent='마트 추가';
+    $('sSaveBtn').textContent='＋ 추가';
+    $('sName').value=''; $('sKo').value=''; $('sCode').value='';
+    delete $('sCode').dataset.touched;
     $('editActs').style.display='none';
     renderList();
   }
   function startEdit(code){
-    var d=depts[code]; if(!d) return;
+    var d=stores[code]; if(!d) return;
     editingCode=code;
-    $('addTitle').textContent='부서 수정: '+code;
-    $('dSaveBtn').textContent='💾 저장';
-    $('dName').value=d.name||''; $('dKo').value=d.nameKo||'';
-    $('dCode').value=code; $('dCode').dataset.touched='1';
+    $('addTitle').textContent='마트 수정: '+code;
+    $('sSaveBtn').textContent='💾 저장';
+    $('sName').value=d.name||''; $('sKo').value=d.nameKo||'';
+    $('sCode').value=code; $('sCode').dataset.touched='1';
     $('editActs').style.display='';
     renderList();
     window.scrollTo(0,0);
   }
-  $('dCancelBtn').onclick=resetAdd;
+  $('sCancelBtn').onclick=resetAdd;
 
-  $('dSaveBtn').onclick=function(){
+  $('sSaveBtn').onclick=function(){
     if(!fb){ toast('연결 준비 중 — 잠시 후 다시','error'); return; }
-    var name=$('dName').value.trim().toUpperCase();
-    var ko=$('dKo').value.trim();
-    var code=window.EgmmFB.sanitizeCode($('dCode').value || ('DEPT-'+name));
-    if(!name){ toast('부서 이름을 입력하세요','error'); $('dName').focus(); return; }
-    if(!code){ toast('부서 코드를 입력하세요','error'); $('dCode').focus(); return; }
+    var name=$('sName').value.trim().toUpperCase();
+    var ko=$('sKo').value.trim();
+    var code=window.EgmmFB.sanitizeCode($('sCode').value || ('STORE-'+name));
+    if(!name){ toast('마트 이름을 입력하세요','error'); $('sName').focus(); return; }
+    if(!code){ toast('마트 코드를 입력하세요','error'); $('sCode').focus(); return; }
     if(code.charAt(0)==='_'){ toast('사용할 수 없는 코드','error'); return; }
 
     var dup=allCodes(editingCode);
     if(dup[code]){ warnPopup('⚠️ 코드 중복','코드 "'+code+'" 는 이미 ['+dup[code]+'] 에서 사용 중입니다.\n다른 코드를 입력하세요.'); return; }
 
-    var base = editingCode ? (depts[editingCode]||{}) : {};
-    var data={ code:code, name:name, nameKo:ko, order:(base.order!=null?base.order:Object.keys(depts).length),
-      createdAt: base.createdAt||Date.now(), updatedAt: Date.now() };
+    /* 다른 앱이 저장한 매장 문서 필드 보존: 기존 문서 위에 병합 */
+    var base = editingCode ? (stores[editingCode]||{}) : {};
+    var data=Object.assign({}, base, {
+      code:code, name:name, nameKo:ko,
+      order:(base.order!=null?base.order:Object.keys(stores).length),
+      createdAt: base.createdAt||Date.now(), updatedAt: Date.now() });
 
     function write(){
-      fb.setDoc(fb.doc(fb.db,'DEPARTMENT',code), data).then(function(){
+      fb.setDoc(fb.doc(fb.db,'STORE',code), data).then(function(){
         if(editingCode && editingCode!==code){
-          return fb.deleteDoc(fb.doc(fb.db,'DEPARTMENT',editingCode));
+          return fb.deleteDoc(fb.doc(fb.db,'STORE',editingCode));
         }
       }).then(function(){
-        toast(editingCode? '저장 완료: '+code : '부서 추가됨: '+code,'success');
+        toast(editingCode? '저장 완료: '+code : '마트 추가됨: '+code,'success');
         resetAdd();
       }).catch(function(e){ console.error(e); toast('저장 실패 — 권한/네트워크 확인','error'); });
     }
     if(editingCode && editingCode!==code){
-      askConfirm('코드 변경','부서 코드를 "'+editingCode+'" → "'+code+'" 로 변경할까요?\n(문서가 새 코드로 이동합니다)', write, '변경');
+      askConfirm('코드 변경','마트 코드를 "'+editingCode+'" → "'+code+'" 로 변경할까요?\n(문서가 새 코드로 이동하며 기존 필드는 유지됩니다.\n다른 앱이 옛 코드를 참조 중이면 그 앱 설정도 맞춰야 합니다)', write, '변경');
     } else write();
   };
 
-  function delDept(code){
-    askConfirm('부서 삭제','부서 "'+(depts[code]&&depts[code].name||code)+'" ('+code+') 를 삭제할까요?',function(){
-      fb.deleteDoc(fb.doc(fb.db,'DEPARTMENT',code))
+  function delStore(code){
+    askConfirm('마트 삭제','마트 "'+(stores[code]&&stores[code].name||code)+'" ('+code+') 를 삭제할까요?\n이 매장 문서의 모든 필드가 함께 삭제됩니다.',function(){
+      fb.deleteDoc(fb.doc(fb.db,'STORE',code))
         .then(function(){ toast('삭제됨: '+code,'success'); if(editingCode===code) resetAdd(); })
         .catch(function(e){ console.error(e); toast('삭제 실패 — 권한 확인','error'); });
     },'삭제',true);

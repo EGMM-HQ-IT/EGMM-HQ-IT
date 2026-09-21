@@ -74,13 +74,13 @@
 
 <div class="wrap">
   <div class="page-topbar">
-    <h1>🧩 FUNCTION-CODE<small>직급 · 부서 · 메뉴 전체 코드 일람 및 수정</small></h1>
+    <h1>🧩 FUNCTION-CODE<small>직급 · 부서 · 메뉴 · 마트 전체 코드 일람 및 수정</small></h1>
     <span class="live">● LIVE</span>
   </div>
   <div class="banner" id="fbBanner"></div>
 
   <div class="intro">
-    Firebase 에 생성된 <b>모든 직급 · 부서 · 메뉴</b>가 여기에 표시됩니다.
+    Firebase 에 생성된 <b>모든 직급 · 부서 · 메뉴 · 마트</b>가 여기에 표시됩니다.
     이름 옆의 코드 칸에 직접 입력하고 <b>저장</b>을 누르면 그 코드명으로 Firebase 에 저장되고,
     앞으로는 이름이 아닌 <b>코드로 호출·관리</b>됩니다.
     코드는 전체(직급·부서·메뉴)에서 중복될 수 없으며, <b>중복 시 경고 팝업</b>이 표시됩니다.
@@ -100,6 +100,11 @@
   <div class="panel">
     <h2><span class="ico" style="background:#e1f0ff;">📑</span> 메뉴 (MENU) <span class="cnt" id="menuCnt"></span></h2>
     <div id="menuRows"></div>
+  </div>
+
+  <div class="panel">
+    <h2><span class="ico" style="background:#ffedd6;">🏪</span> 마트 (STORE) <span class="cnt" id="storeCnt"></span></h2>
+    <div id="storeRows"></div>
   </div>
 </div>
 
@@ -138,7 +143,7 @@
   $('mCancel').onclick=function(){ $('modalBg').classList.remove('show'); modalCb=null; };
   $('modalBg').addEventListener('click',function(e){ if(e.target===$('modalBg')){ $('modalBg').classList.remove('show'); modalCb=null; } });
 
-  var fb=null, ranks=[], users={}, depts={}, menus={};
+  var fb=null, ranks=[], users={}, depts={}, menus={}, stores={};
 
   function fbFail(msg){
     var b=$('fbBanner');
@@ -165,6 +170,10 @@
       menus={}; snap.forEach(function(ds){ if(ds.id.charAt(0)==='_') return; menus[ds.id]=ds.data()||{}; });
       renderAll();
     }, function(e){ console.error(e); });
+    fb.onSnapshot(fb.collection(fb.db,'STORE'), function(snap){
+      stores={}; snap.forEach(function(ds){ if(ds.id.charAt(0)==='_') return; stores[ds.id]=ds.data()||{}; });
+      renderAll();
+    }, function(e){ console.error(e); });
   }).catch(function(){ fbFail('Firebase 설정이 비어 있습니다'); });
 
   /* 전체 코드 공간 — except: {kind:'rank'|'dept'|'menu', key} */
@@ -181,6 +190,10 @@
     Object.keys(menus).forEach(function(c){
       if(except && except.kind==='menu' && except.key===c) return;
       set[c.toUpperCase()]='메뉴 '+(menus[c].name||c);
+    });
+    Object.keys(stores).forEach(function(c){
+      if(except && except.kind==='store' && except.key===c) return;
+      set[c.toUpperCase()]='마트 '+(stores[c].name||c);
     });
     return set;
   }
@@ -212,6 +225,12 @@
       return rowHtml('menu', c, menus[c].name||c, (menus[c].portal||'')+(menus[c].url?' · '+menus[c].url:''), c);
     }).join('') : '<div class="empty">메뉴가 없습니다 — MENU 관리에서 생성</div>';
     $('menuCnt').textContent = mks.length? mks.length+'개':'';
+    /* 마트 */
+    var sks=Object.keys(stores).sort();
+    $('storeRows').innerHTML = sks.length? sks.map(function(c){
+      return rowHtml('store', c, stores[c].name||c, stores[c].nameKo||'', c);
+    }).join('') : '<div class="empty">마트가 없습니다 — STORE 관리에서 생성</div>';
+    $('storeCnt').textContent = sks.length? sks.length+'개':'';
 
     Array.prototype.forEach.call(document.querySelectorAll('.crow'),function(row){
       var inp=row.querySelector('input'), btn=row.querySelector('button');
@@ -241,11 +260,13 @@
     }
 
     var refMsg = kind==='rank' ? '\n이 직급을 쓰는 계정과 메뉴의 직급별 허용 설정도 함께 새 코드로 바뀝니다.'
-               : kind==='menu' ? '\n계정 권한(perms)에 있는 기존 코드도 함께 새 코드로 바뀝니다.' : '';
+               : kind==='menu' ? '\n계정 권한(perms)에 있는 기존 코드도 함께 새 코드로 바뀝니다.'
+               : kind==='store' ? '\n(문서가 새 코드로 이동하며 기존 필드는 유지됩니다.\n다른 앱이 옛 코드를 참조 중이면 그 앱 설정도 맞춰야 합니다)' : '';
     askConfirm('코드 변경', (oldCode||'(코드 없음)')+' → '+newCode+' 로 변경할까요?'+refMsg, function(){
       var p;
       if(kind==='rank') p=changeRankCode(+key, newCode);
       else if(kind==='dept') p=changeDeptCode(key, newCode);
+      else if(kind==='store') p=changeStoreCode(key, newCode);
       else p=changeMenuCode(key, newCode);
       p.then(function(){ toast('코드 변경 완료: '+newCode,'success'); })
        .catch(function(e){ console.error(e); toast('변경 실패 — 권한/네트워크 확인','error'); });
@@ -270,6 +291,12 @@
         jobs.push(fb.updateDoc(fb.doc(fb.db,'MENU',mc),{ allowRanks:ar, updatedAt:Date.now() })); }
     });
     return Promise.all(jobs);
+  }
+
+  function changeStoreCode(oldCode, newCode){
+    var d=Object.assign({}, stores[oldCode]||{}, { code:newCode, updatedAt:Date.now() });
+    return fb.setDoc(fb.doc(fb.db,'STORE',newCode), d)
+      .then(function(){ return fb.deleteDoc(fb.doc(fb.db,'STORE',oldCode)); });
   }
 
   function changeDeptCode(oldCode, newCode){

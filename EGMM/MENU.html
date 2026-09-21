@@ -45,6 +45,17 @@
   .btn.danger:hover{ background:var(--danger); color:#fff; }
   .btn.sm{ padding:8px 13px; font-size:12px; }
 
+  .pchips{ display:flex; gap:7px; flex-wrap:wrap; margin-bottom:10px; }
+  .pchip{ display:inline-flex; align-items:center; gap:7px; border:1.5px solid var(--border); background:var(--bg);
+    border-radius:20px; padding:7px 8px 7px 14px; font-size:13px; font-weight:800; }
+  .pchip.fixed{ border-color:var(--accent-warm); background:var(--accent-soft); color:var(--accent-warm); padding-right:14px; }
+  .pchip .pdel{ border:none; background:var(--bg-elev-2); color:var(--text-faint); width:20px; height:20px;
+    border-radius:50%; font-size:11px; line-height:1; cursor:pointer; font-weight:800; }
+  .pchip .pdel:hover{ background:var(--danger); color:#fff; }
+  .pchip .puse{ font-size:10px; color:var(--text-faint); font-weight:700; }
+  .paddrow{ display:grid; grid-template-columns:1fr auto; gap:8px; }
+  .paddrow input{ border:1.5px solid var(--border); border-radius:10px; padding:10px 12px; font:inherit; font-size:13px; font-weight:700; background:var(--bg); text-transform:uppercase; }
+  .paddrow input:focus{ outline:none; border-color:var(--accent-warm); background:#fff; }
   .tabs{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
   .tab{ border:1.5px solid var(--border); background:var(--bg); color:var(--text-dim); border-radius:20px; padding:7px 15px; font-size:12px; font-weight:800; cursor:pointer; }
   .tab.active{ border-color:var(--accent-warm); background:var(--accent-soft); color:var(--accent-warm); }
@@ -113,9 +124,7 @@
     <h2><span class="ico">＋</span> <span id="addTitle">메뉴 추가</span></h2>
     <div class="addgrid">
       <div class="field"><label>메뉴 이름</label><input type="text" id="mName" placeholder="예: PLU LIST" autocomplete="off"></div>
-      <div class="field"><label>포털</label><select id="mPortal">
-        <option value="EGMM">EGMM</option><option value="HMART">HMART</option>
-        <option value="공통">공통</option><option value="기타">기타</option></select></div>
+      <div class="field"><label>포털</label><select id="mPortal"></select></div>
       <div class="field"><label>메뉴 코드</label><input type="text" id="mCode" placeholder="자동: MENU-…" autocomplete="off"></div>
       <div class="field"><label>연결 파일/URL (선택)</label><input type="text" id="mUrl" placeholder="예: plu-list-manager.html" autocomplete="off"></div>
       <button class="btn" id="mSaveBtn" type="button">＋ 추가</button>
@@ -126,6 +135,18 @@
     <div style="margin-top:10px; display:none;" id="editActs">
       <button class="btn ghost sm" id="mCancelEditBtn" type="button">수정 취소</button>
     </div>
+  </div>
+
+  <!-- 포털 관리 -->
+  <div class="panel">
+    <h2><span class="ico">🌐</span> 포털 관리 <span class="cnt" id="pCnt"></span></h2>
+    <div class="pchips" id="portalChips"></div>
+    <div class="paddrow">
+      <input type="text" id="pName" placeholder="새 포털 이름 (예: VENDOR)" autocomplete="off">
+      <button class="btn sm" id="pAddBtn" type="button">＋ 포털 추가</button>
+    </div>
+    <div class="hint"><b>전체</b>는 기본 포함된 포털입니다 — 포털을 '전체'로 지정한 메뉴는 모든 포털에서 표시됩니다.
+      포털 이름은 중복될 수 없으며, 중복 시 경고가 표시됩니다. 메뉴가 사용 중인 포털은 삭제할 수 없습니다.</div>
   </div>
 
   <div class="panel">
@@ -185,7 +206,9 @@
   $('mtCancel').onclick=function(){ $('modalBg').classList.remove('show'); modalCb=null; };
   $('modalBg').addEventListener('click',function(e){ if(e.target===$('modalBg')){ $('modalBg').classList.remove('show'); modalCb=null; } });
 
-  var fb=null, menus={}, depts={}, ranks=[], users={}, editingCode=null, curPortal='전체', permCode=null;
+  var fb=null, menus={}, depts={}, ranks=[], users={}, stores={}, portalItems=null, editingCode=null, curPortal='전체', permCode=null;
+  var PORTAL_ALL='전체';
+  var DEFAULT_PORTALS=['EGMM','HMART'];
 
   function fbFail(msg){
     var b=$('fbBanner');
@@ -196,11 +219,19 @@
   window.EgmmFB.ready.then(function(f){
     fb=f;
     fb.onSnapshot(fb.collection(fb.db,'MENU'), function(snap){
-      menus={}; snap.forEach(function(ds){ if(ds.id.charAt(0)==='_') return; menus[ds.id]=ds.data()||{}; });
-      renderTabs(); renderList();
+      menus={}; portalItems=null;
+      snap.forEach(function(ds){
+        if(ds.id==='_PORTALS'){ var d=ds.data()||{}; portalItems=Array.isArray(d.items)?d.items.slice():[]; return; }
+        if(ds.id.charAt(0)==='_') return;
+        menus[ds.id]=ds.data()||{};
+      });
+      renderPortalChips(); renderPortalSelect(); renderTabs(); renderList();
     }, function(e){ console.error(e); fbFail('MENU 실시간 연결 오류'); });
     fb.onSnapshot(fb.collection(fb.db,'DEPARTMENT'), function(snap){
       depts={}; snap.forEach(function(ds){ if(ds.id.charAt(0)==='_') return; depts[ds.id]=ds.data()||{}; });
+    }, function(e){ console.error(e); });
+    fb.onSnapshot(fb.collection(fb.db,'STORE'), function(snap){
+      stores={}; snap.forEach(function(ds){ if(ds.id.charAt(0)==='_') return; stores[ds.id]=ds.data()||{}; });
     }, function(e){ console.error(e); });
     fb.onSnapshot(fb.collection(fb.db,'ACCESS'), function(snap){
       users={}; ranks=[];
@@ -217,17 +248,82 @@
     ranks.forEach(function(r){ if(r.code) set[String(r.code).toUpperCase()]='직급 '+r.name; });
     Object.keys(depts).forEach(function(c){ set[c.toUpperCase()]='부서 '+(depts[c].name||c); });
     Object.keys(menus).forEach(function(c){ if(c!==exceptMenuCode) set[c.toUpperCase()]='메뉴 '+(menus[c].name||c); });
+    Object.keys(stores).forEach(function(c){ set[c.toUpperCase()]='마트 '+(stores[c].name||c); });
     return set;
   }
 
-  /* ── 목록 ── */
-  function portals(){
-    var set={'전체':1,'EGMM':1,'HMART':1};
-    Object.keys(menus).forEach(function(c){ var p=menus[c].portal||'기타'; set[p]=1; });
+  /* ── 포털 관리 ── */
+  function portalsList(){
+    if(portalItems!==null) return portalItems.slice();
+    /* _PORTALS 문서가 아직 없으면: 기본값 + 기존 메뉴에서 발견되는 포털 */
+    var set={};
+    DEFAULT_PORTALS.forEach(function(p){ set[p]=1; });
+    Object.keys(menus).forEach(function(c){ var p=menus[c].portal; if(p && p!==PORTAL_ALL) set[p]=1; });
     return Object.keys(set);
   }
+  function portalUseCount(p){
+    var n=0; Object.keys(menus).forEach(function(c){ if((menus[c].portal||'')===p) n++; });
+    return n;
+  }
+  function savePortals(items,okMsg){
+    fb.setDoc(fb.doc(fb.db,'MENU','_PORTALS'),{ items:items, updatedAt:Date.now() })
+      .then(function(){ toast(okMsg,'success'); })
+      .catch(function(e){ console.error(e); toast('저장 실패 — 권한/네트워크 확인','error'); });
+  }
+  function renderPortalChips(){
+    var ps=portalsList();
+    var html='<span class="pchip fixed">'+esc(PORTAL_ALL)+' <span class="puse">모든 포털</span></span>';
+    ps.forEach(function(p){
+      var used=portalUseCount(p);
+      html+='<span class="pchip">'+esc(p)
+        +(used?'<span class="puse">메뉴 '+used+'</span>':'')
+        +'<button class="pdel" data-p="'+esc(p)+'" type="button" title="삭제">✕</button></span>';
+    });
+    $('portalChips').innerHTML=html;
+    $('pCnt').textContent=(ps.length+1)+'개';
+    Array.prototype.forEach.call($('portalChips').querySelectorAll('.pdel'),function(b){
+      b.onclick=function(){ delPortal(b.getAttribute('data-p')); };
+    });
+  }
+  $('pAddBtn').onclick=function(){
+    if(!fb){ toast('연결 준비 중','error'); return; }
+    var name=$('pName').value.trim().toUpperCase();
+    if(!name){ toast('포털 이름을 입력하세요','error'); $('pName').focus(); return; }
+    var ps=portalsList();
+    /* 포털 중복 체크 (전체 포함, 대소문자 무시) */
+    if(name===PORTAL_ALL || name==='ALL'){ warnPopup('⚠️ 포털 중복','"'+name+'" 는 기본 포함된 포털(전체)과 겹칩니다.\n다른 이름을 입력하세요.'); return; }
+    for(var i=0;i<ps.length;i++){
+      if(ps[i].toUpperCase()===name){ warnPopup('⚠️ 포털 중복','포털 "'+name+'" 는 이미 존재합니다.\n다른 이름을 입력하세요.'); return; }
+    }
+    ps.push(name);
+    savePortals(ps,'포털 추가됨: '+name);
+    $('pName').value='';
+  };
+  function delPortal(p){
+    var used=portalUseCount(p);
+    if(used){ warnPopup('⚠️ 삭제 불가','포털 "'+p+'" 는 메뉴 '+used+'개에서 사용 중입니다.\n먼저 해당 메뉴의 포털을 변경하세요.'); return; }
+    askConfirm('포털 삭제','포털 "'+p+'" 를 삭제할까요?',function(){
+      var ps=portalsList().filter(function(x){ return x!==p; });
+      savePortals(ps,'포털 삭제됨: '+p);
+    },'삭제',true);
+  }
+  /* 메뉴 추가/수정 폼의 포털 선택 (전체 포함) */
+  function renderPortalSelect(){
+    var cur=$('mPortal').value;
+    var ps=portalsList();
+    var html='';
+    ps.forEach(function(p){ html+='<option value="'+esc(p)+'">'+esc(p)+'</option>'; });
+    html+='<option value="'+esc(PORTAL_ALL)+'">'+esc(PORTAL_ALL)+' (모든 포털)</option>';
+    $('mPortal').innerHTML=html;
+    if(cur && (ps.indexOf(cur)>=0 || cur===PORTAL_ALL)) $('mPortal').value=cur;
+  }
+
+  /* ── 목록 ── */
   function renderTabs(){
-    $('portalTabs').innerHTML = portals().map(function(p){
+    var tabs=[PORTAL_ALL].concat(portalsList());
+    /* 목록에만 있는 옛 포털 값도 탭으로 표시 */
+    Object.keys(menus).forEach(function(c){ var p=menus[c].portal||'기타'; if(p!==PORTAL_ALL && tabs.indexOf(p)<0) tabs.push(p); });
+    $('portalTabs').innerHTML = tabs.map(function(p){
       return '<button class="tab'+(p===curPortal?' active':'')+'" data-p="'+esc(p)+'" type="button">'+esc(p)+'</button>';
     }).join('');
     Array.prototype.forEach.call($('portalTabs').querySelectorAll('.tab'),function(b){
@@ -243,7 +339,8 @@
     var html='', shown=0;
     codes.forEach(function(c){
       var m=menus[c];
-      if(curPortal!=='전체' && (m.portal||'기타')!==curPortal) return;
+      /* '전체' 포털 메뉴는 모든 포털 탭에 표시 */
+      if(curPortal!==PORTAL_ALL && (m.portal||'기타')!==curPortal && m.portal!==PORTAL_ALL) return;
       shown++;
       var ar=Array.isArray(m.allowRanks)?m.allowRanks.length:0;
       var au=Array.isArray(m.allowUsers)?m.allowUsers.length:0;
@@ -279,7 +376,9 @@
     editingCode=null;
     $('addTitle').textContent='메뉴 추가';
     $('mSaveBtn').textContent='＋ 추가';
-    $('mName').value=''; $('mUrl').value=''; $('mCode').value=''; $('mPortal').value='EGMM';
+    $('mName').value=''; $('mUrl').value=''; $('mCode').value='';
+    renderPortalSelect();
+    var ps=portalsList(); $('mPortal').value = ps.length? ps[0] : PORTAL_ALL;
     delete $('mCode').dataset.touched;
     $('editActs').style.display='none';
     renderList();
@@ -290,8 +389,9 @@
     $('addTitle').textContent='메뉴 수정: '+code;
     $('mSaveBtn').textContent='💾 저장';
     $('mName').value=m.name||''; $('mUrl').value=m.url||'';
+    renderPortalSelect();
     var p=m.portal||'기타';
-    if(['EGMM','HMART','공통','기타'].indexOf(p)<0){
+    if(!$('mPortal').querySelector('option[value="'+p.replace(/"/g,'\\"')+'"]')){
       var opt=document.createElement('option'); opt.value=p; opt.textContent=p; $('mPortal').appendChild(opt);
     }
     $('mPortal').value=p;
@@ -395,7 +495,7 @@
       .catch(function(e){ console.error(e); toast('저장 실패 — 권한/네트워크 확인','error'); });
   };
 
-  renderTabs();
+  renderPortalChips(); renderPortalSelect(); renderTabs();
 })();
 </script>
 </body>

@@ -39,6 +39,11 @@
   .urow.active{ border-color:var(--accent-warm); background:var(--accent-soft); box-shadow:inset 3px 0 0 var(--accent-warm); }
   .urow .uid{ font-size:14px; font-weight:800; }
   .urow .unm{ font-size:11px; color:var(--text-dim); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ugroup{ display:flex; align-items:center; gap:6px; font-size:12px; font-weight:800; color:var(--accent-warm);
+    letter-spacing:.04em; margin:8px 0 2px; padding:5px 4px 4px; border-bottom:1.5px solid var(--border); }
+  .ugroup:first-child{ margin-top:0; }
+  .ugroup .gcnt{ font-size:10px; color:var(--text-faint); font-weight:800; background:var(--bg-elev-2); border:1px solid var(--border); border-radius:10px; padding:1px 7px; }
+  .ugroup.gnone{ color:var(--text-faint); }
   .badge{ margin-left:auto; font-size:10px; font-weight:800; padding:2px 8px; border-radius:10px; white-space:nowrap; }
   .badge.rank{ background:var(--accent-soft); color:var(--accent-warm); }
   .badge.norank{ background:var(--bg-elev-2); color:var(--text-faint); }
@@ -87,8 +92,13 @@
 
   /* 직급 관리 */
   .rankwrap{ margin-top:16px; }
-  .rrow{ display:grid; grid-template-columns:1fr 1fr auto; gap:8px; align-items:center;
+  .rrow{ display:grid; grid-template-columns:auto 1fr 1fr auto; gap:8px; align-items:center;
     border:1px solid var(--border); border-radius:10px; padding:9px 12px; background:var(--bg); margin-bottom:6px; }
+  .rorder{ display:flex; flex-direction:column; gap:2px; }
+  .rorder button{ border:1px solid var(--border); background:var(--bg-elev); color:var(--text-dim); border-radius:6px;
+    width:24px; height:18px; font-size:10px; line-height:1; cursor:pointer; padding:0; font-weight:800; }
+  .rorder button:hover:not(:disabled){ color:var(--accent-warm); border-color:var(--accent-warm); background:var(--accent-soft); }
+  .rorder button:disabled{ opacity:.3; cursor:default; }
   .rrow .rn{ font-size:14px; font-weight:800; }
   .rrow .rc{ font-size:12px; font-weight:800; color:var(--accent-warm); }
   .rrow .ru{ font-size:10px; color:var(--text-faint); font-weight:700; }
@@ -229,7 +239,7 @@
   $('modalBg').addEventListener('click',function(e){ if(e.target===$('modalBg')){ $('modalBg').classList.remove('show'); modalCb=null; } });
 
   /* ── Firebase ── */
-  var fb=null, users={}, ranks=[], menus={}, depts={}, editingId=null;
+  var fb=null, users={}, ranks=[], menus={}, depts={}, stores={}, editingId=null;
 
   function fbFail(msg){
     var b=$('fbBanner');
@@ -257,6 +267,10 @@
     fb.onSnapshot(fb.collection(fb.db,'DEPARTMENT'), function(snap){
       depts={}; snap.forEach(function(ds){ if(ds.id.charAt(0)==='_') return; depts[ds.id]=ds.data()||{}; });
     }, function(e){ console.error(e); });
+
+    fb.onSnapshot(fb.collection(fb.db,'STORE'), function(snap){
+      stores={}; snap.forEach(function(ds){ if(ds.id.charAt(0)==='_') return; stores[ds.id]=ds.data()||{}; });
+    }, function(e){ console.error(e); });
   }).catch(function(){ fbFail('Firebase 설정이 비어 있습니다'); });
 
   /* 전체 코드 공간 (직급 + 부서 + 메뉴) — 중복 검사용 */
@@ -265,6 +279,7 @@
     ranks.forEach(function(r,i){ if(i!==exceptRankIdx && r.code) set[String(r.code).toUpperCase()]='직급 '+r.name; });
     Object.keys(depts).forEach(function(c){ set[c.toUpperCase()]='부서 '+(depts[c].name||c); });
     Object.keys(menus).forEach(function(c){ set[c.toUpperCase()]='메뉴 '+(menus[c].name||c); });
+    Object.keys(stores).forEach(function(c){ set[c.toUpperCase()]='마트 '+(stores[c].name||c); });
     return set;
   }
 
@@ -273,20 +288,33 @@
     for(var i=0;i<ranks.length;i++){ if(ranks[i].code===code) return ranks[i].name; }
     return code||'';
   }
+  /* 직급별 카테고리로 위→아래 정렬 (직급 순서는 [직급 관리]의 ↑↓ 로 조정) */
   function renderUsers(){
     var q=($('userSearch').value||'').trim().toUpperCase();
     var ids=Object.keys(users).sort();
-    var shown=0, html='';
+    var groups=ranks.map(function(r){ return { name:r.name, code:r.code, ids:[] }; });
+    var none={ name:'직급 없음', code:'', ids:[] };
+    var shown=0;
     ids.forEach(function(id){
       var u=users[id];
       var hay=(id+' '+(u.fullName||'')).toUpperCase();
       if(q && hay.indexOf(q)<0) return;
       shown++;
-      var rk=u.rank?('<span class="badge rank">'+esc(rankName(u.rank))+'</span>'):'<span class="badge norank">직급없음</span>';
-      var bl=u.blocked?'<span class="badge block">차단</span>':'';
-      html+='<div class="urow'+(id===editingId?' active':'')+'" data-id="'+esc(id)+'">'
-        +'<div style="min-width:0"><div class="uid">'+esc(id)+'</div>'
-        +(u.fullName?'<div class="unm">'+esc(u.fullName)+'</div>':'')+'</div>'+rk+bl+'</div>';
+      var g=null;
+      for(var i=0;i<groups.length;i++){ if(groups[i].code===u.rank){ g=groups[i]; break; } }
+      (g||none).ids.push(id);
+    });
+    var html='';
+    groups.concat([none]).forEach(function(g){
+      if(!g.ids.length) return;
+      html+='<div class="ugroup'+(g.code?'':' gnone')+'">'+esc(g.name)+' <span class="gcnt">'+g.ids.length+'</span></div>';
+      g.ids.forEach(function(id){
+        var u=users[id];
+        var bl=u.blocked?'<span class="badge block">차단</span>':'';
+        html+='<div class="urow'+(id===editingId?' active':'')+'" data-id="'+esc(id)+'">'
+          +'<div style="min-width:0"><div class="uid">'+esc(id)+'</div>'
+          +(u.fullName?'<div class="unm">'+esc(u.fullName)+'</div>':'')+'</div>'+bl+'</div>';
+      });
     });
     $('userList').innerHTML = shown?html:'<div class="empty">계정이 없습니다.<br>오른쪽에서 새 계정을 만드세요.</div>';
     $('userCnt').textContent = ids.length? (ids.length+'개') : '';
@@ -301,7 +329,12 @@
     var html='';
     ranks.forEach(function(r,i){
       var used=0; Object.keys(users).forEach(function(id){ if(users[id].rank===r.code) used++; });
-      html+='<div class="rrow"><span class="rn">'+esc(r.name)+'</span>'
+      html+='<div class="rrow">'
+        +'<span class="rorder">'
+        +'<button type="button" data-up="'+i+'"'+(i===0?' disabled':'')+' title="위로">▲</button>'
+        +'<button type="button" data-dn="'+i+'"'+(i===ranks.length-1?' disabled':'')+' title="아래로">▼</button>'
+        +'</span>'
+        +'<span class="rn">'+esc(r.name)+'</span>'
         +'<span class="rc">'+esc(r.code)+(used?'<span class="ru"> · 사용 '+used+'명</span>':'')+'</span>'
         +'<button class="btn danger sm" data-ri="'+i+'" type="button">삭제</button></div>';
     });
@@ -310,6 +343,20 @@
     Array.prototype.forEach.call($('rankList').querySelectorAll('button[data-ri]'),function(b){
       b.onclick=function(){ delRank(+b.getAttribute('data-ri')); };
     });
+    Array.prototype.forEach.call($('rankList').querySelectorAll('button[data-up]'),function(b){
+      b.onclick=function(){ moveRank(+b.getAttribute('data-up'),-1); };
+    });
+    Array.prototype.forEach.call($('rankList').querySelectorAll('button[data-dn]'),function(b){
+      b.onclick=function(){ moveRank(+b.getAttribute('data-dn'),1); };
+    });
+  }
+  /* 직급 순서 이동 — 계정 목록의 카테고리 순서에 그대로 반영 */
+  function moveRank(i,dir){
+    var j=i+dir; if(j<0 || j>=ranks.length) return;
+    var items=ranks.slice();
+    var t=items[i]; items[i]=items[j]; items[j]=t;
+    items=items.map(function(r,idx){ return Object.assign({}, r, { order: idx }); });
+    saveRanks(items,'직급 순서 변경');
   }
   function renderRankSelect(){
     var cur=$('fRank').value;
