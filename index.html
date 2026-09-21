@@ -19,7 +19,8 @@
     { key:'ADVIEWER',   name:'AD VIEWER',   sub:'광고상품 보기', path:'advertising-viewer.html',                       color:'#A98A55', mark:'AD' },
     { key:'NEWITEM',    name:'NEW ITEM',    sub:'신상품 보기',   path:'newitem-viewer.html',                           color:'#3B556F', mark:'NI' },
     { key:'PLUMEM',     name:'PLU MEMORIZE',sub:'PLU 암기 연습', path:'TOOLS/plu-quiz.html',                           color:'#55506B', mark:'PM' },
-    { key:'PLUPREVIEW', name:'PLU PREVIEW', sub:'PLU 미리보기',  path:'tablet-plu-preview.html',                       color:'#1E1B16', mark:'PP' }
+    { key:'PLUPREVIEW', name:'PLU PREVIEW', sub:'PLU 미리보기',  path:'tablet-plu-preview.html',                       color:'#1E1B16', mark:'PP' },
+    { key:'EGMM',       name:'EGMM',        sub:'운영 콘솔',     path:'EGMM/egmm.html',                                color:'#7D5BA6', mark:'EG' }
   ];
   var TKEY='ppInstallTargets';
   window.PP_TARGET=function(k){
@@ -4950,6 +4951,26 @@
   .ppi-go{ flex:0 0 auto; padding:13px 20px; border-radius:11px; border:1px solid #1E1B16; background:#1E1B16;
     color:#fff; font-family:inherit; font-size:12px; font-weight:700; letter-spacing:.06em; cursor:pointer; white-space:nowrap; }
   .ppi-go:active{ background:#000; }
+
+  /* 메뉴 카드마다 붙는 개별 설치 버튼 (바탕화면/홈 화면 인스톨) */
+  .portal-card{ position:relative; }
+  .pc-inst{
+    position:absolute; top:10px; right:10px; z-index:5;
+    display:inline-flex; align-items:center; gap:4px;
+    padding:5px 10px; border-radius:20px; cursor:pointer;
+    border:1px solid #D6CFC0; background:#FFFDFA; color:#4C463C;
+    font-family:'Pretendard',-apple-system,sans-serif; font-size:10px; font-weight:800; letter-spacing:.04em;
+    box-shadow:0 3px 10px -6px rgba(30,27,22,.5); transition:all .15s;
+  }
+  .pc-inst:hover{ border-color:#1E1B16; background:#1E1B16; color:#fff; }
+  .pc-inst:active{ transform:scale(.95); }
+  #egmmInstMini{
+    margin-left:6px; width:30px; height:30px; border-radius:9px; cursor:pointer;
+    border:1px solid #D6CFC0; background:#FFFDFA; color:#4C463C;
+    font-size:13px; font-weight:800; line-height:1;
+    box-shadow:0 3px 10px -6px rgba(30,27,22,.5); transition:all .15s;
+  }
+  #egmmInstMini:hover{ border-color:#1E1B16; background:#1E1B16; color:#fff; }
 </style>
 
 <button id="ppInstBtn" type="button" title="아이패드 홈 화면에 설치"><span class="t">HOME</span><span class="b">INSTALL</span></button>
@@ -5043,6 +5064,36 @@
     if(f) window.PP_SET_TARGET(key, f.value);
     location.href = location.pathname + '?app=' + encodeURIComponent(key);
   });
+
+  /* ── 각 메뉴 카드에 개별 [⬇ 설치] 버튼 — 누르면 그 메뉴의 홈 화면 설치 안내로 이동 ── */
+  var CARD2APP={ toHmartBtn:'HMART', toCampeonBtn:'CAMPEON', toAdViewerBtn:'ADVIEWER',
+                 toNewViewerBtn:'NEWITEM', toPluQuizBtn:'PLUMEM', toPluPreviewBtn:'PLUPREVIEW' };
+  function goInstall(key,ev){
+    if(ev){ ev.stopPropagation(); ev.preventDefault(); }
+    location.href = location.pathname + '?app=' + encodeURIComponent(key);
+  }
+  function addInstallBadges(){
+    Object.keys(CARD2APP).forEach(function(id){
+      var card=document.getElementById(id);
+      if(!card || card.querySelector('.pc-inst')) return;
+      var b=document.createElement('button');
+      b.type='button'; b.className='pc-inst'; b.title='이 메뉴를 홈 화면(바탕화면)에 설치';
+      b.innerHTML='&#8681; 설치';
+      b.addEventListener('click', function(ev){ goInstall(CARD2APP[id], ev); });
+      card.appendChild(b);
+    });
+    /* EGMM (좌상단 버튼) 옆 미니 설치 버튼 */
+    var fab=document.getElementById('toOdpBtn');
+    if(fab && fab.parentNode && !document.getElementById('egmmInstMini')){
+      var m=document.createElement('button');
+      m.type='button'; m.id='egmmInstMini'; m.title='EGMM 을 홈 화면(바탕화면)에 설치';
+      m.innerHTML='&#8681;';
+      m.addEventListener('click', function(ev){ goInstall('EGMM', ev); });
+      fab.parentNode.appendChild(m);
+    }
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', addInstallBadges);
+  else addInstallBadges();
 })();
 </script>
 
