@@ -2665,83 +2665,28 @@
 </style>
 </head>
 <body>
+<script src="../Function-Firebase-Egmm.js"></script>
 <script>
   /* === 진입 게이트(인페이지) === 메인 화면이 보이기 전 ID/PASSWORD 로그인 필수.
-     계정: HOMEPAGE MANAGER · app-config/egmm-users (MANAGER 계정 manager-users 포함 — 전체 권한)
-     ACCESS 차단 · ANYWHERE · 등록 IP 검사 그대로 적용.
+     계정: SYSTEM > ACCESS 관리에서 만든 아이디·비밀번호 (Firestore egmm-hq-it / DB egmm / ACCESS 컬렉션)
+     차단(blocked) 계정 거부 · 기존 링크(egmm-users / manager-users) 사용 안 함.
      자동 로그인 없음 — 매 진입마다 직접 로그인 (자동 반복 원천 차단) */
   (function(){
     'use strict';
-    function fbReady(cb){ if(window.firebaseFns && window.firebaseDb) cb(); else window.addEventListener('plu-firebase-ready', cb, {once:true}); }
-    function getDocData(col,id){
-      return new Promise(function(res,rej){
-        fbReady(function(){
-          window.firebaseFns.getDoc(window.firebaseFns.doc(window.firebaseDb,col,id))
-            .then(function(snap){ res((snap&&snap.exists&&snap.exists())?(snap.data()||{}):null); })
-            .catch(rej);
-        });
-      });
-    }
-    function hashPw(v){
-      v=String(v);
-      if(window.crypto && window.crypto.subtle){
-        return window.crypto.subtle.digest('SHA-256', new TextEncoder().encode('THE-SHAWN::'+v)).then(function(buf){
-          return 'h:'+Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
-        }).catch(function(){ return null; });
-      }
-      return Promise.resolve(null);
-    }
-    function myIp(){
-      return fetch('https://api.ipify.org?format=json').then(function(r){return r.json();})
-        .then(function(j){ return String((j&&j.ip)||'').trim(); }).catch(function(){ return null; });
-    }
-    var REQUIRED_SCOPE='EGMM';
-    var GATE_COLS=[['egmm-users','egmm'],['manager-users','master']];   // EGMM은 MANAGER/EGMM 계정만 입장
-    function findUser(name){
-      function pick(d){ var us=(d&&Array.isArray(d.users))?d.users:[];
-        for(var i=0;i<us.length;i++){ if(us[i] && String(us[i].name||'').trim().toUpperCase()===name) return us[i]; } return null; }
-      var i=0;
-      function next(){
-        if(i>=GATE_COLS.length) return Promise.resolve(null);
-        var c=GATE_COLS[i++];
-        return getDocData('app-config',c[0]).then(function(d){ var u=pick(d); return u?{u:u, tier:c[1]}:next(); });
-      }
-      return next();
-    }
     function verifyAcct(name, pw){
       name=String(name).trim().toUpperCase();
-      return findUser(name).then(function(hit){
-        if(!hit) return {err:'ID NOT FOUND'};
-        var u=hit.u, pin=String(u.pin||'');
-        function checks(){
-          var anywhere=!!u.anywhere;
-          if(!anywhere && u.access===false) return Promise.resolve({err:'BLOCKED ID · ASK MANAGER'});
-          if(anywhere) return Promise.resolve(null);
-          var ips=Array.isArray(u.ips)?u.ips.map(function(x){return String(x).trim();}).filter(Boolean):[];
-          if(!ips.length) return Promise.resolve({err:'IP NOT REGISTERED · ASK MANAGER'});
-          return myIp().then(function(ip){
-            if(!ip) return {err:'IP CHECK FAILED — CHECK NETWORK'};
-            if(ips.indexOf(ip)<0) return {err:'IP NOT ALLOWED ('+ip+')'};
-            return null;
+      if(!window.EgmmFB) return Promise.resolve({err:'FIREBASE MODULE MISSING'});
+      return window.EgmmFB.ready.then(function(fb){
+        return fb.getDoc(fb.doc(fb.db,'ACCESS',name)).then(function(snap){
+          if(!snap || !snap.exists || !snap.exists()) return {err:'ID NOT FOUND'};
+          var u=snap.data()||{};
+          if(u.blocked===true) return {err:'BLOCKED ID · ASK MANAGER'};
+          return window.EgmmFB.verifyPw(u.pw, pw).then(function(ok){
+            if(!ok) return {err:'WRONG PASSWORD'};
+            return {ok:true,
+              user:{ id:name, name:name, fullName:u.fullName||'', rank:u.rank||'',
+                     perms:Array.isArray(u.perms)?u.perms:[] } };
           });
-        }
-        function done(){
-          if(hit.tier!=='master'){
-            var sc=(u.perms&&Array.isArray(u.perms.scopes))?u.perms.scopes.map(function(x){return String(x).toUpperCase();}):[];
-            if(!(sc.indexOf('*')>=0 || sc.indexOf(REQUIRED_SCOPE)>=0))
-              return Promise.resolve({err:'NO ACCESS PERMISSION ('+REQUIRED_SCOPE+')'});
-          }
-          return checks().then(function(bad){
-            if(bad) return bad;
-            return {ok:true, tier:hit.tier,
-              user:{ name:u.name, fullName:u.fullName||'', position:u.position||'', role:u.role||'' },
-              menus:(u.menus&&typeof u.menus==='object')?u.menus:{} };
-          });
-        }
-        return hashPw(pw).then(function(h){
-          if(h && pin===h) return done();
-          if(pin==='p:'+pw || (pin!=='' && pin===pw)) return done();
-          return {err:'WRONG PASSWORD'};
         });
       }).catch(function(){ return {err:'CONNECTION ERROR — TRY AGAIN'}; });
     }
@@ -2751,8 +2696,10 @@
     }
     function pass(r){
       try{ sessionStorage.setItem('egmmGate','1'); }catch(e){}
-      try{ sessionStorage.setItem('egmmUser', JSON.stringify({name:r.user.name, menus:r.menus})); }catch(e){}
-      try{ sessionStorage.setItem('egmmAuth', JSON.stringify({mode:'account', tier:r.tier, user:r.user})); }catch(e){}
+      try{ sessionStorage.setItem('egmmUser', JSON.stringify({name:r.user.id, menus:{}})); }catch(e){}
+      try{ sessionStorage.setItem('egmmAuth', JSON.stringify({mode:'access', user:r.user})); }catch(e){}
+      /* ACCESS 게이트(Function-Access-Gate.js)를 쓰는 파일들과 세션 공유 — 재로그인 없이 이동 */
+      try{ sessionStorage.setItem('egmmAccessAuth', JSON.stringify({id:r.user.id, fullName:r.user.fullName, rank:r.user.rank, perms:r.user.perms})); }catch(e){}
       unlock();
     }
     function show(msg){
@@ -2821,16 +2768,7 @@
  <!-- 왼쪽 사이드바 -->
  <aside class="eg-side">
  <div class="egmm-cards">
-  <!-- 박스 0: MANAGER (다른 메뉴와 동일한 리스트 형태 · 암호 없음) -->
-  <div class="egmm-card">
-    <div class="egmm-card-head"><span class="egmm-card-tick"></span><span class="egmm-card-name">MANAGER</span></div>
-
-    <button class="egmm-menu-btn" id="egmmMgrHomeBtn"><span class="egmm-menu-label mlab">HOMEPAGE MANAGER<small>홈페이지 관리</small></span></button>
-    <button class="egmm-menu-btn" id="egmmMgrAdBtn"><span class="egmm-menu-label mlab">AD MANAGER<small>광고상품 관리</small></span></button>
-    <button class="egmm-menu-btn" id="egmmMgrItemBtn"><span class="egmm-menu-label mlab">ITEM MANAGEMENT<small>아이템 관리</small></span></button>
-  </div>
-
-  <!-- 박스 0-2: SYSTEM (계정·부서·메뉴·코드 관리 — Firestore egmm-hq-it/egmm) -->
+  <!-- 박스 0: SYSTEM (계정·마트·부서·메뉴·코드 관리 — Firestore egmm-hq-it/egmm) -->
   <div class="egmm-card">
     <div class="egmm-card-head"><span class="egmm-card-tick"></span><span class="egmm-card-name">SYSTEM</span></div>
 
@@ -3431,11 +3369,7 @@
   $('egmmPluListBtn').onclick = function(){ openInFrame('../plu-list-manager.html', this); };
   var __calBtn=$('egmmCalendarBtn'); if(__calBtn) __calBtn.onclick = function(){ openInFrame('egmm-calendar.html', this); };
   var __dpvBtn=$('egmmPurchaseBtn'); if(__dpvBtn) __dpvBtn.onclick = function(){ openInFrame('daily-purchase-view.html', this); };
-  // MANAGER: 사이드바 리스트 메뉴 → 다른 메뉴와 동일하게 오른쪽 콘텐츠 화면(iframe)으로 표시 · 암호 확인 없음
-  var __mgrHomeBtn=$('egmmMgrHomeBtn'); if(__mgrHomeBtn) __mgrHomeBtn.onclick = function(){ openInFrame('../MANAGER/homepage-manager.html', this); };
-  var __mgrAdBtn=$('egmmMgrAdBtn'); if(__mgrAdBtn) __mgrAdBtn.onclick = function(){ openInFrame('../MANAGER/advertising-manager.html', this); };
-  var __mgrItemBtn=$('egmmMgrItemBtn'); if(__mgrItemBtn) __mgrItemBtn.onclick = function(){ openInFrame('../item-management-manager.html', this); };
-  // SYSTEM: 계정·부서·메뉴·코드 관리 (egmm.html 과 같은 폴더 · 암호 확인 없음)
+  // SYSTEM: 계정·마트·부서·메뉴·코드 관리 (egmm.html 과 같은 폴더 · EGMM 로그인 세션 공유)
   var __accBtn=$('egmmAccessBtn'); if(__accBtn) __accBtn.onclick = function(){ openInFrame('ACCESS.html', this); };
   var __storeBtn=$('egmmStoreBtn'); if(__storeBtn) __storeBtn.onclick = function(){ openInFrame('STORE.html', this); };
   var __deptBtn=$('egmmDeptBtn'); if(__deptBtn) __deptBtn.onclick = function(){ openInFrame('DEPARTMENT.html', this); };
@@ -3449,18 +3383,6 @@
     document.body.appendChild(big);
     document.getElementById('egMgrX').onclick=function(){ big.classList.remove('show'); };
     big.addEventListener('click', function(e){ if(e.target===big) big.classList.remove('show'); });
-    // homepage-manager.html 내부의 닫기 버튼 → 팝업/화면 닫기
-    window.addEventListener('message', function(e){
-      if(!(e && e.data==='hpm-close')) return;
-      big.classList.remove('show');
-      // 콘텐츠 화면(iframe)에서 열려 있으면 닫고 시작 화면으로
-      var f=__frames['../MANAGER/homepage-manager.html'];
-      if(f && f.style.display!=='none'){
-        f.style.display='none';
-        var w=$('egWelcome'); if(w) w.style.display='';
-        Array.prototype.forEach.call(document.querySelectorAll('.eg-side .egmm-menu-btn'), function(b){ b.classList.remove('active'); });
-      }
-    });
     // 공용 대형 팝업 오픈 (도구 모음 등)
     window.__egBigPop=function(url){
       var f=document.getElementById('egMgrFrame');
@@ -3477,7 +3399,7 @@
     $('egmmExitBtn').onclick = function(){ ov.classList.add('show'); };
     ov.addEventListener('click', function(e){ if(e.target===ov) ov.classList.remove('show'); });
     document.getElementById('egExCancel').onclick=function(){ ov.classList.remove('show'); };
-    document.getElementById('egExOk').onclick=function(){ ov.classList.remove('show'); try{ sessionStorage.removeItem('egmmGate'); sessionStorage.removeItem('egmmAuth'); sessionStorage.removeItem('egmmUser'); }catch(e){} window.location.href='../index.html'; };
+    document.getElementById('egExOk').onclick=function(){ ov.classList.remove('show'); try{ sessionStorage.removeItem('egmmGate'); sessionStorage.removeItem('egmmAuth'); sessionStorage.removeItem('egmmUser'); sessionStorage.removeItem('egmmAccessAuth'); }catch(e){} window.location.href='../index.html'; };
   })();
   $('odpLogoutBtn').onclick = showMenu;
   $('itemBackBtn').onclick = showMenu;
