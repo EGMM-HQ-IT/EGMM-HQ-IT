@@ -18,15 +18,14 @@
 (function(){
   'use strict';
 
-  /* ▼▼▼ egmm-hq-it 웹 앱 설정 — Firebase 콘솔 > 프로젝트 설정 > 웹 앱 값으로 교체 ▼▼▼
-     (plu-local.html 상단의 firebaseConfig 와 동일한 값을 붙여넣으면 됩니다) */
+  /* ▼▼▼ egmm-hq-it 웹 앱 설정 (plu-local-ver.html 파일 기본값과 동일 · 2026-09) ▼▼▼ */
   var CONFIG = {
-    apiKey: "PASTE_EGMM_HQ_IT_API_KEY",
+    apiKey: "AIzaSyAHUP5maMayaUUDVVvkVSzBooAgdD8UOC0",
     authDomain: "egmm-hq-it.firebaseapp.com",
     projectId: "egmm-hq-it",
     storageBucket: "egmm-hq-it.firebasestorage.app",
-    messagingSenderId: "PASTE_SENDER_ID",
-    appId: "PASTE_APP_ID"
+    messagingSenderId: "675894371062",
+    appId: "1:675894371062:web:02c893e4d65da18f5602d7"
   };
   var DB_ID = "egmm";               // Firestore 데이터베이스 ID (콘솔 확인값)
   /* ▲▲▲ 설정 끝 ▲▲▲ */
