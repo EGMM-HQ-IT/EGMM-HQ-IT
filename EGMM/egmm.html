@@ -2693,6 +2693,7 @@
             if(!ok) return {err:'WRONG PASSWORD'};
             return {ok:true,
               user:{ id:name, name:name, fullName:u.fullName||'', rank:u.rank||'',
+                     level:(typeof u.level==='number'?u.level:null),
                      perms:Array.isArray(u.perms)?u.perms:[] } };
           });
         });
@@ -2716,12 +2717,30 @@
       egmmProductNameMakerBtn:'MENU-PRODUCT-NAME-MAKER', egmmDeliMgmtBtn:'MENU-DELI-MGMT',
       egmmAccessBtn:'MENU-ACCESS', egmmStoreBtn:'MENU-STORE', egmmDeptBtn:'MENU-DEPARTMENT',
       egmmMenuMgrBtn:'MENU-MENU', egmmFuncCodeBtn:'MENU-FUNCTION-CODE' };
+    /* SYSTEM 카테고리 = 관리자 모드: LV-0 계정에게만 표시/접속 */
+    var SYSTEM_CODES={ 'MENU-ACCESS':1, 'MENU-STORE':1, 'MENU-DEPARTMENT':1, 'MENU-MENU':1, 'MENU-FUNCTION-CODE':1 };
+    function hideEmptyCards(){
+      Array.prototype.forEach.call(document.querySelectorAll('.eg-side .egmm-card'), function(card){
+        var any=false;
+        Array.prototype.forEach.call(card.querySelectorAll('.egmm-menu-btn'), function(b){
+          if(b.style.display!=='none') any=true; });
+        if(!any) card.style.display='none';
+      });
+    }
     function applyMenuPerms(){
       var user=null;
       try{ user=JSON.parse(sessionStorage.getItem('egmmAccessAuth')||'null'); }catch(e){}
       var perms=(user&&Array.isArray(user.perms))?user.perms:[];
-      if(perms.indexOf('*')>=0) return;                       // 전체 권한: 모든 메뉴 표시
-      if(!window.EgmmFB) return;
+      var lv=(user && typeof user.level==='number')?user.level:null;
+      if(lv===0) return;                                      // LV-0 최고 관리자: 모든 메뉴 표시
+      /* SYSTEM(관리자 모드)은 LV-0 이 아니면 무조건 숨김 — 전체 권한(*)이어도 */
+      Object.keys(MENU_CODES).forEach(function(btnId){
+        if(SYSTEM_CODES[MENU_CODES[btnId]]){
+          var b=document.getElementById(btnId); if(b) b.style.display='none';
+        }
+      });
+      if(perms.indexOf('*')>=0){ hideEmptyCards(); return; }  // 전체 권한: SYSTEM 외 모두 표시
+      if(!window.EgmmFB){ hideEmptyCards(); return; }
       window.EgmmFB.ready.then(function(fb){
         return fb.getDocs(fb.collection(fb.db,'MENU')).then(function(snap){
           var menus={};
@@ -2729,29 +2748,25 @@
           Object.keys(MENU_CODES).forEach(function(btnId){
             var btn=document.getElementById(btnId); if(!btn) return;
             var code=MENU_CODES[btnId], m=menus[code], ok;
+            if(SYSTEM_CODES[code]) return;                    // 이미 숨김 처리됨
             if(!m) ok=true;                                   // MENU 미등록: 제한 없음
             else if(m.active===false) ok=false;
             else ok = perms.indexOf(code)>=0
               || (Array.isArray(m.allowUsers) && user && m.allowUsers.indexOf(user.id)>=0)
-              || (Array.isArray(m.allowRanks) && user && user.rank && m.allowRanks.indexOf(user.rank)>=0);
+              || (Array.isArray(m.allowRanks) && user && user.rank && m.allowRanks.indexOf(user.rank)>=0)
+              || (typeof m.level==='number' && lv!==null && lv<=m.level);   /* 레벨 권한 */
             if(!ok) btn.style.display='none';
           });
-          /* 보이는 메뉴가 하나도 없는 카드는 통째로 숨김 */
-          Array.prototype.forEach.call(document.querySelectorAll('.eg-side .egmm-card'), function(card){
-            var any=false;
-            Array.prototype.forEach.call(card.querySelectorAll('.egmm-menu-btn'), function(b){
-              if(b.style.display!=='none') any=true; });
-            if(!any) card.style.display='none';
-          });
+          hideEmptyCards();
         });
-      }).catch(function(e){ console.warn('[메뉴 권한 필터 실패 — 전체 표시]', e); });
+      }).catch(function(e){ console.warn('[메뉴 권한 필터 실패 — 전체 표시]', e); hideEmptyCards(); });
     }
     function pass(r){
       try{ sessionStorage.setItem('egmmGate','1'); }catch(e){}
       try{ sessionStorage.setItem('egmmUser', JSON.stringify({name:r.user.id, menus:{}})); }catch(e){}
       try{ sessionStorage.setItem('egmmAuth', JSON.stringify({mode:'access', user:r.user})); }catch(e){}
       /* ACCESS 게이트(Function-Access-Gate.js)를 쓰는 파일들과 세션 공유 — 재로그인 없이 이동 */
-      try{ sessionStorage.setItem('egmmAccessAuth', JSON.stringify({id:r.user.id, fullName:r.user.fullName, rank:r.user.rank, perms:r.user.perms})); }catch(e){}
+      try{ sessionStorage.setItem('egmmAccessAuth', JSON.stringify({id:r.user.id, fullName:r.user.fullName, rank:r.user.rank, level:r.user.level, perms:r.user.perms})); }catch(e){}
       unlock();
     }
     function show(msg){
@@ -3422,12 +3437,12 @@
   $('egmmPluListBtn').onclick = function(){ openInFrame('../plu-list-manager.html', this); };
   var __calBtn=$('egmmCalendarBtn'); if(__calBtn) __calBtn.onclick = function(){ openInFrame('egmm-calendar.html', this); };
   var __dpvBtn=$('egmmPurchaseBtn'); if(__dpvBtn) __dpvBtn.onclick = function(){ openInFrame('daily-purchase-view.html', this); };
-  // SYSTEM: 계정·마트·부서·메뉴·코드 관리 (egmm.html 과 같은 폴더 · EGMM 로그인 세션 공유)
-  var __accBtn=$('egmmAccessBtn'); if(__accBtn) __accBtn.onclick = function(){ openInFrame('ACCESS.html', this); };
-  var __storeBtn=$('egmmStoreBtn'); if(__storeBtn) __storeBtn.onclick = function(){ openInFrame('STORE.html', this); };
-  var __deptBtn=$('egmmDeptBtn'); if(__deptBtn) __deptBtn.onclick = function(){ openInFrame('DEPARTMENT.html', this); };
-  var __menuMgrBtn=$('egmmMenuMgrBtn'); if(__menuMgrBtn) __menuMgrBtn.onclick = function(){ openInFrame('MENU.html', this); };
-  var __fcodeBtn=$('egmmFuncCodeBtn'); if(__fcodeBtn) __fcodeBtn.onclick = function(){ openInFrame('FUNCTION-CODE.html', this); };
+  // SYSTEM: 관리자 모드 (MANAGER 폴더 · LV-0 전용 · ACCESS 는 접속 시 암호 재확인)
+  var __accBtn=$('egmmAccessBtn'); if(__accBtn) __accBtn.onclick = function(){ openInFrame('../MANAGER/ACCESS.html', this); };
+  var __storeBtn=$('egmmStoreBtn'); if(__storeBtn) __storeBtn.onclick = function(){ openInFrame('../MANAGER/STORE.html', this); };
+  var __deptBtn=$('egmmDeptBtn'); if(__deptBtn) __deptBtn.onclick = function(){ openInFrame('../MANAGER/DEPARTMENT.html', this); };
+  var __menuMgrBtn=$('egmmMenuMgrBtn'); if(__menuMgrBtn) __menuMgrBtn.onclick = function(){ openInFrame('../MANAGER/MENU.html', this); };
+  var __fcodeBtn=$('egmmFuncCodeBtn'); if(__fcodeBtn) __fcodeBtn.onclick = function(){ openInFrame('../MANAGER/FUNCTION-CODE.html', this); };
   // 공용 대형 팝업 (도구 모음 등에서 사용)
   (function(){
     var big=document.createElement('div');
