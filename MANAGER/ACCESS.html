@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ACCESS · 아이디 권한 관리</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<style>
+  :root{
+    --bg:#EDEAE3; --bg-elev:#FFFDFA; --bg-elev-2:#F7F4ED;
+    --border:#E4DFD4; --border-bright:#D6CFC0;
+    --text:#1E1B16; --text-dim:#4C463C; --text-faint:#8C8578;
+    --accent:#1E1B16; --accent-soft:#E9EFEA; --accent-warm:#2F5D46;
+    --danger:#9C3327; --danger-soft:#F5EAE7; --success:#2a8a4a;
+    --mono:'Pretendard','Malgun Gothic','맑은 고딕',system-ui,sans-serif;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ background:var(--bg); color:var(--text); font-family:var(--mono); min-height:100vh; }
+  .wrap{ max-width:1240px; margin:0 auto; padding:20px 20px 60px; }
+  .page-topbar{ display:flex; align-items:center; gap:12px; padding-bottom:14px; border-bottom:1px solid var(--border); margin-bottom:16px; }
+  .page-topbar h1{ font-size:22px; font-weight:800; letter-spacing:.04em; }
+  .page-topbar h1 small{ display:block; font-size:11px; font-weight:800; letter-spacing:.16em; color:var(--text-faint); margin-top:3px; text-transform:uppercase; }
+  .live{ margin-left:auto; font-size:11px; font-weight:800; color:#2f7d32; letter-spacing:.1em; }
+  .banner{ display:none; background:#fdf3e2; border:1.5px solid #e0b25a; color:#7a5a12; border-radius:12px; padding:12px 16px; font-size:13px; font-weight:700; margin-bottom:14px; line-height:1.6; }
+  .banner.show{ display:block; }
+  .banner code{ background:#fff; border:1px solid #e0b25a; border-radius:6px; padding:1px 6px; font-weight:800; }
+
+  .grid{ display:grid; grid-template-columns:340px 1fr; gap:16px; align-items:start; }
+  .panel{ background:var(--bg-elev); border:1.5px solid var(--border); border-radius:16px; padding:16px; }
+  .panel h2{ font-size:15px; font-weight:800; display:flex; align-items:center; gap:8px; padding-bottom:10px; border-bottom:1px solid var(--border); margin-bottom:12px; }
+  .panel h2 .ico{ width:28px; height:28px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:15px; background:var(--accent-soft); }
+  .panel h2 .cnt{ margin-left:auto; font-size:11px; font-weight:800; color:var(--text-faint); }
+
+  .search{ width:100%; border:1.5px solid var(--border); border-radius:10px; padding:10px 12px; font:inherit; font-size:14px; font-weight:700; background:var(--bg); margin-bottom:10px; }
+  .search:focus{ outline:none; border-color:var(--accent-warm); background:#fff; }
+  .ulist{ display:flex; flex-direction:column; gap:6px; max-height:560px; overflow-y:auto; }
+  .urow{ display:flex; align-items:center; gap:8px; border:1.5px solid var(--border); border-radius:10px; padding:9px 11px; cursor:pointer; background:var(--bg); transition:border-color .12s, background .12s; }
+  .urow:hover{ border-color:var(--border-bright); background:#fff; }
+  .urow.active{ border-color:var(--accent-warm); background:var(--accent-soft); box-shadow:inset 3px 0 0 var(--accent-warm); }
+  .urow .uid{ font-size:14px; font-weight:800; }
+  .urow .unm{ font-size:11px; color:var(--text-dim); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ugroup{ display:flex; align-items:center; gap:6px; font-size:12px; font-weight:800; color:var(--accent-warm);
+    letter-spacing:.04em; margin:8px 0 2px; padding:5px 4px 4px; border-bottom:1.5px solid var(--border); }
+  .ugroup:first-child{ margin-top:0; }
+  .ugroup .gcnt{ font-size:10px; color:var(--text-faint); font-weight:800; background:var(--bg-elev-2); border:1px solid var(--border); border-radius:10px; padding:1px 7px; }
+  .ugroup.gnone{ color:var(--text-faint); }
+  .badge{ margin-left:auto; font-size:10px; font-weight:800; padding:2px 8px; border-radius:10px; white-space:nowrap; }
+  .badge.rank{ background:var(--accent-soft); color:var(--accent-warm); }
+  .badge.norank{ background:var(--bg-elev-2); color:var(--text-faint); }
+  .badge.block{ background:var(--danger); color:#fff; }
+  .empty{ text-align:center; color:var(--text-faint); font-size:13px; font-weight:700; padding:22px 6px; border:2px dashed var(--border); border-radius:10px; }
+
+  .field{ margin-bottom:12px; }
+  .field label{ display:block; font-size:12px; font-weight:800; color:var(--text-dim); margin-bottom:5px; letter-spacing:.03em; }
+  .field input[type=text], .field input[type=password], .field select, .field textarea{
+    width:100%; border:1.5px solid var(--border); border-radius:10px; padding:11px 13px;
+    font:inherit; font-size:14px; font-weight:700; color:var(--text); background:var(--bg); }
+  .field input:focus, .field select:focus, .field textarea:focus{ outline:none; border-color:var(--accent-warm); background:#fff; }
+  .field .hint{ font-size:11px; color:var(--text-faint); font-weight:600; margin-top:4px; }
+  .frow{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  #fId{ text-transform:uppercase; }
+
+  .toggle{ display:inline-flex; align-items:center; gap:9px; cursor:pointer; user-select:none;
+    border:1.5px solid var(--border); border-radius:10px; padding:10px 14px; background:var(--bg); font-size:13px; font-weight:800; }
+  .toggle input{ display:none; }
+  .toggle .dot{ width:34px; height:18px; border-radius:10px; background:var(--border-bright); position:relative; transition:background .15s; }
+  .toggle .dot::after{ content:''; position:absolute; top:2px; left:2px; width:14px; height:14px; border-radius:50%; background:#fff; transition:left .15s; }
+  .toggle input:checked + .dot{ background:var(--danger); }
+  .toggle input:checked + .dot::after{ left:18px; }
+  .toggle.blockon{ border-color:var(--danger); color:var(--danger); background:var(--danger-soft); }
+
+  .permbox{ border:1.5px solid var(--border); border-radius:12px; background:var(--bg); padding:12px; }
+  .permbox .allrow{ display:flex; align-items:center; gap:8px; padding-bottom:10px; margin-bottom:10px; border-bottom:1px dashed var(--border); font-size:13px; font-weight:800; }
+  .chkgrid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(180px,1fr)); gap:6px; max-height:220px; overflow-y:auto; }
+  .chk{ display:flex; align-items:center; gap:7px; border:1px solid var(--border); border-radius:8px; padding:7px 9px; background:var(--bg-elev); font-size:12px; font-weight:700; cursor:pointer; }
+  .chk:hover{ border-color:var(--border-bright); }
+  .chk input{ accent-color:var(--accent-warm); }
+  .chk small{ display:block; font-size:10px; color:var(--text-faint); font-weight:700; }
+  .chk .cd{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .chkgrid.dim{ opacity:.45; pointer-events:none; }
+  .pg-main{ grid-column:1/-1; font-size:12px; font-weight:800; color:var(--accent-warm); letter-spacing:.05em;
+    padding:6px 2px 3px; border-bottom:1.5px solid var(--border); margin-top:4px; }
+  .permnote{ font-size:11px; color:var(--text-faint); font-weight:600; margin-top:8px; line-height:1.5; }
+
+  .btnrow{ display:flex; gap:8px; margin-top:16px; flex-wrap:wrap; }
+  .btn{ border:none; border-radius:10px; padding:12px 20px; font:inherit; font-size:14px; font-weight:800; cursor:pointer; background:var(--accent-warm); color:#fff; transition:transform .1s; }
+  .btn:active{ transform:scale(.97); }
+  .btn.ghost{ background:var(--bg-elev); color:var(--text-dim); border:1.5px solid var(--border); }
+  .btn.ghost:hover{ color:var(--text); border-color:var(--border-bright); }
+  .btn.danger{ background:var(--bg-elev); color:var(--danger); border:1.5px solid var(--danger); }
+  .btn.danger:hover{ background:var(--danger); color:#fff; }
+  .btn.sm{ padding:8px 13px; font-size:12px; }
+  .btn:disabled{ opacity:.5; cursor:not-allowed; }
+
+  /* 직급 관리 */
+  .rankwrap{ margin-top:16px; }
+  .rrow{ display:grid; grid-template-columns:auto 1fr 1fr auto; gap:8px; align-items:center;
+    border:1px solid var(--border); border-radius:10px; padding:9px 12px; background:var(--bg); margin-bottom:6px; }
+  .rorder{ display:flex; flex-direction:column; gap:2px; }
+  .rorder button{ border:1px solid var(--border); background:var(--bg-elev); color:var(--text-dim); border-radius:6px;
+    width:24px; height:18px; font-size:10px; line-height:1; cursor:pointer; padding:0; font-weight:800; }
+  .rorder button:hover:not(:disabled){ color:var(--accent-warm); border-color:var(--accent-warm); background:var(--accent-soft); }
+  .rorder button:disabled{ opacity:.3; cursor:default; }
+  .rrow .rn{ font-size:14px; font-weight:800; }
+  .rrow .rc{ font-size:12px; font-weight:800; color:var(--accent-warm); }
+  .rrow .ru{ font-size:10px; color:var(--text-faint); font-weight:700; }
+  .raddrow{ display:grid; grid-template-columns:1fr 1fr auto; gap:8px; margin-top:8px; }
+  .raddrow input{ border:1.5px solid var(--border); border-radius:10px; padding:10px 12px; font:inherit; font-size:13px; font-weight:700; background:var(--bg-elev); }
+  .raddrow input:focus{ outline:none; border-color:var(--accent-warm); }
+  #rCode{ text-transform:uppercase; }
+
+  /* Toast + Modal */
+  .toast{ position:fixed; top:26px; left:50%; transform:translateX(-50%) translateY(-16px); background:var(--text); color:#fff;
+    padding:14px 24px; border-radius:12px; font-size:15px; font-weight:800; opacity:0; pointer-events:none; transition:all .25s; z-index:9999; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  .toast.success{ background:var(--success); } .toast.error{ background:var(--danger); }
+  .modal-bg{ position:fixed; inset:0; background:rgba(30,27,22,.45); backdrop-filter:blur(4px); z-index:500; display:none; align-items:center; justify-content:center; padding:20px; }
+  .modal-bg.show{ display:flex; }
+  .modal{ background:var(--bg-elev); border:1px solid var(--border-bright); border-radius:16px; padding:26px; max-width:400px; width:100%; box-shadow:0 30px 80px rgba(30,27,22,.2); }
+  .modal h3{ font-size:19px; font-weight:800; margin-bottom:10px; }
+  .modal h3.warn{ color:var(--danger); }
+  .modal p{ color:var(--text-dim); font-size:14px; font-weight:600; line-height:1.6; margin-bottom:18px; white-space:pre-wrap; word-break:break-word; }
+  .modal .macts{ display:flex; gap:8px; justify-content:flex-end; }
+
+  .gate-note{ position:fixed; inset:0; z-index:9000; display:none; align-items:center; justify-content:center; background:var(--bg); }
+  .gate-note.show{ display:flex; }
+  .gate-note .gc{ background:var(--bg-elev); border:1.5px solid var(--border); border-radius:16px; padding:34px 40px; text-align:center; font-weight:800; color:var(--text-dim); line-height:1.8; }
+
+  @media (max-width:960px){ .grid{ grid-template-columns:1fr; } .ulist{ max-height:280px; } }
+</style>
+</head>
+<body>
+<div class="toast" id="toast"></div>
+<div class="gate-note" id="gateNote"><div class="gc">🔒 EGMM 포털을 통해 접속하세요<br><span style="font-size:12px;color:var(--text-faint)">egmm.html 로그인 후 SYSTEM &gt; ACCESS 메뉴</span></div></div>
+
+<div class="wrap">
+  <div class="page-topbar">
+    <h1>🔐 ACCESS<small>아이디 · 비밀번호 · 직급 · 권한 · 차단 관리</small></h1>
+    <span class="live">● LIVE</span>
+  </div>
+
+  <div class="banner" id="fbBanner"></div>
+
+  <div class="grid">
+    <!-- 계정 목록 -->
+    <div class="panel">
+      <h2><span class="ico">👥</span> 계정 목록 <span class="cnt" id="userCnt"></span></h2>
+      <input class="search" id="userSearch" placeholder="아이디 · 이름 검색" autocomplete="off">
+      <div class="ulist" id="userList"></div>
+      <div class="btnrow"><button class="btn sm" id="newUserBtn" type="button">＋ 새 계정</button></div>
+    </div>
+
+    <!-- 편집 폼 -->
+    <div>
+      <div class="panel">
+        <h2><span class="ico">✏️</span> <span id="formTitle">새 계정 만들기</span></h2>
+        <div class="frow">
+          <div class="field"><label>아이디 (ID)</label><input type="text" id="fId" placeholder="예: JOHN" autocomplete="off" autocapitalize="characters"></div>
+          <div class="field"><label>비밀번호 (PASSWORD)</label><input type="password" id="fPw" placeholder="" autocomplete="new-password">
+            <div class="hint" id="pwHint">새 계정: 필수 입력</div></div>
+        </div>
+        <div class="frow">
+          <div class="field"><label>이름 (선택)</label><input type="text" id="fName" placeholder="예: 홍길동" autocomplete="off"></div>
+          <div class="field"><label>직급 (RANK)</label><select id="fRank"><option value="">— 직급 없음 —</option></select>
+            <div class="hint">직급 목록은 아래 [직급 관리]에서 생성</div></div>
+        </div>
+        <div class="field"><label>레벨 권한 (LV-0 ~ LV-9)</label>
+          <select id="fLevel">
+            <option value="">— 레벨 없음 —</option>
+            <option value="0">LV-0 (최고 관리자 · SYSTEM 접속 가능)</option>
+            <option value="1">LV-1</option><option value="2">LV-2</option><option value="3">LV-3</option>
+            <option value="4">LV-4</option><option value="5">LV-5</option><option value="6">LV-6</option>
+            <option value="7">LV-7</option><option value="8">LV-8</option><option value="9">LV-9</option>
+          </select>
+          <div class="hint">LV-0 은 모든 메뉴 + SYSTEM(관리자 모드) 접속. 그 외 레벨은 메뉴에 지정된 레벨 이하일 때 그 메뉴가 보입니다 (숫자가 낮을수록 높은 권한).</div>
+        </div>
+        <div class="field">
+          <label>차단 설정 (BLOCK)</label>
+          <label class="toggle" id="blockToggle"><input type="checkbox" id="fBlocked"><span class="dot"></span><span id="blockLbl">허용 — 로그인 가능</span></label>
+        </div>
+        <div class="field">
+          <label>메뉴 선택 (메인 메뉴 → 서브 메뉴)</label>
+          <div class="permbox">
+            <label class="allrow chk" style="border:none;background:transparent;padding:0;"><input type="checkbox" id="fAll"> 전체 권한 ( * ) — 모든 메뉴 표시 (SYSTEM 은 LV-0 만)</label>
+            <div class="chkgrid" id="permGrid"></div>
+            <div class="permnote">현재 만들어져 있는 메뉴가 <b>메인 메뉴별</b>로 표시됩니다. 체크한 서브 메뉴만 이 아이디에게 보이고,
+              체크하지 않은 메뉴는 보이지 않습니다. 직급별 허용·레벨(LV) 조건 중 하나라도 해당하면 함께 표시됩니다.</div>
+          </div>
+        </div>
+        <div class="field"><label>메모 (선택)</label><textarea id="fMemo" rows="2" placeholder=""></textarea></div>
+        <div class="btnrow">
+          <button class="btn" id="saveBtn" type="button">💾 저장</button>
+          <button class="btn ghost" id="resetBtn" type="button">새로 입력</button>
+          <button class="btn danger" id="delBtn" type="button" style="margin-left:auto; display:none;">계정 삭제</button>
+        </div>
+      </div>
+
+      <!-- 직급 관리 -->
+      <div class="panel rankwrap">
+        <h2><span class="ico">🎖️</span> 직급 관리 (RANK) <span class="cnt" id="rankCnt"></span></h2>
+        <div id="rankList"></div>
+        <div class="raddrow">
+          <input type="text" id="rName" placeholder="직급 이름 (예: 매니저)" autocomplete="off">
+          <input type="text" id="rCode" placeholder="코드 자동: RANK-…" autocomplete="off">
+          <button class="btn sm" id="rAddBtn" type="button">＋ 추가</button>
+        </div>
+        <div class="permnote">직급 코드 수정은 FUNCTION-CODE 관리에서 할 수 있습니다. 코드는 전체(직급·부서·메뉴)에서 중복될 수 없습니다.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 공용 모달 -->
+<div class="modal-bg" id="modalBg"><div class="modal">
+  <h3 id="mTitle"></h3><p id="mText"></p>
+  <div class="macts"><button class="btn ghost sm" id="mCancel" type="button">취소</button><button class="btn sm" id="mOk" type="button">확인</button></div>
+</div></div>
+
+<script src="../Function-Firebase-Egmm.js"></script>
+<script src="../Function-Access-Gate.js"></script>
+<script>
+(function(){
+  'use strict';
+  var $=function(id){ return document.getElementById(id); };
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+
+  var toastTimer;
+  function toast(m,t){ var el=$('toast'); clearTimeout(toastTimer); el.textContent=m; el.className='toast show '+(t||'');
+    toastTimer=setTimeout(function(){ el.className='toast '+(t||''); },2400); }
+
+  /* 모달 (확인/경고) */
+  var modalCb=null;
+  function askConfirm(title,text,cb,okLabel,warn){
+    $('mTitle').textContent=title; $('mTitle').className=warn?'warn':'';
+    $('mText').textContent=text;
+    $('mCancel').style.display=''; $('mOk').textContent=okLabel||'확인';
+    modalCb=cb; $('modalBg').classList.add('show');
+  }
+  function warnPopup(title,text){
+    $('mTitle').textContent=title; $('mTitle').className='warn';
+    $('mText').textContent=text;
+    $('mCancel').style.display='none'; $('mOk').textContent='닫기';
+    modalCb=null; $('modalBg').classList.add('show');
+  }
+  $('mOk').onclick=function(){ $('modalBg').classList.remove('show'); if(modalCb){ var cb=modalCb; modalCb=null; cb(); } };
+  $('mCancel').onclick=function(){ $('modalBg').classList.remove('show'); modalCb=null; };
+  $('modalBg').addEventListener('click',function(e){ if(e.target===$('modalBg')){ $('modalBg').classList.remove('show'); modalCb=null; } });
+
+  /* 아이디 입력: 무조건 영문(A-Z)·숫자만 — 한글 등 다른 문자는 입력 즉시 제거 */
+  (function(){
+    var el=$('fId'); if(!el) return;
+    function fix(){ var f=el.value.toUpperCase().replace(/[^A-Z0-9-]/g,''); if(el.value!==f) el.value=f; }
+    el.addEventListener('input', fix);
+    el.addEventListener('compositionend', fix);
+    el.addEventListener('blur', fix);
+  })();
+
+  /* ── Firebase ── */
+  var fb=null, users={}, ranks=[], menus={}, depts={}, stores={}, editingId=null;
+
+  function fbFail(msg){
+    var b=$('fbBanner');
+    b.innerHTML='⚠️ '+esc(msg)+' — <code>Function-Firebase-Egmm.js</code> 상단의 egmm-hq-it 설정(apiKey 등)을 입력한 뒤 새로고침하세요.';
+    b.classList.add('show');
+  }
+  /* === 입장 게이트: 관리자 모드 — 접속할 때마다 암호 확인, LV-0 계정만 입장 가능.
+     LV-0 계정이 하나도 없으면(최초 1회) IT-MANAGER (LV-0) 계정을 만들고 시작 === */
+  function firstRun(f){
+    return new Promise(function(res){
+      var st='width:100%;box-sizing:border-box;border:1.5px solid #E4DFD4;border-radius:10px;padding:11px 13px;font:inherit;font-size:15px;font-weight:700;background:#FFFDFA;';
+      var lb='display:block;font-size:11px;font-weight:800;letter-spacing:.08em;color:#8C8578;margin-bottom:5px;';
+      var ov=document.createElement('div'); ov.id='frOv';
+      ov.setAttribute('style','position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:#EDEAE3;padding:20px;');
+      ov.innerHTML='<div style="width:370px;background:#FFFDFA;border:1.5px solid #E4DFD4;border-radius:18px;padding:28px 30px;box-shadow:0 14px 30px -20px rgba(30,27,22,.42);">'
+        +'<h1 style="margin:0 0 8px;font-size:20px;font-weight:800;">🔐 최초 설정</h1>'
+        +'<p style="margin:0 0 16px;font-size:13px;font-weight:600;color:#4C463C;line-height:1.6;">LV-0 관리자 계정이 아직 없습니다.<br><b>IT-MANAGER</b> (LV-0 · 전체 권한) 계정을 만들고 시작합니다.</p>'
+        +'<div style="margin-bottom:10px;"><label style="'+lb+'">ID</label><input value="IT-MANAGER" disabled style="'+st+'background:#F7F4ED;"></div>'
+        +'<div style="margin-bottom:10px;"><label style="'+lb+'">PASSWORD</label><input type="password" id="frPw" autocomplete="new-password" style="'+st+'"></div>'
+        +'<div style="margin-bottom:8px;"><label style="'+lb+'">PASSWORD 확인</label><input type="password" id="frPw2" autocomplete="new-password" style="'+st+'"></div>'
+        +'<div id="frErr" style="min-height:18px;color:#9C3327;font-size:12px;font-weight:800;text-align:center;margin-bottom:8px;"></div>'
+        +'<button id="frGo" type="button" style="width:100%;border:none;border-radius:10px;padding:13px 0;font:inherit;font-size:14px;font-weight:800;letter-spacing:.06em;cursor:pointer;background:#2F5D46;color:#fff;">IT-MANAGER 생성</button></div>';
+      document.body.appendChild(ov);
+      var busy=false;
+      document.getElementById('frGo').onclick=function(){
+        if(busy) return;
+        var p1=document.getElementById('frPw').value.trim(), p2=document.getElementById('frPw2').value.trim();
+        var er=document.getElementById('frErr'); er.textContent='';
+        if(p1.length<4){ er.textContent='비밀번호는 4자 이상'; return; }
+        if(p1!==p2){ er.textContent='비밀번호 확인이 일치하지 않습니다'; return; }
+        busy=true; er.textContent='생성 중…';
+        window.EgmmFB.hashPw(p1).then(function(h){
+          return f.setDoc(f.doc(f.db,'ACCESS','IT-MANAGER'),{
+            id:'IT-MANAGER', fullName:'IT MANAGER', rank:'', level:0, perms:['*'],
+            blocked:false, memo:'최초 관리자 (자동 생성)', pw:h||('p:'+p1),
+            createdAt:Date.now(), updatedAt:Date.now() });
+        }).then(function(){ ov.remove(); res(); })
+          .catch(function(e){ console.error(e); busy=false;
+            document.getElementById('frErr').textContent='생성 실패 — Firestore 규칙(ACCESS)·네트워크 확인'; });
+      };
+    });
+  }
+  function boot(){
+    if(!window.EgmmFB || !window.AccessGate){ fbFail('공용 모듈(Function-Firebase-Egmm.js · Function-Access-Gate.js) 로드 필요'); return; }
+    window.EgmmFB.ready.then(function(f){
+      return f.getDocs(f.collection(f.db,'ACCESS')).then(function(snap){
+        var hasLv0=false;
+        snap.forEach(function(ds){ if(ds.id.charAt(0)==='_') return; var d=ds.data()||{}; if(d.level===0 && d.blocked!==true) hasLv0=true; });
+        return hasLv0? null : firstRun(f);
+      });
+    }).then(function(){
+      return window.AccessGate.require({ level0:true, force:true, title:'ACCESS · ADMIN' });
+    }).then(startSubs)
+      .catch(function(e){ console.error(e);
+        document.documentElement.classList.remove('ag-lock');
+        fbFail('Firebase 설정 또는 ACCESS 규칙 확인 필요'); });
+  }
+
+  function startSubs(){
+  window.EgmmFB.ready.then(function(f){
+    fb=f;
+    fb.onSnapshot(fb.collection(fb.db,'ACCESS'), function(snap){
+      users={}; ranks=[];
+      snap.forEach(function(ds){
+        if(ds.id==='_RANKS'){ var d=ds.data()||{}; ranks=Array.isArray(d.items)?d.items.slice():[]; return; }
+        users[ds.id]=ds.data()||{};
+      });
+      ranks.sort(function(a,b){ return (a.order||0)-(b.order||0); });
+      renderUsers(); renderRanks(); renderRankSelect();
+    }, function(e){ console.error(e); fbFail('ACCESS 실시간 연결 오류'); });
+
+    fb.onSnapshot(fb.collection(fb.db,'MENU'), function(snap){
+      menus={}; snap.forEach(function(ds){ if(ds.id.charAt(0)==='_') return; menus[ds.id]=ds.data()||{}; });
+      renderPermGrid();
+    }, function(e){ console.error(e); });
+
+    fb.onSnapshot(fb.collection(fb.db,'DEPARTMENT'), function(snap){
+      depts={}; snap.forEach(function(ds){ if(ds.id.charAt(0)==='_') return; depts[ds.id]=ds.data()||{}; });
+    }, function(e){ console.error(e); });
+
+    fb.onSnapshot(fb.collection(fb.db,'STORE'), function(snap){
+      stores={}; snap.forEach(function(ds){ if(ds.id.charAt(0)==='_') return; stores[ds.id]=ds.data()||{}; });
+    }, function(e){ console.error(e); });
+  }).catch(function(){ fbFail('Firebase 설정이 비어 있습니다'); });
+  }
+
+  /* 전체 코드 공간 (직급 + 부서 + 메뉴) — 중복 검사용 */
+  function allCodes(exceptRankIdx){
+    var set={};
+    ranks.forEach(function(r,i){ if(i!==exceptRankIdx && r.code) set[String(r.code).toUpperCase()]='직급 '+r.name; });
+    Object.keys(depts).forEach(function(c){ set[c.toUpperCase()]='부서 '+(depts[c].name||c); });
+    Object.keys(menus).forEach(function(c){ set[c.toUpperCase()]='메뉴 '+(menus[c].name||c); });
+    Object.keys(stores).forEach(function(c){ set[c.toUpperCase()]='마트 '+(stores[c].name||c); });
+    return set;
+  }
+
+  /* ── 계정 목록 ── */
+  function rankName(code){
+    for(var i=0;i<ranks.length;i++){ if(ranks[i].code===code) return ranks[i].name; }
+    return code||'';
+  }
+  /* 직급별 카테고리로 위→아래 정렬 (직급 순서는 [직급 관리]의 ↑↓ 로 조정) */
+  function renderUsers(){
+    var q=($('userSearch').value||'').trim().toUpperCase();
+    var ids=Object.keys(users).sort();
+    var groups=ranks.map(function(r){ return { name:r.name, code:r.code, ids:[] }; });
+    var none={ name:'직급 없음', code:'', ids:[] };
+    var shown=0;
+    ids.forEach(function(id){
+      var u=users[id];
+      var hay=(id+' '+(u.fullName||'')).toUpperCase();
+      if(q && hay.indexOf(q)<0) return;
+      shown++;
+      var g=null;
+      for(var i=0;i<groups.length;i++){ if(groups[i].code===u.rank){ g=groups[i]; break; } }
+      (g||none).ids.push(id);
+    });
+    var html='';
+    groups.concat([none]).forEach(function(g){
+      if(!g.ids.length) return;
+      html+='<div class="ugroup'+(g.code?'':' gnone')+'">'+esc(g.name)+' <span class="gcnt">'+g.ids.length+'</span></div>';
+      g.ids.forEach(function(id){
+        var u=users[id];
+        var lv=(typeof u.level==='number')?'<span class="badge rank">LV-'+u.level+'</span>':'';
+        var bl=u.blocked?'<span class="badge block">차단</span>':'';
+        html+='<div class="urow'+(id===editingId?' active':'')+'" data-id="'+esc(id)+'">'
+          +'<div style="min-width:0"><div class="uid">'+esc(id)+'</div>'
+          +(u.fullName?'<div class="unm">'+esc(u.fullName)+'</div>':'')+'</div>'+lv+bl+'</div>';
+      });
+    });
+    $('userList').innerHTML = shown?html:'<div class="empty">계정이 없습니다.<br>오른쪽에서 새 계정을 만드세요.</div>';
+    $('userCnt').textContent = ids.length? (ids.length+'개') : '';
+    Array.prototype.forEach.call(document.querySelectorAll('.urow'),function(el){
+      el.onclick=function(){ loadUser(el.getAttribute('data-id')); };
+    });
+  }
+  $('userSearch').addEventListener('input', renderUsers);
+
+  /* ── 직급 ── */
+  function renderRanks(){
+    var html='';
+    ranks.forEach(function(r,i){
+      var used=0; Object.keys(users).forEach(function(id){ if(users[id].rank===r.code) used++; });
+      html+='<div class="rrow">'
+        +'<span class="rorder">'
+        +'<button type="button" data-up="'+i+'"'+(i===0?' disabled':'')+' title="위로">▲</button>'
+        +'<button type="button" data-dn="'+i+'"'+(i===ranks.length-1?' disabled':'')+' title="아래로">▼</button>'
+        +'</span>'
+        +'<span class="rn">'+esc(r.name)+'</span>'
+        +'<span class="rc">'+esc(r.code)+(used?'<span class="ru"> · 사용 '+used+'명</span>':'')+'</span>'
+        +'<button class="btn danger sm" data-ri="'+i+'" type="button">삭제</button></div>';
+    });
+    $('rankList').innerHTML = html || '<div class="empty">직급이 없습니다. 아래에서 추가하세요.</div>';
+    $('rankCnt').textContent = ranks.length? (ranks.length+'개') : '';
+    Array.prototype.forEach.call($('rankList').querySelectorAll('button[data-ri]'),function(b){
+      b.onclick=function(){ delRank(+b.getAttribute('data-ri')); };
+    });
+    Array.prototype.forEach.call($('rankList').querySelectorAll('button[data-up]'),function(b){
+      b.onclick=function(){ moveRank(+b.getAttribute('data-up'),-1); };
+    });
+    Array.prototype.forEach.call($('rankList').querySelectorAll('button[data-dn]'),function(b){
+      b.onclick=function(){ moveRank(+b.getAttribute('data-dn'),1); };
+    });
+  }
+  /* 직급 순서 이동 — 계정 목록의 카테고리 순서에 그대로 반영 */
+  function moveRank(i,dir){
+    var j=i+dir; if(j<0 || j>=ranks.length) return;
+    var items=ranks.slice();
+    var t=items[i]; items[i]=items[j]; items[j]=t;
+    items=items.map(function(r,idx){ return Object.assign({}, r, { order: idx }); });
+    saveRanks(items,'직급 순서 변경');
+  }
+  function renderRankSelect(){
+    var cur=$('fRank').value;
+    var html='<option value="">— 직급 없음 —</option>';
+    ranks.forEach(function(r){ html+='<option value="'+esc(r.code)+'">'+esc(r.name)+' ('+esc(r.code)+')</option>'; });
+    $('fRank').innerHTML=html;
+    $('fRank').value=cur && ranks.some(function(r){return r.code===cur;}) ? cur : ($('fRank').value||'');
+    if(editingId && users[editingId]) $('fRank').value=users[editingId].rank||'';
+  }
+  $('rName').addEventListener('input',function(){
+    if(!$('rCode').dataset.touched) $('rCode').value = $('rName').value.trim()? ('RANK-'+window.EgmmFB.sanitizeCode($('rName').value)) : '';
+  });
+  $('rCode').addEventListener('input',function(){ $('rCode').dataset.touched='1'; });
+
+  function saveRanks(items,okMsg){
+    fb.setDoc(fb.doc(fb.db,'ACCESS','_RANKS'),{ items:items, updatedAt:Date.now() })
+      .then(function(){ toast(okMsg,'success'); })
+      .catch(function(e){ console.error(e); toast('저장 실패 — 권한/네트워크 확인','error'); });
+  }
+  $('rAddBtn').onclick=function(){
+    if(!fb){ toast('연결 준비 중','error'); return; }
+    var name=$('rName').value.trim();
+    var code=window.EgmmFB.sanitizeCode($('rCode').value||('RANK-'+name));
+    if(!name){ toast('직급 이름을 입력하세요','error'); $('rName').focus(); return; }
+    if(!code){ toast('직급 코드를 입력하세요','error'); $('rCode').focus(); return; }
+    var dup=allCodes(-1);
+    if(dup[code]){ warnPopup('⚠️ 코드 중복','코드 "'+code+'" 는 이미 ['+dup[code]+'] 에서 사용 중입니다.\n다른 코드를 입력하세요.'); return; }
+    var items=ranks.slice(); items.push({ name:name, code:code, order:items.length });
+    saveRanks(items,'직급 추가됨: '+name);
+    $('rName').value=''; $('rCode').value=''; delete $('rCode').dataset.touched;
+  };
+  function delRank(i){
+    var r=ranks[i]; if(!r) return;
+    var used=[]; Object.keys(users).forEach(function(id){ if(users[id].rank===r.code) used.push(id); });
+    if(used.length){
+      warnPopup('⚠️ 삭제 불가','직급 "'+r.name+'" ('+r.code+') 는 '+used.length+'개 계정('+used.slice(0,5).join(', ')+(used.length>5?'…':'')+')에서 사용 중입니다.\n먼저 해당 계정의 직급을 변경하세요.');
+      return;
+    }
+    askConfirm('직급 삭제','직급 "'+r.name+'" ('+r.code+') 을 삭제할까요?',function(){
+      var items=ranks.slice(); items.splice(i,1);
+      saveRanks(items,'직급 삭제됨');
+    },'삭제',true);
+  }
+
+  /* ── 메뉴 선택 그리드: 메인 메뉴별 그룹 → 서브 메뉴 체크 ── */
+  function renderPermGrid(){
+    var codes=Object.keys(menus).sort();
+    var cur = editingId && users[editingId] && Array.isArray(users[editingId].perms) ? users[editingId].perms : currentPermsFromUI();
+    var byMain={};
+    codes.forEach(function(c){ var p=menus[c].portal||'기타'; (byMain[p]=byMain[p]||[]).push(c); });
+    var html='';
+    Object.keys(byMain).sort().forEach(function(p){
+      html+='<div class="pg-main">📂 '+esc(p)+'</div>';
+      byMain[p].forEach(function(c){
+        var m=menus[c];
+        var lv=(typeof m.level==='number')?(' · LV-'+m.level):'';
+        html+='<label class="chk"><input type="checkbox" value="'+esc(c)+'"'+(cur.indexOf(c)>=0?' checked':'')+'>'
+          +'<span class="cd">'+esc(m.name||c)+'<small>'+esc(c)+lv+'</small></span></label>';
+      });
+    });
+    $('permGrid').innerHTML = html || '<div class="empty" style="grid-column:1/-1">등록된 메뉴가 없습니다. MENU 관리에서 먼저 메뉴를 만드세요.</div>';
+    syncAllToggle();
+  }
+  function currentPermsFromUI(){
+    var arr=[];
+    if($('fAll').checked) return ['*'];
+    Array.prototype.forEach.call($('permGrid').querySelectorAll('input[type=checkbox]'),function(c){ if(c.checked) arr.push(c.value); });
+    return arr;
+  }
+  function syncAllToggle(){ $('permGrid').classList.toggle('dim', $('fAll').checked); }
+  $('fAll').addEventListener('change', syncAllToggle);
+
+  /* ── 차단 토글 라벨 ── */
+  function syncBlockLbl(){
+    var on=$('fBlocked').checked;
+    $('blockLbl').textContent = on? '차단 — 로그인 불가' : '허용 — 로그인 가능';
+    $('blockToggle').classList.toggle('blockon', on);
+  }
+  $('fBlocked').addEventListener('change', syncBlockLbl);
+
+  /* ── 폼 로드/초기화 ── */
+  function resetForm(){
+    editingId=null;
+    $('formTitle').textContent='새 계정 만들기';
+    $('fId').value=''; $('fId').disabled=false;
+    $('fPw').value=''; $('pwHint').textContent='새 계정: 필수 입력';
+    $('fName').value=''; $('fRank').value=''; $('fLevel').value=''; $('fMemo').value='';
+    $('fBlocked').checked=false; syncBlockLbl();
+    $('fAll').checked=false; syncAllToggle();
+    Array.prototype.forEach.call($('permGrid').querySelectorAll('input'),function(c){ c.checked=false; });
+    $('delBtn').style.display='none';
+    renderUsers();
+  }
+  function loadUser(id){
+    var u=users[id]; if(!u) return;
+    editingId=id;
+    $('formTitle').textContent='계정 수정: '+id;
+    $('fId').value=id; $('fId').disabled=true;
+    $('fPw').value=''; $('pwHint').textContent='변경할 때만 입력 (비워두면 기존 비밀번호 유지)';
+    $('fName').value=u.fullName||'';
+    $('fRank').value=u.rank||'';
+    $('fLevel').value=(typeof u.level==='number')?String(u.level):'';
+    $('fMemo').value=u.memo||'';
+    $('fBlocked').checked=u.blocked===true; syncBlockLbl();
+    var perms=Array.isArray(u.perms)?u.perms:[];
+    $('fAll').checked=perms.indexOf('*')>=0;
+    Array.prototype.forEach.call($('permGrid').querySelectorAll('input'),function(c){ c.checked=perms.indexOf(c.value)>=0; });
+    syncAllToggle();
+    $('delBtn').style.display='';
+    renderUsers();
+    window.scrollTo(0,0);
+  }
+  $('newUserBtn').onclick=resetForm;
+  $('resetBtn').onclick=resetForm;
+
+  /* ── 저장 ── */
+  $('saveBtn').onclick=function(){
+    if(!fb){ toast('연결 준비 중 — 잠시 후 다시','error'); return; }
+    var id=($('fId').value||'').trim().toUpperCase();
+    if(!id){ toast('아이디를 입력하세요','error'); $('fId').focus(); return; }
+    if(!/^[A-Z0-9-]{2,30}$/.test(id)){ toast('아이디는 영문/숫자 2~30자','error'); $('fId').focus(); return; }
+    if(id==='_RANKS'){ toast('사용할 수 없는 아이디','error'); return; }
+    var isNew = !editingId;
+    if(isNew && users[id]){ warnPopup('⚠️ 아이디 중복','아이디 "'+id+'" 는 이미 존재합니다.'); return; }
+    var pw=$('fPw').value.trim();
+    if(isNew && !pw){ toast('새 계정은 비밀번호가 필요합니다','error'); $('fPw').focus(); return; }
+
+    var perms=currentPermsFromUI();
+    var base = editingId ? (users[editingId]||{}) : {};
+    var newLevel = $('fLevel').value===''? null : +$('fLevel').value;
+
+    /* 마지막 LV-0 계정을 잃지 않도록 보호 (ACCESS 접속 불가 방지) */
+    if(editingId && base.level===0 && (newLevel!==0 || $('fBlocked').checked) && lv0Count(editingId)===0){
+      warnPopup('⚠️ 변경 불가','"'+editingId+'" 는 마지막 LV-0 관리자 계정입니다.\n레벨을 낮추거나 차단하면 ACCESS(관리자 모드)에 아무도 접속할 수 없게 됩니다.\n먼저 다른 LV-0 계정을 만드세요.');
+      return;
+    }
+
+    var data={
+      id:id,
+      fullName:$('fName').value.trim(),
+      rank:$('fRank').value||'',
+      level:newLevel,
+      perms:perms,
+      blocked:$('fBlocked').checked,
+      memo:$('fMemo').value.trim(),
+      pw: base.pw||'',
+      createdAt: base.createdAt||Date.now(),
+      updatedAt: Date.now()
+    };
+    var done=function(){
+      fb.setDoc(fb.doc(fb.db,'ACCESS',id), data)
+        .then(function(){ toast('저장 완료: '+id,'success'); editingId=id; loadUserSoon(id); })
+        .catch(function(e){ console.error(e); toast('저장 실패 — 권한/네트워크 확인','error'); });
+    };
+    if(pw){
+      window.EgmmFB.hashPw(pw).then(function(h){ data.pw = h || ('p:'+pw); done(); });
+    } else done();
+  };
+  function loadUserSoon(id){ setTimeout(function(){ if(users[id]) loadUser(id); },400); }
+
+  /* 자신을 제외한 활성 LV-0 계정 수 */
+  function lv0Count(exceptId){
+    var n=0;
+    Object.keys(users).forEach(function(id){
+      if(id!==exceptId && users[id].level===0 && users[id].blocked!==true) n++;
+    });
+    return n;
+  }
+
+  /* ── 삭제 ── */
+  $('delBtn').onclick=function(){
+    if(!editingId) return;
+    var id=editingId;
+    if(users[id] && users[id].level===0 && lv0Count(id)===0){
+      warnPopup('⚠️ 삭제 불가','"'+id+'" 는 마지막 LV-0 관리자 계정입니다.\n삭제하면 ACCESS(관리자 모드)에 아무도 접속할 수 없게 됩니다.\n먼저 다른 LV-0 계정을 만드세요.');
+      return;
+    }
+    askConfirm('계정 삭제','계정 "'+id+'" 를 삭제할까요?\n삭제하면 이 아이디로 로그인할 수 없습니다.',function(){
+      fb.deleteDoc(fb.doc(fb.db,'ACCESS',id))
+        .then(function(){ toast('삭제됨: '+id,'success'); resetForm(); })
+        .catch(function(e){ console.error(e); toast('삭제 실패 — 권한 확인','error'); });
+    },'삭제',true);
+  };
+
+  resetForm();
+  boot();
+})();
+</script>
+</body>
+</html>

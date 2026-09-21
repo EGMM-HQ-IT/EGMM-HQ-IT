@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FUNCTION-CODE · 코드 관리</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<style>
+  :root{
+    --bg:#EDEAE3; --bg-elev:#FFFDFA; --bg-elev-2:#F7F4ED;
+    --border:#E4DFD4; --border-bright:#D6CFC0;
+    --text:#1E1B16; --text-dim:#4C463C; --text-faint:#8C8578;
+    --accent-soft:#E9EFEA; --accent-warm:#2F5D46;
+    --danger:#9C3327; --danger-soft:#F5EAE7; --success:#2a8a4a;
+    --mono:'Pretendard','Malgun Gothic','맑은 고딕',system-ui,sans-serif;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ background:var(--bg); color:var(--text); font-family:var(--mono); min-height:100vh; }
+  .wrap{ max-width:1000px; margin:0 auto; padding:20px 20px 60px; }
+  .page-topbar{ display:flex; align-items:center; gap:12px; padding-bottom:14px; border-bottom:1px solid var(--border); margin-bottom:16px; }
+  .page-topbar h1{ font-size:22px; font-weight:800; }
+  .page-topbar h1 small{ display:block; font-size:11px; font-weight:800; letter-spacing:.16em; color:var(--text-faint); margin-top:3px; text-transform:uppercase; }
+  .live{ margin-left:auto; font-size:11px; font-weight:800; color:#2f7d32; letter-spacing:.1em; }
+  .banner{ display:none; background:#fdf3e2; border:1.5px solid #e0b25a; color:#7a5a12; border-radius:12px; padding:12px 16px; font-size:13px; font-weight:700; margin-bottom:14px; line-height:1.6; }
+  .banner.show{ display:block; }
+  .banner code{ background:#fff; border:1px solid #e0b25a; border-radius:6px; padding:1px 6px; font-weight:800; }
+  .intro{ background:var(--accent-soft); border:1.5px solid var(--accent-warm); border-radius:12px; padding:13px 16px; font-size:13px; font-weight:600; color:var(--text); line-height:1.7; margin-bottom:16px; }
+  .intro b{ color:var(--accent-warm); }
+
+  .panel{ background:var(--bg-elev); border:1.5px solid var(--border); border-radius:16px; padding:16px; margin-bottom:16px; }
+  .panel h2{ font-size:15px; font-weight:800; display:flex; align-items:center; gap:8px; padding-bottom:10px; border-bottom:1px solid var(--border); margin-bottom:12px; }
+  .panel h2 .ico{ width:28px; height:28px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:15px; }
+  .panel h2 .cnt{ margin-left:auto; font-size:11px; font-weight:800; color:var(--text-faint); }
+
+  .crow{ display:grid; grid-template-columns:1.2fr 1fr 1fr auto; gap:8px; align-items:center;
+    border:1px solid var(--border); border-radius:10px; padding:9px 12px; background:var(--bg); margin-bottom:6px; }
+  .crow .cn{ font-size:14px; font-weight:800; min-width:0; }
+  .crow .cn small{ display:block; font-size:10px; color:var(--text-faint); font-weight:700; }
+  .crow .cc{ font-size:13px; font-weight:800; color:var(--accent-warm); word-break:break-all; }
+  .crow input{ width:100%; border:1.5px solid var(--border); border-radius:8px; padding:8px 10px; font:inherit; font-size:13px; font-weight:800; background:var(--bg-elev); text-transform:uppercase; }
+  .crow input:focus{ outline:none; border-color:var(--accent-warm); background:#fff; }
+  .crow input.changed{ border-color:#e0b25a; background:#fffdf3; }
+  .btn{ border:none; border-radius:9px; padding:9px 14px; font:inherit; font-size:12px; font-weight:800; cursor:pointer; background:var(--accent-warm); color:#fff; white-space:nowrap; transition:transform .1s; }
+  .btn:active{ transform:scale(.97); }
+  .btn:disabled{ opacity:.4; cursor:not-allowed; }
+  .btn.ghost{ background:var(--bg-elev); color:var(--text-dim); border:1.5px solid var(--border); }
+  .empty{ text-align:center; color:var(--text-faint); font-size:13px; font-weight:700; padding:20px 6px; border:2px dashed var(--border); border-radius:10px; }
+
+  .toast{ position:fixed; top:26px; left:50%; transform:translateX(-50%) translateY(-16px); background:var(--text); color:#fff;
+    padding:14px 24px; border-radius:12px; font-size:15px; font-weight:800; opacity:0; pointer-events:none; transition:all .25s; z-index:9999; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  .toast.success{ background:var(--success); } .toast.error{ background:var(--danger); }
+  .modal-bg{ position:fixed; inset:0; background:rgba(30,27,22,.45); backdrop-filter:blur(4px); z-index:500; display:none; align-items:center; justify-content:center; padding:20px; }
+  .modal-bg.show{ display:flex; }
+  .modal{ background:var(--bg-elev); border:1px solid var(--border-bright); border-radius:16px; padding:26px; max-width:420px; width:100%; box-shadow:0 30px 80px rgba(30,27,22,.2); }
+  .modal h3{ font-size:19px; font-weight:800; margin-bottom:10px; }
+  .modal h3.warn{ color:var(--danger); }
+  .modal p{ color:var(--text-dim); font-size:14px; font-weight:600; line-height:1.6; margin-bottom:18px; white-space:pre-wrap; word-break:break-word; }
+  .modal .macts{ display:flex; gap:8px; justify-content:flex-end; }
+  .modal .btn{ font-size:13px; padding:10px 16px; }
+  .gate-note{ position:fixed; inset:0; z-index:9000; display:none; align-items:center; justify-content:center; background:var(--bg); }
+  .gate-note.show{ display:flex; }
+  .gate-note .gc{ background:var(--bg-elev); border:1.5px solid var(--border); border-radius:16px; padding:34px 40px; text-align:center; font-weight:800; color:var(--text-dim); line-height:1.8; }
+
+  @media (max-width:760px){
+    .crow{ grid-template-columns:1fr 1fr; }
+    .crow .cn{ grid-column:1/-1; }
+  }
+</style>
+</head>
+<body>
+<div class="toast" id="toast"></div>
+<div class="gate-note" id="gateNote"><div class="gc">🔒 EGMM 포털을 통해 접속하세요<br><span style="font-size:12px;color:var(--text-faint)">egmm.html 로그인 후 SYSTEM &gt; FUNCTION CODE 메뉴</span></div></div>
+
+<div class="wrap">
+  <div class="page-topbar">
+    <h1>🧩 FUNCTION-CODE<small>직급 · 부서 · 메뉴 · 마트 전체 코드 일람 및 수정</small></h1>
+    <span class="live">● LIVE</span>
+  </div>
+  <div class="banner" id="fbBanner"></div>
+
+  <div class="intro">
+    Firebase 에 생성된 <b>모든 직급 · 부서 · 메뉴 · 마트</b>가 여기에 표시됩니다.
+    이름 옆의 코드 칸에 직접 입력하고 <b>저장</b>을 누르면 그 코드명으로 Firebase 에 저장되고,
+    앞으로는 이름이 아닌 <b>코드로 호출·관리</b>됩니다.
+    코드는 전체(직급·부서·메뉴)에서 중복될 수 없으며, <b>중복 시 경고 팝업</b>이 표시됩니다.
+    코드를 바꾸면 그 코드를 참조하는 곳(계정의 직급·권한, 메뉴의 직급별 허용)도 자동으로 함께 바뀝니다.
+  </div>
+
+  <div class="panel">
+    <h2><span class="ico" style="background:#ece5ff;">🎖️</span> 직급 (RANK) <span class="cnt" id="rankCnt"></span></h2>
+    <div id="rankRows"></div>
+  </div>
+
+  <div class="panel">
+    <h2><span class="ico" style="background:#d9f5ec;">🏬</span> 부서 (DEPARTMENT) <span class="cnt" id="deptCnt"></span></h2>
+    <div id="deptRows"></div>
+  </div>
+
+  <div class="panel">
+    <h2><span class="ico" style="background:#e1f0ff;">📑</span> 메뉴 (MENU) <span class="cnt" id="menuCnt"></span></h2>
+    <div id="menuRows"></div>
+  </div>
+
+  <div class="panel">
+    <h2><span class="ico" style="background:#ffedd6;">🏪</span> 마트 (STORE) <span class="cnt" id="storeCnt"></span></h2>
+    <div id="storeRows"></div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalBg"><div class="modal">
+  <h3 id="mTitle"></h3><p id="mText"></p>
+  <div class="macts"><button class="btn ghost" id="mCancel" type="button">취소</button><button class="btn" id="mOk" type="button">확인</button></div>
+</div></div>
+
+<script src="../Function-Firebase-Egmm.js"></script>
+<script src="../Function-Access-Gate.js"></script>
+<script>
+(function(){
+  'use strict';
+  var $=function(id){ return document.getElementById(id); };
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+
+  var toastTimer;
+  function toast(m,t){ var el=$('toast'); clearTimeout(toastTimer); el.textContent=m; el.className='toast show '+(t||'');
+    toastTimer=setTimeout(function(){ el.className='toast '+(t||''); },2400); }
+
+  var modalCb=null;
+  function askConfirm(title,text,cb,okLabel,warn){
+    $('mTitle').textContent=title; $('mTitle').className=warn?'warn':'';
+    $('mText').textContent=text; $('mCancel').style.display='';
+    $('mOk').textContent=okLabel||'확인'; modalCb=cb; $('modalBg').classList.add('show');
+  }
+  function warnPopup(title,text){
+    $('mTitle').textContent=title; $('mTitle').className='warn';
+    $('mText').textContent=text; $('mCancel').style.display='none';
+    $('mOk').textContent='닫기'; modalCb=null; $('modalBg').classList.add('show');
+  }
+  $('mOk').onclick=function(){ $('modalBg').classList.remove('show'); if(modalCb){ var cb=modalCb; modalCb=null; cb(); } };
+  $('mCancel').onclick=function(){ $('modalBg').classList.remove('show'); modalCb=null; };
+  $('modalBg').addEventListener('click',function(e){ if(e.target===$('modalBg')){ $('modalBg').classList.remove('show'); modalCb=null; } });
+
+  var fb=null, ranks=[], users={}, depts={}, menus={}, stores={};
+
+  function fbFail(msg){
+    var b=$('fbBanner');
+    b.innerHTML='⚠️ '+esc(msg)+' — <code>Function-Firebase-Egmm.js</code> 상단의 egmm-hq-it 설정(apiKey 등)을 입력한 뒤 새로고침하세요.';
+    b.classList.add('show');
+  }
+  if(!window.EgmmFB || !window.AccessGate){ fbFail('공용 모듈(Function-Firebase-Egmm.js · Function-Access-Gate.js) 로드 필요'); return; }
+  /* 관리자 모드: LV-0 계정만 입장 (egmm.html LV-0 로그인 세션은 통과) */
+  window.AccessGate.require({ level0:true, title:'FUNCTION-CODE · ADMIN' }).then(function(){
+  window.EgmmFB.ready.then(function(f){
+    fb=f;
+    fb.onSnapshot(fb.collection(fb.db,'ACCESS'), function(snap){
+      users={}; ranks=[];
+      snap.forEach(function(ds){
+        if(ds.id==='_RANKS'){ var d=ds.data()||{}; ranks=Array.isArray(d.items)?d.items.slice():[]; return; }
+        users[ds.id]=ds.data()||{};
+      });
+      ranks.sort(function(a,b){ return (a.order||0)-(b.order||0); });
+      renderAll();
+    }, function(e){ console.error(e); fbFail('ACCESS 실시간 연결 오류'); });
+    fb.onSnapshot(fb.collection(fb.db,'DEPARTMENT'), function(snap){
+      depts={}; snap.forEach(function(ds){ if(ds.id.charAt(0)==='_') return; depts[ds.id]=ds.data()||{}; });
+      renderAll();
+    }, function(e){ console.error(e); });
+    fb.onSnapshot(fb.collection(fb.db,'MENU'), function(snap){
+      menus={}; snap.forEach(function(ds){ if(ds.id.charAt(0)==='_') return; menus[ds.id]=ds.data()||{}; });
+      renderAll();
+    }, function(e){ console.error(e); });
+    fb.onSnapshot(fb.collection(fb.db,'STORE'), function(snap){
+      stores={}; snap.forEach(function(ds){ if(ds.id.charAt(0)==='_') return; stores[ds.id]=ds.data()||{}; });
+      renderAll();
+    }, function(e){ console.error(e); });
+  }).catch(function(){ fbFail('Firebase 설정이 비어 있습니다'); });
+  });
+
+  /* 전체 코드 공간 — except: {kind:'rank'|'dept'|'menu', key} */
+  function allCodes(except){
+    var set={};
+    ranks.forEach(function(r,i){
+      if(except && except.kind==='rank' && except.key===i) return;
+      if(r.code) set[String(r.code).toUpperCase()]='직급 '+r.name;
+    });
+    Object.keys(depts).forEach(function(c){
+      if(except && except.kind==='dept' && except.key===c) return;
+      set[c.toUpperCase()]='부서 '+(depts[c].name||c);
+    });
+    Object.keys(menus).forEach(function(c){
+      if(except && except.kind==='menu' && except.key===c) return;
+      set[c.toUpperCase()]='메뉴 '+(menus[c].name||c);
+    });
+    Object.keys(stores).forEach(function(c){
+      if(except && except.kind==='store' && except.key===c) return;
+      set[c.toUpperCase()]='마트 '+(stores[c].name||c);
+    });
+    return set;
+  }
+
+  function rowHtml(kind, key, name, sub, code){
+    return '<div class="crow" data-kind="'+kind+'" data-key="'+esc(String(key))+'">'
+      +'<span class="cn">'+esc(name)+(sub?'<small>'+esc(sub)+'</small>':'')+'</span>'
+      +'<span class="cc">'+esc(code||'(코드 없음)')+'</span>'
+      +'<input type="text" value="'+esc(code||'')+'" data-orig="'+esc(code||'')+'" placeholder="새 코드 입력" autocomplete="off">'
+      +'<button class="btn" type="button" disabled>저장</button></div>';
+  }
+
+  function renderAll(){
+    /* 직급 */
+    $('rankRows').innerHTML = ranks.length? ranks.map(function(r,i){
+      var used=0; Object.keys(users).forEach(function(id){ if(users[id].rank===r.code) used++; });
+      return rowHtml('rank', i, r.name, '계정 '+used+'개 사용', r.code);
+    }).join('') : '<div class="empty">직급이 없습니다 — ACCESS 관리에서 생성</div>';
+    $('rankCnt').textContent = ranks.length? ranks.length+'개':'';
+    /* 부서 */
+    var dks=Object.keys(depts).sort();
+    $('deptRows').innerHTML = dks.length? dks.map(function(c){
+      return rowHtml('dept', c, depts[c].name||c, depts[c].nameKo||'', c);
+    }).join('') : '<div class="empty">부서가 없습니다 — DEPARTMENT 관리에서 생성</div>';
+    $('deptCnt').textContent = dks.length? dks.length+'개':'';
+    /* 메뉴 */
+    var mks=Object.keys(menus).sort();
+    $('menuRows').innerHTML = mks.length? mks.map(function(c){
+      return rowHtml('menu', c, menus[c].name||c, (menus[c].portal||'')+(menus[c].url?' · '+menus[c].url:''), c);
+    }).join('') : '<div class="empty">메뉴가 없습니다 — MENU 관리에서 생성</div>';
+    $('menuCnt').textContent = mks.length? mks.length+'개':'';
+    /* 마트 */
+    var sks=Object.keys(stores).sort();
+    $('storeRows').innerHTML = sks.length? sks.map(function(c){
+      return rowHtml('store', c, stores[c].name||c, stores[c].nameKo||'', c);
+    }).join('') : '<div class="empty">마트가 없습니다 — STORE 관리에서 생성</div>';
+    $('storeCnt').textContent = sks.length? sks.length+'개':'';
+
+    Array.prototype.forEach.call(document.querySelectorAll('.crow'),function(row){
+      var inp=row.querySelector('input'), btn=row.querySelector('button');
+      inp.addEventListener('input',function(){
+        var v=window.EgmmFB.sanitizeCode(inp.value);
+        var changed = v!=='' && v!==inp.dataset.orig;
+        inp.classList.toggle('changed', changed);
+        btn.disabled=!changed;
+      });
+      btn.onclick=function(){ saveCode(row.getAttribute('data-kind'), row.getAttribute('data-key'), inp); };
+    });
+  }
+
+  function saveCode(kind, key, inp){
+    if(!fb){ toast('연결 준비 중 — 잠시 후 다시','error'); return; }
+    var newCode=window.EgmmFB.sanitizeCode(inp.value);
+    var oldCode=inp.dataset.orig;
+    if(!newCode){ toast('코드를 입력하세요','error'); inp.focus(); return; }
+    if(newCode===oldCode) return;
+    if(newCode.charAt(0)==='_'){ toast('사용할 수 없는 코드','error'); return; }
+
+    var except = kind==='rank' ? {kind:'rank', key:+key} : {kind:kind, key:key};
+    var dup=allCodes(except);
+    if(dup[newCode]){
+      warnPopup('⚠️ 코드 중복','코드 "'+newCode+'" 는 이미 ['+dup[newCode]+'] 에서 사용 중입니다.\n코드는 직급·부서·메뉴 전체에서 중복될 수 없습니다.\n다른 코드를 입력하세요.');
+      return;
+    }
+
+    var refMsg = kind==='rank' ? '\n이 직급을 쓰는 계정과 메뉴의 직급별 허용 설정도 함께 새 코드로 바뀝니다.'
+               : kind==='menu' ? '\n계정 권한(perms)에 있는 기존 코드도 함께 새 코드로 바뀝니다.'
+               : kind==='store' ? '\n(문서가 새 코드로 이동하며 기존 필드는 유지됩니다.\n다른 앱이 옛 코드를 참조 중이면 그 앱 설정도 맞춰야 합니다)' : '';
+    askConfirm('코드 변경', (oldCode||'(코드 없음)')+' → '+newCode+' 로 변경할까요?'+refMsg, function(){
+      var p;
+      if(kind==='rank') p=changeRankCode(+key, newCode);
+      else if(kind==='dept') p=changeDeptCode(key, newCode);
+      else if(kind==='store') p=changeStoreCode(key, newCode);
+      else p=changeMenuCode(key, newCode);
+      p.then(function(){ toast('코드 변경 완료: '+newCode,'success'); })
+       .catch(function(e){ console.error(e); toast('변경 실패 — 권한/네트워크 확인','error'); });
+    }, '변경');
+  }
+
+  function changeRankCode(idx, newCode){
+    var items=ranks.slice();
+    var oldCode=items[idx].code;
+    items[idx]=Object.assign({}, items[idx], {code:newCode});
+    var jobs=[ fb.setDoc(fb.doc(fb.db,'ACCESS','_RANKS'),{ items:items, updatedAt:Date.now() }) ];
+    /* 계정의 rank 참조 갱신 */
+    Object.keys(users).forEach(function(id){
+      if(users[id].rank===oldCode)
+        jobs.push(fb.updateDoc(fb.doc(fb.db,'ACCESS',id),{ rank:newCode, updatedAt:Date.now() }));
+    });
+    /* 메뉴 allowRanks 참조 갱신 */
+    Object.keys(menus).forEach(function(mc){
+      var ar=Array.isArray(menus[mc].allowRanks)?menus[mc].allowRanks.slice():[];
+      var i=ar.indexOf(oldCode);
+      if(i>=0){ ar[i]=newCode;
+        jobs.push(fb.updateDoc(fb.doc(fb.db,'MENU',mc),{ allowRanks:ar, updatedAt:Date.now() })); }
+    });
+    return Promise.all(jobs);
+  }
+
+  function changeStoreCode(oldCode, newCode){
+    var d=Object.assign({}, stores[oldCode]||{}, { code:newCode, updatedAt:Date.now() });
+    return fb.setDoc(fb.doc(fb.db,'STORE',newCode), d)
+      .then(function(){ return fb.deleteDoc(fb.doc(fb.db,'STORE',oldCode)); });
+  }
+
+  function changeDeptCode(oldCode, newCode){
+    var d=Object.assign({}, depts[oldCode]||{}, { code:newCode, updatedAt:Date.now() });
+    return fb.setDoc(fb.doc(fb.db,'DEPARTMENT',newCode), d)
+      .then(function(){ return fb.deleteDoc(fb.doc(fb.db,'DEPARTMENT',oldCode)); });
+  }
+
+  function changeMenuCode(oldCode, newCode){
+    var m=Object.assign({}, menus[oldCode]||{}, { code:newCode, updatedAt:Date.now() });
+    return fb.setDoc(fb.doc(fb.db,'MENU',newCode), m)
+      .then(function(){ return fb.deleteDoc(fb.doc(fb.db,'MENU',oldCode)); })
+      .then(function(){
+        var jobs=[];
+        Object.keys(users).forEach(function(id){
+          var perms=Array.isArray(users[id].perms)?users[id].perms.slice():[];
+          var i=perms.indexOf(oldCode);
+          if(i>=0){ perms[i]=newCode;
+            jobs.push(fb.updateDoc(fb.doc(fb.db,'ACCESS',id),{ perms:perms, updatedAt:Date.now() })); }
+        });
+        return Promise.all(jobs);
+      });
+  }
+})();
+</script>
+</body>
+</html>
