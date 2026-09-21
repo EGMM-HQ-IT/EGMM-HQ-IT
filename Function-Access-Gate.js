@@ -13,11 +13,16 @@
      <script>
        AccessGate.require({
          menu:  "MENU-PLU-LIST",   // 이 페이지의 메뉴 코드 (MENU.html 에서 생성한 코드)
-         title: "PLU LIST"          // 로그인 창 제목 (생략 가능)
+         title: "PLU LIST",         // 로그인 창 제목 (생략 가능)
+         level0: true,              // 관리자 모드: LV-0 계정만 입장 (생략 가능)
+         force: true                // 세션 무시하고 항상 암호 재입력 (생략 가능)
        }).then(function(user){
-         // 입장 허용됨 — user = { id, fullName, rank, perms }
+         // 입장 허용됨 — user = { id, fullName, rank, level, perms }
        });
      </script>
+
+   레벨 권한: 계정의 level 은 0~9 (LV-0 = 최고 관리자) 또는 미지정(null).
+   level0:true 페이지는 LV-0 계정만 입장할 수 있습니다.
 
    입장 판정 순서:
      1) 차단(blocked)된 아이디 → 거부
@@ -92,7 +97,7 @@
   }
 
   /* 계정+메뉴 문서를 읽어 입장 판정. 반환: {ok,user} 또는 {err} */
-  function verify(fb, id, pw, menuCode){
+  function verify(fb, id, pw, menuCode, level0){
     id = String(id||'').trim().toUpperCase();
     return fb.getDoc(fb.doc(fb.db,'ACCESS',id)).then(function(snap){
       if(!snap || !snap.exists || !snap.exists()) return {err:'ID NOT FOUND'};
@@ -100,7 +105,11 @@
       if(u.blocked === true) return {err:'BLOCKED ID · ASK MANAGER'};
       return window.EgmmFB.verifyPw(u.pw, pw).then(function(ok){
         if(!ok) return {err:'WRONG PASSWORD'};
-        var user = { id:id, fullName:u.fullName||'', rank:u.rank||'', perms:Array.isArray(u.perms)?u.perms:[] };
+        var user = { id:id, fullName:u.fullName||'', rank:u.rank||'',
+          level:(typeof u.level==='number'?u.level:null),
+          perms:Array.isArray(u.perms)?u.perms:[] };
+        if(level0 && user.level!==0) return {err:'LV-0 ONLY · ASK IT-MANAGER'};
+        if(user.level===0) return {ok:true, user:user};      /* LV-0: 모든 메뉴 접근 */
         if(!menuCode) return {ok:true, user:user};
         if(user.perms.indexOf('*')>=0 || user.perms.indexOf(menuCode)>=0) return {ok:true, user:user};
         return fb.getDoc(fb.doc(fb.db,'MENU',menuCode)).then(function(ms){
@@ -111,6 +120,7 @@
             var ar = Array.isArray(m.allowRanks)?m.allowRanks:[];
             if(au.indexOf(id)>=0) return {ok:true, user:user};
             if(user.rank && ar.indexOf(user.rank)>=0) return {ok:true, user:user};
+            if(typeof m.level==='number' && user.level!==null && user.level<=m.level) return {ok:true, user:user};
           }
           return {err:'NO ACCESS PERMISSION ('+menuCode+')'};
         });
@@ -121,8 +131,11 @@
     });
   }
 
-  /* 세션 사용자에게 menuCode 권한이 있는지 (재검사) */
-  function sessionAllowed(fb, u, menuCode){
+  /* 세션 사용자에게 입장 권한이 있는지 (재검사) */
+  function sessionAllowed(fb, u, menuCode, level0){
+    var lv = (typeof u.level==='number') ? u.level : null;
+    if(level0) return Promise.resolve(lv===0);
+    if(lv===0) return Promise.resolve(true);
     if(!menuCode) return Promise.resolve(true);
     if(u.perms && (u.perms.indexOf('*')>=0 || u.perms.indexOf(menuCode)>=0)) return Promise.resolve(true);
     return fb.getDoc(fb.doc(fb.db,'MENU',menuCode)).then(function(ms){
@@ -130,7 +143,8 @@
       if(!m) return false;
       if(m.active===false) return false;
       var au=Array.isArray(m.allowUsers)?m.allowUsers:[], ar=Array.isArray(m.allowRanks)?m.allowRanks:[];
-      return au.indexOf(u.id)>=0 || (u.rank && ar.indexOf(u.rank)>=0);
+      if(au.indexOf(u.id)>=0 || (u.rank && ar.indexOf(u.rank)>=0)) return true;
+      return (typeof m.level==='number' && lv!==null && lv<=m.level);
     }).catch(function(){ return false; });
   }
 
@@ -141,6 +155,8 @@
     require: function(opts){
       opts = opts || {};
       var menuCode = opts.menu ? String(opts.menu).toUpperCase() : '';
+      var level0 = opts.level0===true;
+      var force = opts.force===true;
       document.documentElement.classList.add('ag-lock');
 
       return new Promise(function(resolve){
@@ -148,8 +164,8 @@
           if(!window.EgmmFB){ showErrOnly('Function-Firebase-Egmm.js 로드 필요'); return; }
           window.EgmmFB.ready.then(function(fb){
             var sess=getSession();
-            if(sess && sess.id){
-              sessionAllowed(fb, sess, menuCode).then(function(ok){
+            if(!force && sess && sess.id){
+              sessionAllowed(fb, sess, menuCode, level0).then(function(ok){
                 if(ok){ window.AccessGate.user=sess; unlock(); resolve(sess); }
                 else showLogin(fb);
               });
@@ -177,7 +193,7 @@
             if(!idv){ er.textContent='ENTER ID'; idIn.focus(); return; }
             if(!pwv){ er.textContent='ENTER PASSWORD'; pwIn.focus(); return; }
             busy=true; er.textContent='CHECKING…';
-            verify(fb, idv, pwv, menuCode).then(function(r){
+            verify(fb, idv, pwv, menuCode, level0).then(function(r){
               busy=false;
               if(!r || r.err){ er.textContent=(r&&r.err)||'ERROR'; pwIn.value=''; pwIn.focus(); return; }
               setSession(r.user);
