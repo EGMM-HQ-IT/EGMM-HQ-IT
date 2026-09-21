@@ -37,6 +37,15 @@
   function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){
     return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
 
+  /* 아이디 입력: 무조건 영문(A-Z)·숫자만 — 한글 등 다른 문자는 입력 즉시 제거 */
+  function forceEng(el){
+    if(!el) return;
+    function fix(){ var f=el.value.toUpperCase().replace(/[^A-Z0-9-]/g,''); if(el.value!==f) el.value=f; }
+    el.addEventListener('input', fix);
+    el.addEventListener('compositionend', fix);
+    el.addEventListener('blur', fix);
+  }
+
   function getSession(){
     try{ var raw=sessionStorage.getItem(SS_KEY); return raw?JSON.parse(raw):null; }catch(e){ return null; }
   }
@@ -177,6 +186,7 @@
             });
           }
           bt.onclick=submit;
+          forceEng(idIn);
           pwIn.addEventListener('keydown',function(e){ if(e.key==='Enter') submit(); });
           idIn.addEventListener('keydown',function(e){ if(e.key==='Enter') pwIn.focus(); });
           setTimeout(function(){ idIn.focus(); },80);
