@@ -156,6 +156,7 @@
       users={}; ranks=[];
       snap.forEach(function(ds){
         if(ds.id==='_RANKS'){ var d=ds.data()||{}; ranks=Array.isArray(d.items)?d.items.slice():[]; return; }
+        if(ds.id.charAt(0)==='_') return;
         users[ds.id]=ds.data()||{};
       });
       ranks.sort(function(a,b){ return (a.order||0)-(b.order||0); });
