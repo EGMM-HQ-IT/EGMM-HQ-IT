@@ -653,7 +653,14 @@ try{ document.documentElement.setAttribute('data-theme', localStorage.getItem('p
      표 영역(.plu-table-wrap)의 최대 높이만 JS(fitTableHeight)가 화면에 맞춰 계산.
      → 상단바·중 탭·칩은 문서 흐름 그대로 항상 보이고, 표 안에서만 스크롤.
      (이전의 body 전역 flex 잠금은 원본 CSS 와 충돌해 화면 붕괴 — 제거·원복) */
-  .plu-content .plu-table-wrap { overflow:auto; }
+  .plu-content .plu-table-wrap { overflow:auto; overscroll-behavior-x:contain; }
+  /* 가로 스크롤바 항상 표시 — EGMM 프레임(iframe) 안에서는 macOS·iPad 의 '스크롤할 때만 보이는' 오버레이 스크롤바가
+     숨겨져 오른쪽으로 넘길 수 있다는 표시가 사라지므로, 표 영역의 스크롤바를 고정 표시한다 */
+  .plu-table-wrap::-webkit-scrollbar { height:14px; width:12px; }
+  .plu-table-wrap::-webkit-scrollbar-track { background:var(--bg-elev-2, #F7F4ED); border-top:1px solid var(--border); }
+  .plu-table-wrap::-webkit-scrollbar-thumb { background:#B9B1A2; border-radius:8px; border:3px solid var(--bg-elev-2, #F7F4ED); }
+  .plu-table-wrap::-webkit-scrollbar-thumb:hover { background:#8C8578; }
+  .plu-table-wrap { scrollbar-width:auto; scrollbar-color:#B9B1A2 var(--bg-elev-2, #F7F4ED); }
 
   /* 중 카테고리 줄 오른쪽: 메인 선택삭제 버튼 */
   .plu-mainbar { display:flex; align-items:center; gap:10px; }
@@ -2380,7 +2387,9 @@ function fitTableHeight(wrap){
     var tb=document.querySelector('.page-topbar');
     if(tb) document.documentElement.style.setProperty('--pluTopH',tb.offsetHeight+'px'); /* 프리즈: 중 탭 sticky 오프셋 */
     var top=wrap.getBoundingClientRect().top;
-    var h=Math.max(220,(window.innerHeight||800)-top-16);
+    var vh=window.innerHeight||800;
+    try{ var fe=window.frameElement; if(fe && fe.clientHeight) vh=Math.min(vh, fe.clientHeight); }catch(e){}   /* EGMM iframe: 실제 보이는 높이 */
+    var h=Math.max(220,vh-top-16);
     wrap.style.maxHeight=h+'px';
   }catch(e){}
 }
