@@ -413,7 +413,7 @@
   }
   .plu-item .num{
     font-family:var(--num); font-variant-numeric:tabular-nums;
-    font-size:22px; font-weight:700; color:var(--red); line-height:1.05; letter-spacing:.005em;
+    font-size:26px; font-weight:700; color:var(--red); line-height:1.05; letter-spacing:.005em;
   }
   .plu-item .en{ font-size:20px; color:var(--ink); font-weight:800; max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; letter-spacing:.005em; line-height:1.3; }
   .plu-item .ko{ font-size:15px; color:var(--ink-dim); font-weight:500; max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.3; }
@@ -423,11 +423,12 @@
     box-shadow:inset 0 0 0 1px var(--accent), 0 10px 24px -16px rgba(47,93,70,.8);
   }
   .plu-item.sel::before{ content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--accent); }
-  /* PLU 리스트 — 번호 22px · 주 이름(영문) 20px · 보조 이름 15px */
+  /* PLU 리스트 — 번호 26px · 주 이름(영문) 20px · 보조 이름 15px */
   body.lang-EN .plu-item .en, body.lang-ES .plu-item .en, body.lang-KO .plu-item .en, body.lang-ZH .plu-item .en{ font-size:20px; }
   /* LOCAL / ORGANIC 좌우 분할 */
-  .split-wrap{ display:grid; grid-template-columns:1fr 1fr; gap:0; min-height:100%; }
-  .split-col{ min-width:0; }
+  .list-pane.split-pane{ overflow:hidden; display:flex; }
+  .split-wrap{ display:grid; grid-template-columns:1fr 1fr; gap:0; flex:1 1 auto; min-height:0; height:100%; }
+  .split-col{ min-width:0; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; }
   .split-col + .split-col{ border-left:2px solid var(--line-2); }
   .split-col .crumb.slim{ position:sticky; top:0; z-index:2; background:var(--panel); }
   .plu-grid.split{ grid-template-columns:repeat(2,1fr); }
@@ -1745,7 +1746,8 @@
     FRUIT    :[[2000,2999]],
     LOCAL    :[[3000,3999]],
     ORGANIC  :[[90000,99999]],
-    BOX      :[[80000,89999]]
+    BOX      :[[80000,89999]],
+    FISH     :[[6000,6999]]
   };
   function pluInRange(r, catKey){
     var n=parseInt(pluOf(r),10); if(isNaN(n)) return false;
@@ -1818,9 +1820,11 @@
          야채 1000~1999 · 청과(과일 버튼) 2000~2999 · 로컬 3000~3999 · 박스 80000~89999
        범위 밖 번호(유기농 90000번대 등)와 번호 없는 행은 "청과 전체"에서만 보인다.
        이전의 소분류 이름 키워드 방식(subMatch)은 아래 PLU_RANGES 로 대체 — subMatch 는 SALES/ETC 용으로만 남는다. */
-    if(catKey==='PRODUCE') return pool.filter(function(r){ return r.big!=='FISH'; });   // 청과 전체 (수산 제외)
-    if(catKey==='FISH')    return pool.filter(function(r){ return r.big==='FISH'; });   // 수산 대분류 전체
-    if(PLU_RANGES[catKey]) return pool.filter(function(r){ return r.big!=='FISH' && pluInRange(r, catKey); });
+    /* 수산(FISH) = PLU 6000~6999 이거나 수산 대분류에서 온 행. 청과 전체·야채·과일 등에는 안 섞인다 */
+    function isFishRow(r){ return r.big==='FISH' || pluInRange(r,'FISH'); }
+    if(catKey==='PRODUCE') return pool.filter(function(r){ return !isFishRow(r); });
+    if(catKey==='FISH')    return pool.filter(isFishRow);
+    if(PLU_RANGES[catKey]) return pool.filter(function(r){ return !isFishRow(r) && pluInRange(r, catKey); });
     if(catKey==='SALES'||catKey==='ETC'){
       var conf=(DATA.custom&&DATA.custom[catKey])||null;
       // 매니저(tablet-plu-preview-manager)에서 직접 입력한 항목 우선
@@ -3072,6 +3076,7 @@
   function render(){ renderCore(); }
   function renderCore(){
     var pane=$('listPane');
+    pane.classList.remove('split-pane');   // LOCAL/ORGANIC 분할 화면에서만 다시 붙는다
     // WEEKLY 선택 시: 하단(키보드+사진) 접고 리스트 영역을 화면 끝까지 확장
     var __wk=(curCat==='WEEKLY');
     document.body.classList.toggle('weekly-full', __wk);
@@ -3133,6 +3138,7 @@
         '</div>';
     }
     pane.innerHTML='<div class="split-wrap">'+col('LOCAL', L)+col('ORGANIC', O)+'</div>';
+    pane.classList.add('split-pane');
   }
 
   /* 순서대로 보기 — 카테고리 전체 상품을 PLU 1000 · 1001 · 1002 … 순으로 */
