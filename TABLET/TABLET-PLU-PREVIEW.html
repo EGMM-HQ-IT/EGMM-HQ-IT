@@ -78,6 +78,7 @@
     --c-fish:#2B5F8A;
     --c-weekly:#8A6E3C;
     --c-custom:#55506B;
+    --c-deli:#8A5A2B;
     /* 그림자 */
     --sh-1:0 1px 2px rgba(30,27,22,.05);
     --sh-2:0 1px 2px rgba(30,27,22,.05), 0 14px 30px -20px rgba(30,27,22,.42);
@@ -248,6 +249,7 @@
   .cat-box[data-cat="BOX"].on{ background:var(--c-box); border-color:var(--c-box); }
   .cat-box[data-cat="LOCAL"].on{ background:var(--c-local); border-color:var(--c-local); }
   .cat-box[data-cat="SALES"].on{ background:var(--c-sales); border-color:var(--c-sales); }
+  .cat-box[data-cat="DELI"].on{ background:var(--c-deli); border-color:var(--c-deli); }
   .cat-box[data-cat="FISH"].on{ background:var(--c-fish); border-color:var(--c-fish); }
   .cat-box[data-cat="WEEKLY"].on{ background:var(--c-weekly); border-color:var(--c-weekly); }
   .cat-box[data-cat="CUSTOM"].on{ background:var(--c-custom); border-color:var(--c-custom); }
@@ -1154,8 +1156,8 @@
     <button class="cat-box" data-cat="LOCAL" data-ic="🏠"><span class="lb">LOCAL / ORGANIC</span><span class="sub">로컬 · 유기농</span></button>
     <button class="cat-box" data-cat="BOX" data-ic="📦"><span class="lb">BOX</span><span class="sub">박스</span></button>
     <button class="cat-box" data-cat="FISH" data-ic="🐟"><span class="lb">FISH</span><span class="sub">수산</span></button>
+    <button class="cat-box" data-cat="DELI" data-ic="🍱"><span class="lb">DELI</span><span class="sub">델리</span></button>
     <button class="cat-box" data-cat="CUSTOM" data-ic="★"><span class="lb">CUSTOM</span><span class="sub">사용자 정의</span></button>
-    <button class="cat-box" data-cat="SALES" data-ic="🏷️"><span class="lb">SALES ITEM</span><span class="sub">광고상품</span></button>
     <button class="cat-box" data-cat="WEEKLY" data-ic="🗓️"><span class="lb">WEEKLY SALES</span><span class="sub">주간광고상품</span></button>
   </div>
   <!-- (요구9) LANG·UPDATE 는 오른쪽 아래 컨트롤 패널로 이동 → 남는 자리에 사진 찾기(KNN) 버튼 -->
@@ -1466,6 +1468,11 @@
     const t=(String(b&&b.id||'')+' '+String(b&&b.name||'')).toLowerCase();
     return t.indexOf('produce')>=0 || t.indexOf('청과')>=0;
   }
+  /* 델리 대분류 (DELI 버튼) — 이름/ID 에 델리·deli */
+  function isDeliBig(b){
+    const t=(String(b&&b.id||'')+' '+String(b&&b.name||'')).toLowerCase();
+    return t.indexOf('델리')>=0 || t.indexOf('deli')>=0;
+  }
   /* 수산 대분류 (FISH 버튼) — 이름/ID 에 수산·fish·seafood·해산 */
   function isFishBig(b){
     const t=(String(b&&b.id||'')+' '+String(b&&b.name||'')).toLowerCase();
@@ -1487,7 +1494,7 @@
     if(cachedSavedAt && meta.savedAt && meta.savedAt===cachedSavedAt)
       return { unchanged:true, meta };                       // 변경 없음 — 상품 문서 안 읽음
 
-    const bigs=(meta.tree||[]).filter(function(b){ return isProduceBig(b)||isFishBig(b); });
+    const bigs=(meta.tree||[]).filter(function(b){ return isProduceBig(b)||isFishBig(b)||isDeliBig(b); });
     if(!bigs.some(isProduceBig))
       throw new Error('청과 대분류를 찾지 못했습니다 — 현재 대분류: '+(meta.tree||[]).map(function(b){return b.name||b.id;}).join(', '));
 
@@ -1496,7 +1503,7 @@
     const cloud={}; let got=0;
     for(const b of bigs){
       const rows=[];
-      const bigKey = isFishBig(b) ? 'FISH' : 'PRODUCE';
+      const bigKey = isFishBig(b) ? 'FISH' : (isDeliBig(b) ? 'DELI' : 'PRODUCE');
       for(const sb of (b.subs||[])){
         let snap;
         try{ snap = await getDocs(collection(pluDb, PLU_ROOT, b.id, sb.id)); }
@@ -1823,9 +1830,11 @@
        이전의 소분류 이름 키워드 방식(subMatch)은 아래 PLU_RANGES 로 대체 — subMatch 는 SALES/ETC 용으로만 남는다. */
     /* 수산(FISH) = PLU 6000~6999 이거나 수산 대분류에서 온 행. 청과 전체·야채·과일 등에는 안 섞인다 */
     function isFishRow(r){ return r.big==='FISH' || pluInRange(r,'FISH'); }
-    if(catKey==='PRODUCE') return pool.filter(function(r){ return !isFishRow(r); });
+    function isDeliRow(r){ return r.big==='DELI'; }                       /* 델리(DELI) = 델리 대분류에서 온 행 */
+    if(catKey==='PRODUCE') return pool.filter(function(r){ return !isFishRow(r) && !isDeliRow(r); });
     if(catKey==='FISH')    return pool.filter(isFishRow);
-    if(PLU_RANGES[catKey]) return pool.filter(function(r){ return !isFishRow(r) && pluInRange(r, catKey); });
+    if(catKey==='DELI')    return pool.filter(isDeliRow);
+    if(PLU_RANGES[catKey]) return pool.filter(function(r){ return !isFishRow(r) && !isDeliRow(r) && pluInRange(r, catKey); });
     if(catKey==='SALES'||catKey==='ETC'){
       var conf=(DATA.custom&&DATA.custom[catKey])||null;
       // 매니저(tablet-plu-preview-manager)에서 직접 입력한 항목 우선
@@ -1899,7 +1908,7 @@
     var raw=cateRawOf(r);
     if(raw && !isNumericCate(raw)) return raw;
     /* 수산(FISH) 행에 분류 값이 없으면 소분류 이름(수산·박스)으로 묶는다 — 빈 분류 때문에 행이 사라지지 않게 */
-    if(r && (r.big==='FISH' || pluInRange(r,'FISH'))){ var sb=rowSub(r); if(sb){ var SUB_EN={'수산':'SEAFOOD','박스':'BOX','냉동':'FROZEN','건어물':'DRIED','조개':'SHELLFISH'}; return SUB_EN[sb] ? (sb+' \u0001 '+SUB_EN[sb]) : sb; } }
+    if(r && (r.big==='FISH' || r.big==='DELI' || pluInRange(r,'FISH'))){ var sb=rowSub(r); if(sb){ var SUB_EN={'수산':'SEAFOOD','박스':'BOX','냉동':'FROZEN','건어물':'DRIED','조개':'SHELLFISH','델리':'DELI','베이커리':'BAKERY','레몬랜드':'LEMON LAND','매장자체':'IN-STORE','행복떡집':'HAPPY RICE CAKE','한양떡집':'HANYANG RICE CAKE'}; return SUB_EN[sb] ? (sb+' \u0001 '+SUB_EN[sb]) : sb; } }
     return '';
   }
   // 카테고리 키 → {kor, eng}
@@ -1967,7 +1976,7 @@
   /* ===== 상태 ===== */
   var DATA=null;
   var curCat='PRODUCE', curCate='', selPlu='', searchTerm='', fbReady=false, isAdmin=false;
-  var DATA_SCHEMA='v2-fish';          // 캐시 구조 버전 — 바뀌면 다음 UPDATE 때 상품 문서를 다시 읽는다 (수산 추가)
+  var DATA_SCHEMA='v3-deli';          // 캐시 구조 버전 — 바뀌면 다음 UPDATE 때 상품 문서를 다시 읽는다 (수산 추가)
   var view='cate';   // 'cate' = CATE 버튼 그리드, 'list' = 상품 리스트
   /* 가운데 리스트 보기 방식 — 'CATE'(카테고리별) / 'FLAT'(순서대로 · PLU 번호순) */
   var listMode='CATE';
