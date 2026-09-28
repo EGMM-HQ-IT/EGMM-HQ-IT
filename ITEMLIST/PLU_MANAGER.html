@@ -2419,7 +2419,7 @@ function ensureVBar(wrap){
     var M={ sh:0, ch:0, bh:0, th:36, raf:0, mraf:0 };
     function measureNow(){
       var sh=wrap.scrollHeight, ch=wrap.clientHeight;
-      if(sh===M.sh && ch===M.ch && bar.classList.contains('on')===(sh>ch+1)){ place(); return; }
+      if(sh===M.sh && ch===M.ch && M.bh>0 && bar.classList.contains('on')===(sh>ch+1)){ place(); return; }
       M.sh=sh; M.ch=ch;
       if(sh<=ch+1){ bar.classList.remove('on'); return; }
       bar.classList.add('on'); M.bh=bar.clientHeight;
@@ -2455,10 +2455,11 @@ function ensureHBar(wrap){
     var M={ sw:0, cw:0, bw:0, tw:36, raf:0, mraf:0 };
     function measureNow(){                    /* 크기 계산은 표 크기가 바뀔 때만 (스크롤마다 layout 읽지 않음) */
       var sw=wrap.scrollWidth, cw=wrap.clientWidth;
-      if(sw===M.sw && cw===M.cw && bar.classList.contains('on')===(sw>cw+1)){ place(); return; }
-      M.sw=sw; M.cw=cw; M.bw=bar.clientWidth;
+      if(sw===M.sw && cw===M.cw && M.bw>0 && bar.classList.contains('on')===(sw>cw+1)){ place(); return; }
+      M.sw=sw; M.cw=cw;
       if(M.sw<=M.cw+1){ bar.classList.remove('on'); return; }
       bar.classList.add('on');
+      M.bw=bar.clientWidth;                   /* 막대를 보이게 한 뒤 재야 폭이 0 이 아니다 (숨김 상태에서 재면 0 → 손잡이 계산 깨짐) */
       M.tw=Math.max(36, Math.round(M.bw*M.cw/M.sw)); th.style.width=M.tw+'px';
       place();
     }
