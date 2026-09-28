@@ -154,7 +154,6 @@ try{ document.documentElement.setAttribute('data-theme', localStorage.getItem('p
   .plu-table-wrap {
     border: 1.5px solid var(--border); border-radius: 14px; overflow: auto;
     max-height: calc(48px + 20 * 33px); background: var(--bg-elev);
-    transform: translateZ(0); will-change: scroll-position;
     box-shadow: 0 1px 2px rgba(26,26,29,0.04), 0 10px 28px -16px rgba(26,26,29,0.12);
   }
   .plu-table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -665,7 +664,7 @@ try{ document.documentElement.setAttribute('data-theme', localStorage.getItem('p
   .plu-hbar { display:none; position:relative; height:16px; margin:0 0 6px; border-radius:8px;
     background:var(--bg-elev-2, #F7F4ED); border:1px solid var(--border); cursor:pointer; user-select:none; -webkit-user-select:none; touch-action:none; }
   .plu-hbar.on { display:block; }
-  .plu-hbar .th { position:absolute; top:2px; bottom:2px; left:0; min-width:36px; border-radius:6px; background:#A99F8D; }
+  .plu-hbar .th { position:absolute; top:2px; bottom:2px; left:0; min-width:36px; border-radius:6px; background:#A99F8D; will-change:transform; }
   .plu-hbar .th:hover, .plu-hbar.drag .th { background:#6E675B; }
 
   /* 중 카테고리 줄 오른쪽: 메인 선택삭제 버튼 */
@@ -2314,28 +2313,31 @@ function toggleMenuPop(force){
   var show=(force!==undefined)?force:!p.classList.contains('show');
   p.classList.toggle('show',show);
 }
+/* 메뉴 항목 정의 — ☰ 메뉴 팝업과 EGMM 사이드바 서브메뉴(PLU LIST 아래)가 같은 목록을 쓴다.
+   (2026-09 삭제: Firebase 업로드·복원·설정 / 업로드 진단 / 매칭) */
+var PLU_MENU=[
+  { id:'entry',   label:'상품 입력',     cls:'plu-imp-go', run:function(){ openQuickEntry(); } },   /* [MODULE 21] */
+  { id:'addrow',  label:'행 추가',       run:function(){ addRow(); } },
+  { id:'fields',  label:'필드 편집',     run:function(){ openFieldEditor(); } },
+  { id:'cats',    label:'카테고리 관리', run:function(){ openCatMgr(); } },                          /* [MODULE 24] */
+  { id:'import',  label:'엑셀 불러오기', run:function(){ $('pluImportInput').value=''; $('pluImportInput').click(); } },
+  { id:'export',  label:'엑셀 내보내기', run:function(){ openExportModal(); } },                     /* [MODULE 11] */
+  { id:'backup',  label:'백업',          run:function(){ backupJson(); } },
+  { id:'restore', label:'복원',          run:function(){ $('pluRestoreFile').value=''; $('pluRestoreFile').click(); } },
+  { id:'print',   label:'리스트 출력',   run:function(){ openPrintModal(); } },                      /* [MODULE 18] */
+  { id:'delall',  label:'전체삭제',      run:function(){ delAllRows(); } },
+  { id:'dept',    label:'DEPARTMENT 설정', run:function(){ openDeptModal(); } },                     /* [MODULE 22] */
+  { id:'fieldfx', label:'필드 기능 추가', run:function(){ openFieldFxModal(); } }                     /* [MODULE 23] */
+];
+window.__pluMenuItems=function(){ return PLU_MENU.map(function(m){ return { id:m.id, label:m.label }; }); };
+window.__pluMenuRun=function(id){ var m=PLU_MENU.filter(function(x){ return x.id===id; })[0]; if(!m) return false; toggleMenuPop(false); m.run(); return true; };
 function renderTools(){
   var slot=$('pluToolbarSlot'); slot.innerHTML='';  /* 타이틀 오른쪽 상단 슬롯 */
   var wrap=document.createElement('div'); wrap.className='plu-tools';
-  function btn(txt,fn,cls){ var b=document.createElement('button'); b.className='plu-tool-btn'+(cls?' '+cls:''); b.textContent=txt; b.onclick=function(){ toggleMenuPop(false); fn(); }; wrap.appendChild(b); return b; } /* 실행 시 팝업 닫기 */
-  btn('상품 입력',openQuickEntry,'plu-imp-go'); /* [MODULE 21] 번호 지정 필드 빠른 입력 */
-  btn('행 추가',addRow);
-  /* 선택삭제 → 메인화면 버튼(#delSelBtn) 으로 이동 */
-  btn('필드 편집',function(){ openFieldEditor(); });
-  btn('카테고리 관리',openCatMgr); /* [MODULE 24] 대분류/소분류 추가·이름·순서·삭제 (탭의 ×·＋ 대체) */
-  btn('엑셀 불러오기',function(){ $('pluImportInput').value=''; $('pluImportInput').click(); });
-  btn('엑셀 내보내기',openExportModal); /* [MODULE 11] 필드 선택 + 프리셋 */
-  btn('백업',backupJson);
-  btn('복원',function(){ $('pluRestoreFile').value=''; $('pluRestoreFile').click(); });
-  btn('매칭',openMatchTool); /* [MODULE 14] 로컬↔온라인 매칭 도구 */
-  btn('리스트 출력',openPrintModal); /* [MODULE 18] LETTER 용지 인쇄 */
-  btn('전체삭제',delAllRows); /* [요구 2026-09] 현재 카테고리 상품 리스트 전체 삭제 (2회 확인·사용중 보호) */
-  btn('DEPARTMENT 설정',openDeptModal); /* [MODULE 22] 대분류별 부서 번호 — 불러오기 라우팅 */
-  btn('필드 기능 추가',openFieldFxModal); /* [MODULE 23] 카테고리명 칩 기준 필드 · POS DESC 구성 */
-  btn('업로드 진단 ('+__BUILD+')',openImportDiag); /* [디버깅] 파일을 적용 없이 분석 */
-  btn('Firebase 업로드',fbUploadStart,'plu-imp-go'); /* [MODULE 25] v3 상품별 문서 업로드 */
-  btn('Firebase 복원',fbRestoreStart); /* [MODULE 25] Firebase → 로컬 전체 교체 */
-  btn('Firebase 설정',openFbCfg); /* [MODULE 25] config·DB ID·연결테스트 */
+  PLU_MENU.forEach(function(m){
+    var b=document.createElement('button'); b.className='plu-tool-btn'+(m.cls?' '+m.cls:''); b.textContent=m.label;
+    b.onclick=function(){ toggleMenuPop(false); m.run(); }; wrap.appendChild(b);
+  });
   slot.appendChild(wrap);
 }
 
@@ -2394,23 +2396,26 @@ function ensureHBar(wrap){
     bar=document.createElement('div'); bar.className='plu-hbar'; bar.innerHTML='<div class="th"></div>';
     wrap.parentNode.insertBefore(bar, wrap);
     var th=bar.firstChild, dragX=null, dragL=0;
-    function sync(){
-      var sw=wrap.scrollWidth, cw=wrap.clientWidth;
-      if(sw<=cw+1){ bar.classList.remove('on'); return; }
+    var M={ sw:0, cw:0, bw:0, tw:36, raf:0 };
+    function measure(){                       /* 크기 계산은 표 크기가 바뀔 때만 (스크롤마다 layout 읽지 않음) */
+      M.sw=wrap.scrollWidth; M.cw=wrap.clientWidth; M.bw=bar.clientWidth;
+      if(M.sw<=M.cw+1){ bar.classList.remove('on'); return; }
       bar.classList.add('on');
-      var bw=bar.clientWidth, tw=Math.max(36, Math.round(bw*cw/sw));
-      th.style.width=tw+'px';
-      th.style.left=Math.round((bw-tw)*(wrap.scrollLeft/(sw-cw)))+'px';
+      M.tw=Math.max(36, Math.round(M.bw*M.cw/M.sw)); th.style.width=M.tw+'px';
+      place();
     }
-    bar.__sync=sync;
-    wrap.addEventListener('scroll', sync, {passive:true});
-    function toScroll(px){ var sw=wrap.scrollWidth, cw=wrap.clientWidth, bw=bar.clientWidth, tw=th.offsetWidth; wrap.scrollLeft=Math.max(0, Math.min(sw-cw, (px/(bw-tw))*(sw-cw))); }
-    th.addEventListener('pointerdown', function(e){ dragX=e.clientX; dragL=th.offsetLeft; bar.classList.add('drag'); th.setPointerCapture(e.pointerId); e.preventDefault(); });
+    function place(){ if(M.sw<=M.cw+1) return; th.style.transform='translateX('+Math.round((M.bw-M.tw)*(wrap.scrollLeft/(M.sw-M.cw)))+'px)'; }
+    function onScroll(){ if(M.raf) return; M.raf=requestAnimationFrame(function(){ M.raf=0; place(); }); }
+    bar.__sync=measure;
+    wrap.addEventListener('scroll', onScroll, {passive:true});
+    function thumbLeft(){ return (M.bw-M.tw)*(wrap.scrollLeft/Math.max(1,(M.sw-M.cw))); }
+    function toScroll(px){ wrap.scrollLeft=Math.max(0, Math.min(M.sw-M.cw, (px/Math.max(1,(M.bw-M.tw)))*(M.sw-M.cw))); }
+    th.addEventListener('pointerdown', function(e){ dragX=e.clientX; dragL=thumbLeft(); bar.classList.add('drag'); th.setPointerCapture(e.pointerId); e.preventDefault(); });
     th.addEventListener('pointermove', function(e){ if(dragX==null) return; toScroll(dragL+(e.clientX-dragX)); });
     th.addEventListener('pointerup', function(){ dragX=null; bar.classList.remove('drag'); });
     th.addEventListener('pointercancel', function(){ dragX=null; bar.classList.remove('drag'); });
-    bar.addEventListener('pointerdown', function(e){ if(e.target===th) return; var r=bar.getBoundingClientRect(); toScroll(e.clientX-r.left-th.offsetWidth/2); });
-    try{ new ResizeObserver(sync).observe(wrap); var t=wrap.querySelector('table'); if(t) new ResizeObserver(sync).observe(t); }catch(e){}
+    bar.addEventListener('pointerdown', function(e){ if(e.target===th) return; var r=bar.getBoundingClientRect(); toScroll(e.clientX-r.left-M.tw/2); });
+    try{ new ResizeObserver(measure).observe(wrap); var t=wrap.querySelector('table'); if(t) new ResizeObserver(measure).observe(t); }catch(e){}
   }
   bar.__sync && bar.__sync();
 }
