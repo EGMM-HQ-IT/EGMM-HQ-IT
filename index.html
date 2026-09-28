@@ -224,6 +224,7 @@
 })();
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+<script src="Function-Firebase-Egmm.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/korean-lunar-calendar/dist/korean-lunar-calendar.min.js"></script>
 <script type="module">
   // Firebase SDK
@@ -2645,46 +2646,62 @@
 
   /* ── 메인 카드 2개 (H-MART 매장 관리 · EGMM 운영 콘솔) — 히어로에 걸치기 ── */
   .hm-primary-wrap{
-    position:relative; z-index:2; max-width:1120px; width:100%; margin:-76px auto 0; padding:0 40px;
+    position:relative; z-index:2; max-width:1120px; width:100%; margin:-56px auto 0; padding:0 40px;
     display:grid; grid-template-columns:1fr 1fr; gap:20px;
   }
   .portal-card.hm-primary{
-    display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:22px;
-    min-height:0; padding:30px 30px; text-align:left;
+    display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:18px;
+    min-height:0; padding:16px 22px; text-align:left;
     background:#FFFDFA; border:1px solid var(--hm-red-line); border-top:6px solid var(--hm-red); border-radius:24px;
     box-shadow:0 34px 70px -34px rgba(111,31,22,.65), 0 2px 8px rgba(30,27,22,.05);
   }
   .portal-card.hm-primary::before{ display:none; }
   .portal-card.hm-primary:hover{ border-color:var(--hm-red); border-top-color:var(--hm-red); transform:translateY(-4px); box-shadow:0 44px 80px -36px rgba(111,31,22,.75); }
   .hm-mark{
-    width:76px; height:76px; border-radius:20px; flex:0 0 auto;
+    width:54px; height:54px; border-radius:15px; flex:0 0 auto;
     display:flex; align-items:center; justify-content:center;
     background:linear-gradient(160deg, var(--hm-red-bright), var(--hm-red-deep)); color:#fff;
-    font-family:var(--serif); font-size:40px; font-weight:900; letter-spacing:-.04em;
+    font-family:var(--serif); font-size:28px; font-weight:900; letter-spacing:-.04em;
     box-shadow:0 16px 28px -16px rgba(156,51,39,.9);
   }
-  .hm-primary-egmm .hm-mark{ font-size:28px; letter-spacing:.02em; background:linear-gradient(160deg, #3A342B, var(--text)); box-shadow:0 16px 28px -16px rgba(30,27,22,.9); }
+  .hm-primary-egmm .hm-mark{ font-size:20px; letter-spacing:.02em; background:linear-gradient(160deg, #3A342B, var(--text)); box-shadow:0 16px 28px -16px rgba(30,27,22,.9); }
   .hm-primary-egmm{ border-top-color:var(--text) !important; }
-  .hm-primary-egmm .hm-cta{ background:var(--text); }
+
   .hm-primary-egmm:hover{ border-color:var(--text) !important; }
-  .hm-primary-egmm:hover .hm-cta{ background:#000 !important; }
+  .hm-primary-egmm:hover .hm-cta{ background:var(--text) !important; color:#fff !important; }
   .hm-primary .portal-name{ font-size:clamp(24px, 2.4vw, 32px); font-weight:800; letter-spacing:-.015em; color:var(--text); line-height:1.15; white-space:nowrap; }
   .hm-primary .portal-ko{ margin-top:6px; font-size:12px; font-weight:800; letter-spacing:.16em; color:var(--text-faint); }
   .hm-cta{
-    display:inline-flex; align-items:center; gap:12px;
-    padding:16px 26px; border-radius:14px; background:var(--hm-red); color:#fff;
-    font-family:var(--mono); font-size:13px; font-weight:800; letter-spacing:.12em; white-space:nowrap;
-    transition:background .18s, transform .18s;
+    display:inline-flex; align-items:center; justify-content:center;
+    width:36px; height:36px; border-radius:50%; background:var(--hm-red-soft); color:var(--hm-red);
+    font-family:var(--mono); font-size:16px; font-weight:800;
+    transition:background .18s, color .18s, transform .18s;
   }
-  .hm-cta .ar{ font-size:16px; transition:transform .18s; }
-  .hm-primary:hover .hm-cta{ background:var(--hm-red-deep); }
-  .hm-primary:hover .hm-cta .ar{ transform:translateX(4px); }
+  .hm-cta .ar{ transition:transform .18s; }
+  .hm-primary:hover .hm-cta{ background:var(--hm-red); color:#fff; }
+  .hm-primary:hover .hm-cta .ar{ transform:translateX(3px); }
+  .hm-primary-egmm .hm-cta{ background:var(--bg-elev-2); color:var(--text); }
 
-  /* ── 섹션(구역) 레이아웃 ── */
-  .portal-cats{
-    width:100%; max-width:1120px; margin:0 auto; padding:60px 40px 24px;
-    display:flex; flex-direction:column; gap:44px;
+  /* ── 섹션(구역) + 오른쪽 매장 목록 ── */
+  .portal-body{
+    width:100%; max-width:1120px; margin:0 auto; padding:48px 40px 24px;
+    display:grid; grid-template-columns:1fr 200px; gap:40px; align-items:start;
   }
+  .portal-body:has(#hmStores[hidden]){ grid-template-columns:1fr; }
+  .portal-cats{ min-width:0; display:flex; flex-direction:column; gap:40px; }
+  .hm-stores{ position:sticky; top:20px; padding:4px 0 0 28px; border-left:1px solid var(--border); }
+  .hs-title{
+    font-family:var(--mono); font-size:12px; font-weight:800; letter-spacing:.26em; color:var(--hm-red);
+    display:flex; flex-direction:column; gap:6px; margin-bottom:14px;
+  }
+  .hs-title::before{ content:''; width:38px; height:3px; background:var(--hm-red); border-radius:2px; margin-bottom:8px; }
+  .hs-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; }
+  .hs-list li{
+    font-family:var(--mono); font-size:15px; font-weight:800; letter-spacing:.04em; color:var(--text);
+    padding:9px 0; border-bottom:1px solid var(--border); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .hs-list li:last-child{ border-bottom:0; }
+  .hs-list li.ld{ color:var(--text-faint); font-weight:600; }
   .portal-cat{ display:grid; grid-template-columns:210px 1fr; gap:36px; align-items:start; }
   .portal-cat-title{
     display:flex; flex-direction:column; gap:6px; padding-top:4px;
@@ -2745,13 +2762,16 @@
   @media (max-width:900px){
     .hm-hero{ padding:56px 22px 100px; }
     .hm-hero::before{ right:-14vw; top:-12%; font-size:clamp(280px, 70vw, 420px); }
-    .hm-primary-wrap{ margin-top:-60px; padding:0 18px; grid-template-columns:1fr; gap:14px; }
-    .portal-card.hm-primary{ grid-template-columns:auto 1fr; gap:16px; padding:22px 20px; border-radius:20px; }
-    .hm-primary .hm-cta{ grid-column:1 / -1; justify-content:center; }
+    .hm-primary-wrap{ margin-top:-48px; padding:0 18px; grid-template-columns:1fr; gap:12px; }
+    .portal-card.hm-primary{ gap:14px; padding:14px 18px; border-radius:18px; }
     .hm-primary .portal-name{ font-size:22px; white-space:normal; }
     .hm-mark{ width:64px; height:64px; border-radius:16px; font-size:34px; }
     .hm-primary .portal-name{ font-size:26px; }
-    .portal-cats{ padding:40px 18px 12px; gap:32px; }
+    .portal-body{ padding:32px 18px 12px; grid-template-columns:1fr; gap:28px; }
+    .portal-cats{ gap:30px; }
+    .hm-stores{ position:static; padding:0; border-left:0; border-top:1px solid var(--border); padding-top:22px; }
+    .hs-list{ flex-direction:row; flex-wrap:wrap; gap:8px; }
+    .hs-list li{ border:1px solid var(--border); border-radius:999px; padding:7px 12px; font-size:13px; background:#FFFDFA; }
     .portal-cat{ grid-template-columns:1fr; gap:14px; }
     .portal-cat-title{ flex-direction:row; align-items:center; gap:12px; }
     .portal-cat-title::before{ margin-bottom:0; width:22px; }
@@ -2785,26 +2805,17 @@
       <div class="portal-card hm-primary hm-primary-egmm" id="toOdpBtn" role="button" tabindex="0" aria-label="EGMM">
         <div class="hm-mark" aria-hidden="true">EG</div>
         <div class="portal-name">EGMM</div>
-        <div class="hm-cta">입장 <span class="ar" aria-hidden="true">&rarr;</span></div>
+        <div class="hm-cta"><span class="ar" aria-hidden="true">&rarr;</span></div>
       </div>
       <div class="portal-card hm-primary" id="toHmartBtn" role="button" tabindex="0" aria-label="H-MART">
         <div class="hm-mark" aria-hidden="true">H</div>
         <div class="portal-name">H-MART</div>
-        <div class="hm-cta">입장 <span class="ar" aria-hidden="true">&rarr;</span></div>
+        <div class="hm-cta"><span class="ar" aria-hidden="true">&rarr;</span></div>
       </div>
     </div>
 
+    <div class="portal-body">
     <div class="portal-cats">
-      <!-- WHOLESALE -->
-      <div class="portal-cat">
-        <div class="portal-cat-title">WHOLESALE</div>
-        <div class="portal-cat-cards">
-          <div class="portal-card" id="toCampeonBtn" role="button" tabindex="0" aria-label="CAMPEON">
-            <div class="portal-name">CAMPEON</div>
-            <span class="pc-arrow" aria-hidden="true">&rarr;</span>
-          </div>
-        </div>
-      </div>
       <!-- SUPPORT -->
       <div class="portal-cat">
         <div class="portal-cat-title">SUPPORT</div>
@@ -2813,12 +2824,26 @@
             <div class="portal-name">ADVERTISING VIEWER</div>
             <span class="pc-arrow" aria-hidden="true">&rarr;</span>
           </div>
+          <div class="portal-card" id="toWeeklyAdBtn" role="button" tabindex="0" aria-label="WEEKLY AD">
+            <div class="portal-name">WEEKLY AD</div>
+            <span class="pc-arrow" aria-hidden="true">&rarr;</span>
+          </div>
           <div class="portal-card" id="toNewViewerBtn" role="button" tabindex="0" aria-label="NEW ITEM VIEWER">
             <div class="portal-name">NEW ITEM VIEWER</div>
             <span class="pc-arrow" aria-hidden="true">&rarr;</span>
           </div>
           <div class="portal-card" id="toPluQuizBtn" role="button" tabindex="0" aria-label="PLU MEMORIZE">
             <div class="portal-name">PLU MEMORIZE</div>
+            <span class="pc-arrow" aria-hidden="true">&rarr;</span>
+          </div>
+        </div>
+      </div>
+      <!-- WHOLESALE -->
+      <div class="portal-cat">
+        <div class="portal-cat-title">WHOLESALE</div>
+        <div class="portal-cat-cards">
+          <div class="portal-card" id="toCampeonBtn" role="button" tabindex="0" aria-label="CAMPEON">
+            <div class="portal-name">CAMPEON</div>
             <span class="pc-arrow" aria-hidden="true">&rarr;</span>
           </div>
         </div>
@@ -2833,6 +2858,12 @@
           </div>
         </div>
       </div>
+    </div>
+    <!-- 오른쪽: 매장 목록 (Firebase egmm / STORE · order 순) -->
+    <aside class="hm-stores" id="hmStores" hidden>
+      <div class="hs-title">STORES</div>
+      <ol class="hs-list" id="hmStoreList"></ol>
+    </aside>
     </div>
 
     <footer class="hm-foot">
@@ -3162,6 +3193,27 @@
     $('toAdViewerBtn').onclick = openAdViewer;
     $('toAdViewerBtn').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openAdViewer(); } });
   }
+  // WEEKLY AD 박스 → 광고 뷰어의 주간 광고지 보기
+  if($('toWeeklyAdBtn')){
+    const openWeeklyAd = () => { ppOpen('advertising-viewer.html?view=weekly'); };
+    $('toWeeklyAdBtn').onclick = openWeeklyAd;
+    $('toWeeklyAdBtn').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openWeeklyAd(); } });
+  }
+  // 오른쪽 매장 목록 — egmm-hq-it / DB egmm / STORE (MANAGER/STORE.html 이 관리, order 순) · 비어 있으면 DEPARTMENT 로 폴백
+  (function loadStores(){
+    const box=$('hmStores'), ol=$('hmStoreList'); if(!box||!ol||!window.EgmmFB) return;
+    window.EgmmFB.ready.then(fb => {
+      const read = col => fb.getDocs(fb.collection(fb.db, col)).then(snap => {
+        const arr=[]; snap.forEach(ds => { if(ds.id.charAt(0)==='_') return; const d=ds.data()||{}; if(d.name) arr.push({ name:String(d.name), order:(typeof d.order==='number'?d.order:999) }); });
+        arr.sort((a,b) => a.order-b.order || a.name.localeCompare(b.name)); return arr;
+      });
+      return read('STORE').then(a => a.length ? a : read('DEPARTMENT'));
+    }).then(arr => {
+      if(!arr || !arr.length) return;
+      ol.innerHTML = arr.map(x => '<li>'+String(x.name).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]).toUpperCase()+'</li>').join('');
+      box.hidden=false;
+    }).catch(() => {});
+  })();
   // NEW ITEM VIEWER 박스 → 접속권한 불필요 · 누구나 바로 보기
   if($('toNewViewerBtn')){
     const openNewViewer = () => { ppOpen('newitem-viewer.html'); };
