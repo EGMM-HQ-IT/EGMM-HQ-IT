@@ -2882,7 +2882,8 @@
 
     <button class="egmm-menu-btn" id="egmmPluListBtn"><span class="egmm-menu-label mlab">PLU LIST<small>PLU 리스트</small></span><span class="egmm-menu-arrow eg-sub-arrow" aria-hidden="true">▾</span></button>
     <div class="eg-submenu" id="egmmPluSub" hidden></div>
-    <button class="egmm-menu-btn" id="egmmUpcListBtn"><span class="egmm-menu-label mlab">UPC LIST / ITEM CODE<small>UPC 아이템 리스트</small></span></button>
+    <button class="egmm-menu-btn" id="egmmUpcListBtn"><span class="egmm-menu-label mlab">UPC LIST / ITEM CODE<small>UPC 아이템 리스트</small></span><span class="egmm-menu-arrow eg-sub-arrow" aria-hidden="true">▾</span></button>
+    <div class="eg-submenu" id="egmmUpcSub" hidden></div>
 
 
     <button class="egmm-menu-btn" id="egmmCalendarBtn"><span class="egmm-menu-label mlab">CALENDAR<small>캘린더</small></span></button>
@@ -3470,12 +3471,12 @@
     Array.prototype.forEach.call(document.querySelectorAll('.eg-side .egmm-menu-btn'), function(b){ b.classList.remove('active'); });
     if(btn) btn.classList.add('active');
   }
-  $('egmmUpcListBtn').onclick = function(){ openInFrame('../upc-list-manager.html', this); };
+
   var __ocrBtn=$('egmmOcrBtn'); if(__ocrBtn) __ocrBtn.onclick = function(){ openInFrame('../upc-list-convert-ocr.html', this); };
-  /* PLU LIST → 프레임 열기 + 아래에 서브메뉴(PLU MANAGER 의 ☰ 메뉴 항목) 펼침 · 항목 클릭 = 프레임 안 기능 실행
+  /* PLU LIST / UPC LIST → 프레임 열기 + 아래에 서브메뉴(매니저의 ☰ 메뉴 항목) 펼침 · 항목 클릭 = 프레임 안 기능 실행
      목록은 (1) 프레임 창의 __pluMenuItems() 직접 읽기  (2) 프레임이 보내는 {plu:'menu'} 메시지  두 경로로 받는다 */
-  (function(){
-    var url='../ITEMLIST/PLU_MANAGER.html', btn=$('egmmPluListBtn'), sub=$('egmmPluSub'), pollT=null, waitT=null;
+  function setupManagerSubmenu(btnId, subId, url){
+    var btn=$(btnId), sub=$(subId), pollT=null, waitT=null; if(!btn||!sub) return;
     function frameWin(){ var f=__frames[url]; try{ return f && f.contentWindow; }catch(e){ return null; } }
     function runItem(id){
       openInFrame(url, btn);
@@ -3498,7 +3499,7 @@
       return false;
     }
     window.addEventListener('message', function(e){
-      var d=e.data||{}; if(d.plu==='menu' && Array.isArray(d.items)){ renderSub(d.items); }
+      var d=e.data||{}; if(d.plu==='menu' && Array.isArray(d.items) && e.source===frameWin()){ renderSub(d.items); }
     });
     btn.onclick=function(){
       var wasOpen = __frames[url] && __frames[url].style.display!=='none';
@@ -3511,10 +3512,12 @@
       var f=__frames[url]; if(f) f.addEventListener('load', function(){ tryDirect(); }, { once:true });
       clearInterval(pollT); pollT=setInterval(tryDirect, 400);
       clearTimeout(waitT); waitT=setTimeout(function(){
-        if(!sub.querySelector('.eg-sub-btn')) sub.innerHTML='<div class="eg-sub-wait">PLU MANAGER 응답 없음 — 페이지를 새로고침한 뒤 다시 눌러 주세요</div>';
+        if(!sub.querySelector('.eg-sub-btn')) sub.innerHTML='<div class="eg-sub-wait">응답 없음 — 페이지를 새로고침한 뒤 다시 눌러 주세요</div>';
       }, 20000);
     };
-  })();
+  }
+  setupManagerSubmenu('egmmPluListBtn','egmmPluSub','../ITEMLIST/PLU_MANAGER.html');
+  setupManagerSubmenu('egmmUpcListBtn','egmmUpcSub','../ITEMLIST/UPC_MANAGER.html');
   var __adListBtn=$('egmmAdListBtn'); if(__adListBtn) __adListBtn.onclick = function(){ openInFrame('../ADVERTISING/ADVERTISING_LIST_MANAGER.html', this); };
   var __wkAdBtn=$('egmmWeeklyAdBtn'); if(__wkAdBtn) __wkAdBtn.onclick = function(){ openInFrame('../ADVERTISING/WEEKLY_AD_MANAGER.html', this); };
   var __calBtn=$('egmmCalendarBtn'); if(__calBtn) __calBtn.onclick = function(){ openInFrame('egmm-calendar.html', this); };
