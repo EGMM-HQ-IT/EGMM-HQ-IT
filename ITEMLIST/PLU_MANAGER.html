@@ -5847,8 +5847,15 @@ try{
   window.__PLU.fbResetSync=function(){ __fbLast=null; __fbState='off'; __fbConflict=null; __fbNamesAsked=''; clearTimeout(__fbSyncTimer); };
 }catch(e){}
 
-if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded',init,{once:true}); }
-else{ init(); }
+/* EGMM 사이드바 서브메뉴용: 메뉴 목록을 부모 창에 알린다 (로드 직후 + 요청 시). 부모가 우리 window 를 직접 읽지 못해도 동작 */
+function __announceMenu(){ try{ if(window.parent && window.parent!==window) window.parent.postMessage({ plu:'menu', items:window.__pluMenuItems() }, '*'); }catch(e){} }
+window.addEventListener('message', function(e){
+  var d=e.data||{};
+  if(d.plu==='getMenu') __announceMenu();
+  else if(d.plu==='run' && d.id){ try{ window.__pluMenuRun(String(d.id)); }catch(err){ console.error('[PLU 메뉴 실행 실패]', err); } }
+});
+if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded',function(){ init(); __announceMenu(); },{once:true}); }
+else{ init(); __announceMenu(); }
 })();
 </script>
 </body>

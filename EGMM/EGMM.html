@@ -3472,25 +3472,49 @@
   }
   $('egmmUpcListBtn').onclick = function(){ openInFrame('../upc-list-manager.html', this); };
   var __ocrBtn=$('egmmOcrBtn'); if(__ocrBtn) __ocrBtn.onclick = function(){ openInFrame('../upc-list-convert-ocr.html', this); };
-  /* PLU LIST → 프레임 열기 + 아래에 서브메뉴(PLU MANAGER 의 ☰ 메뉴 항목) 펼침 · 항목 클릭 = 프레임 안 기능 실행 */
-  $('egmmPluListBtn').onclick = function(){
-    var url='../ITEMLIST/PLU_MANAGER.html', btn=this, sub=$('egmmPluSub');
-    var wasOpen = __frames[url] && __frames[url].style.display!=='none';
-    openInFrame(url, btn);
-    if(wasOpen && !sub.hidden){ sub.hidden=true; btn.classList.remove('sub-open'); return; }   // 다시 누르면 접기
-    btn.classList.add('sub-open'); sub.hidden=false;
-    function fill(){
-      var f=__frames[url], items=null;
-      try{ items=f && f.contentWindow && f.contentWindow.__pluMenuItems && f.contentWindow.__pluMenuItems(); }catch(e){}
-      if(!items){ sub.innerHTML='<div class="eg-sub-wait">불러오는 중…</div>'; return false; }
-      sub.innerHTML=items.map(function(m){ return '<button class="eg-sub-btn" type="button" data-id="'+m.id+'">'+m.label.replace(/</g,'&lt;')+'</button>'; }).join('');
-      Array.prototype.forEach.call(sub.querySelectorAll('.eg-sub-btn'), function(b){
-        b.onclick=function(){ openInFrame(url, btn); try{ __frames[url].contentWindow.__pluMenuRun(b.getAttribute('data-id')); }catch(e){} };
-      });
+  /* PLU LIST → 프레임 열기 + 아래에 서브메뉴(PLU MANAGER 의 ☰ 메뉴 항목) 펼침 · 항목 클릭 = 프레임 안 기능 실행
+     목록은 (1) 프레임 창의 __pluMenuItems() 직접 읽기  (2) 프레임이 보내는 {plu:'menu'} 메시지  두 경로로 받는다 */
+  (function(){
+    var url='../ITEMLIST/PLU_MANAGER.html', btn=$('egmmPluListBtn'), sub=$('egmmPluSub'), pollT=null, waitT=null;
+    function frameWin(){ var f=__frames[url]; try{ return f && f.contentWindow; }catch(e){ return null; } }
+    function runItem(id){
+      openInFrame(url, btn);
+      var w=frameWin(); var done=false;
+      try{ if(w && w.__pluMenuRun){ w.__pluMenuRun(id); done=true; } }catch(e){}
+      if(!done){ try{ w.postMessage({ plu:'run', id:id }, '*'); }catch(e){} }
+    }
+    function renderSub(items){
+      if(!items || !items.length) return false;
+      clearInterval(pollT); pollT=null; clearTimeout(waitT); waitT=null;
+      sub.innerHTML=items.map(function(m){ return '<button class="eg-sub-btn" type="button" data-id="'+String(m.id).replace(/"/g,'')+'">'+String(m.label).replace(/</g,'&lt;')+'</button>'; }).join('');
+      Array.prototype.forEach.call(sub.querySelectorAll('.eg-sub-btn'), function(b){ b.onclick=function(){ runItem(b.getAttribute('data-id')); }; });
       return true;
     }
-    if(!fill()){ var f=__frames[url]; if(f) f.addEventListener('load', function(){ fill(); }, { once:true }); var tries=0, t=setInterval(function(){ if(fill()||++tries>40) clearInterval(t); },250); }
-  };
+    function tryDirect(){
+      var w=frameWin(), items=null;
+      try{ items=w && w.__pluMenuItems && w.__pluMenuItems(); }catch(e){}
+      if(items) return renderSub(items);
+      try{ if(w) w.postMessage({ plu:'getMenu' }, '*'); }catch(e){}
+      return false;
+    }
+    window.addEventListener('message', function(e){
+      var d=e.data||{}; if(d.plu==='menu' && Array.isArray(d.items)){ renderSub(d.items); }
+    });
+    btn.onclick=function(){
+      var wasOpen = __frames[url] && __frames[url].style.display!=='none';
+      openInFrame(url, btn);
+      if(wasOpen && !sub.hidden){ sub.hidden=true; btn.classList.remove('sub-open'); return; }   // 다시 누르면 접기
+      btn.classList.add('sub-open'); sub.hidden=false;
+      if(sub.querySelector('.eg-sub-btn')) return;                                                // 이미 채워짐
+      sub.innerHTML='<div class="eg-sub-wait">불러오는 중…</div>';
+      if(tryDirect()) return;
+      var f=__frames[url]; if(f) f.addEventListener('load', function(){ tryDirect(); }, { once:true });
+      clearInterval(pollT); pollT=setInterval(tryDirect, 400);
+      clearTimeout(waitT); waitT=setTimeout(function(){
+        if(!sub.querySelector('.eg-sub-btn')) sub.innerHTML='<div class="eg-sub-wait">PLU MANAGER 응답 없음 — 페이지를 새로고침한 뒤 다시 눌러 주세요</div>';
+      }, 20000);
+    };
+  })();
   var __adListBtn=$('egmmAdListBtn'); if(__adListBtn) __adListBtn.onclick = function(){ openInFrame('../ADVERTISING/ADVERTISING_LIST_MANAGER.html', this); };
   var __wkAdBtn=$('egmmWeeklyAdBtn'); if(__wkAdBtn) __wkAdBtn.onclick = function(){ openInFrame('../ADVERTISING/WEEKLY_AD_MANAGER.html', this); };
   var __calBtn=$('egmmCalendarBtn'); if(__calBtn) __calBtn.onclick = function(){ openInFrame('egmm-calendar.html', this); };
