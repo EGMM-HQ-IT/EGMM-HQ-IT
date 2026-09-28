@@ -3423,7 +3423,8 @@
   // ----- 버튼 연결 -----
   // ITEM LIST / MEMORIZE / GUIDE 메뉴 버튼 — 링크는 추후 연결 예정
   // 중첩 방지: iframe 안에 egmm이 다시 열리면 전체 화면으로 복귀
-  try{ if(window.top!==window.self){ window.top.location.href=window.location.href; } }catch(e){}
+  // (INDEX 셸 예외) 부모가 index 의 전체화면 iframe 셸이면 그대로 둔다 — 주소창을 루트로 유지하기 위함
+  try{ if(window.top!==window.self){ var __inShell=false; try{ __inShell=!!window.parent.__ppShell; }catch(e0){} if(!__inShell) window.top.location.href=window.location.href; } }catch(e){}
   // iframe 안 페이지의 자체 타이틀·하단 로그아웃 숨김
   function __trimFrame(f){
     try{

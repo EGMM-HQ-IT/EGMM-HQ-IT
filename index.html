@@ -147,9 +147,19 @@
    2) 다른 도메인이면 → iframe을 벗어나 탭 전체로 전환한다 */
 (function(){
   if (window.self === window.top) return;   // iframe이 아니면 아무것도 안 함
-  // 같은 도메인(THE SHAWN 앱 내부 iframe — hmart/egmm 등)에서는 아무것도 하지 않음:
-  // 하위 메뉴가 index로 되돌린 경우 탭 전체를 뺏으면 H-MART 화면이 닫혀버림.
-  try { if (window.parent.location.host === window.location.host) return; } catch(eSame) {}
+  // 같은 도메인 iframe 안에서 열린 경우:
+  //   · 부모가 INDEX 셸(__ppShell)이면 = 하위 메뉴가 "돌아가기"로 index 를 연 것 → 셸에 닫으라고 알리고 이 문서는 그리지 않는다
+  //   · 그 외(앱 내부 iframe — hmart/egmm 등)는 아무것도 하지 않음
+  try {
+    if (window.parent.location.host === window.location.host) {
+      if (window.parent.__ppShell) {
+        try { window.parent.postMessage({ pp:'close' }, location.origin); } catch(e0) {}
+        try { document.documentElement.style.display = 'none'; } catch(e1) {}
+        try { window.stop(); } catch(e2) {}
+      }
+      return;
+    }
+  } catch(eSame) {}
   try {
     var pd = window.parent.document;        // 다른 도메인이면 여기서 예외 발생
     var ifs = pd.querySelectorAll('iframe'), me = null;
@@ -2528,6 +2538,7 @@
     #addEventBtn { width: 100%; }
   }
 
+  html.pp-framed, html.pp-framed body{ overflow:hidden; }
   /* 좌상단 MANAGER 아이콘 */
   .topbar-left { position: fixed; top: 16px; left: 16px; z-index: 1200; display: flex; align-items: center; gap: 8px; }
   .mgr-fab {
@@ -3087,7 +3098,7 @@
       // 이름 선택 안 함 → 관리자 (마스터 PIN)
       if (await verifyPin(p)) {
         try{ localStorage.setItem('unifiedLogin','1'); sessionStorage.setItem('egmmGate','1'); sessionStorage.setItem('egmmUser', JSON.stringify({name:'', menus:{}})); }catch(e){}
-        window.location.href = 'EGMM/egmm.html';
+        ppOpen('EGMM/egmm.html');
       } else { if(egmmPwErr) egmmPwErr.textContent = '마스터 PIN이 올바르지 않습니다'; }
       return;
     }
@@ -3095,11 +3106,41 @@
     var u = egmmUsers.filter(function(x){ return String(x.id)===uid; })[0];
     if (u && await matchUserPin(p, u.pin)) {
       try{ localStorage.setItem('unifiedLogin','1'); sessionStorage.setItem('egmmGate','1'); sessionStorage.setItem('egmmUser', JSON.stringify({name:u.name, menus:u.menus||{}})); }catch(e){}
-      window.location.href = 'EGMM/egmm.html';
+      ppOpen('EGMM/egmm.html');
     } else { if(egmmPwErr) egmmPwErr.textContent = '해당 사용자의 PIN이 아닙니다'; }
   };
-  // EGMM → 바로 이동 (ID/PASSWORD 검증은 EGMM/egmm.html 자체 게이트가 담당)
-  const enterEgmm = () => { window.location.href = 'EGMM/egmm.html'; };
+  /* ══ 메뉴 이동은 전부 전체화면 iframe(셸) 안에서 — 브라우저 주소창은 항상 루트(index) 그대로 ══
+       · 하위 페이지가 "돌아가기"로 index.html 을 열면(iframe 안) index 상단 스크립트가 {pp:'close'} 를 보내고 셸이 iframe 을 닫는다
+       · 뒤로가기 버튼: 셸이 연 history 항목이 빠지면(popstate) iframe 을 닫는다 */
+  window.__ppShell = true;
+  function ppOpen(path){
+    let f = document.getElementById('ppFrame');
+    if(!f){
+      f = document.createElement('iframe'); f.id = 'ppFrame';
+      f.setAttribute('allow', 'camera; microphone; clipboard-read; clipboard-write; fullscreen');
+      f.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;border:0;margin:0;padding:0;z-index:2147483000;background:#EDEAE3;';
+      document.body.appendChild(f);
+    }
+    f.src = path;
+    document.documentElement.classList.add('pp-framed');
+    try{ if(!(history.state && history.state.ppFrame)) history.pushState({ ppFrame:1 }, ''); }catch(e){}
+  }
+  function ppClose(){
+    const f = document.getElementById('ppFrame');
+    if(f && f.parentNode) f.parentNode.removeChild(f);
+    document.documentElement.classList.remove('pp-framed');
+    try{ if(history.state && history.state.ppFrame) history.back(); }catch(e){}
+  }
+  window.addEventListener('message', e => {
+    if(e.origin !== location.origin) return;
+    if(e.data && e.data.pp === 'close') ppClose();
+  });
+  window.addEventListener('popstate', () => {
+    const f = document.getElementById('ppFrame');
+    if(f && !(history.state && history.state.ppFrame)){ f.parentNode.removeChild(f); document.documentElement.classList.remove('pp-framed'); }
+  });
+  // EGMM → 셸 안에서 열기 (ID/PASSWORD 검증은 EGMM/egmm.html 자체 게이트가 담당)
+  const enterEgmm = () => ppOpen('EGMM/egmm.html');
   $('toOdpBtn').onclick = () => enterEgmm();
   $('toOdpBtn').addEventListener('keydown', e => {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); enterEgmm(); }
@@ -3107,29 +3148,29 @@
 
   // CAMPEON WHOLESALE 박스 → index 팝업 로그인
   if($('toCampeonBtn')){
-    $('toCampeonBtn').onclick = () => { window.location.href = 'WHOLSALE/sales-management-campeonwholsale.html'; };
-    $('toCampeonBtn').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); window.location.href = 'WHOLSALE/sales-management-campeonwholsale.html'; } });
+    $('toCampeonBtn').onclick = () => { ppOpen('WHOLSALE/sales-management-campeonwholsale.html'); };
+    $('toCampeonBtn').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ppOpen('WHOLSALE/sales-management-campeonwholsale.html'); } });
   }
   // PLU PREVIEW 박스 → 바로 이동 (매장 선택·PIN 검증은 tablet-plu-preview.html 자체 게이트가 담당)
   if($('toPluPreviewBtn')){
-    $('toPluPreviewBtn').onclick = () => { window.location.href = 'TABLET/tablet-plu-preview.html'; };
-    $('toPluPreviewBtn').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); window.location.href = 'TABLET/tablet-plu-preview.html'; } });
+    $('toPluPreviewBtn').onclick = () => { ppOpen('TABLET/tablet-plu-preview.html'); };
+    $('toPluPreviewBtn').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ppOpen('TABLET/tablet-plu-preview.html'); } });
   }
   // ADVERTISING VIEWER 박스 → 접속권한 불필요 · 누구나 바로 보기
   if($('toAdViewerBtn')){
-    const openAdViewer = () => { window.location.href = 'advertising-viewer.html'; };
+    const openAdViewer = () => { ppOpen('advertising-viewer.html'); };
     $('toAdViewerBtn').onclick = openAdViewer;
     $('toAdViewerBtn').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openAdViewer(); } });
   }
   // NEW ITEM VIEWER 박스 → 접속권한 불필요 · 누구나 바로 보기
   if($('toNewViewerBtn')){
-    const openNewViewer = () => { window.location.href = 'newitem-viewer.html'; };
+    const openNewViewer = () => { ppOpen('newitem-viewer.html'); };
     $('toNewViewerBtn').onclick = openNewViewer;
     $('toNewViewerBtn').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openNewViewer(); } });
   }
   // PLU MEMORIZE 박스 → TOOLS 폴더 · 퀴즈 내 매장 선택 사용
   if($('toPluQuizBtn')){
-    const openPluQuiz = () => { window.location.href = 'TOOLS/plu-quiz.html'; };
+    const openPluQuiz = () => { ppOpen('TOOLS/plu-quiz.html'); };
     $('toPluQuizBtn').onclick = openPluQuiz;
     $('toPluQuizBtn').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPluQuiz(); } });
   }
@@ -3192,7 +3233,7 @@
   if(mgrLoginOv) mgrLoginOv.addEventListener('click', e => { if (e.target === mgrLoginOv) closeMgrLogin(); });
 
   // H-MART 버튼 → 바로 이동 (아이디/패스워드 검증은 hmart.html 자체 게이트가 담당)
-  const enterHmart = () => { window.location.href = 'HMART/hmart.html'; };
+  const enterHmart = () => { ppOpen('HMART/hmart.html'); };
   $('toHmartBtn').onclick = () => enterHmart();
   $('toHmartBtn').addEventListener('keydown', e => {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); enterHmart(); }
