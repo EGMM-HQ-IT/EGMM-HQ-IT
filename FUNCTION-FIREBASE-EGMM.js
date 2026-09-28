@@ -1,13 +1,13 @@
 /* =====================================================================
-   Function-Firebase-Egmm.js — EGMM-HQ-IT 공용 Firebase 연결 모듈
+   FUNCTION-FIREBASE-EGMM.js — EGMM-HQ-IT 공용 Firebase 연결 모듈
    ---------------------------------------------------------------------
    · 프로젝트: egmm-hq-it · Firestore DB ID: "egmm" (default 아님!)
    · 이 파일 하나에만 설정을 넣으면 ACCESS / DEPARTMENT / MENU /
-     FUNCTION-CODE 및 Function-Access-Gate.js 가 전부 이 설정을 사용.
+     FUNCTION-CODE 및 FUNCTION-ACCESS-GATE.js 가 전부 이 설정을 사용.
    · 배치 위치: 저장소 루트 (다른 Function-*.js 와 같은 위치)
    ---------------------------------------------------------------------
    사용법:
-     <script src="../Function-Firebase-Egmm.js"></script>
+     <script src="../FUNCTION-FIREBASE-EGMM.js"></script>
      <script>
        EgmmFB.ready.then(function(fb){
          // fb.db, fb.doc, fb.getDoc, fb.getDocs, fb.setDoc,

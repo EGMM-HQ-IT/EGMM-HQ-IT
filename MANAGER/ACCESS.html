@@ -131,7 +131,7 @@
 </head>
 <body>
 <div class="toast" id="toast"></div>
-<div class="gate-note" id="gateNote"><div class="gc">🔒 EGMM 포털을 통해 접속하세요<br><span style="font-size:12px;color:var(--text-faint)">egmm.html 로그인 후 SYSTEM &gt; ACCESS 메뉴</span></div></div>
+<div class="gate-note" id="gateNote"><div class="gc">🔒 EGMM 포털을 통해 접속하세요<br><span style="font-size:12px;color:var(--text-faint)">EGMM.html 로그인 후 SYSTEM &gt; ACCESS 메뉴</span></div></div>
 
 <div class="wrap">
   <div class="page-topbar">
@@ -235,7 +235,7 @@
   <div class="macts"><button class="btn ghost sm" id="mCancel" type="button">취소</button><button class="btn sm" id="mOk" type="button">확인</button></div>
 </div></div>
 
-<script src="../Function-Firebase-Egmm.js"></script>
+<script src="../FUNCTION-FIREBASE-EGMM.js"></script>
 <script>
 (function(){
   'use strict';
@@ -278,7 +278,7 @@
 
   function fbFail(msg){
     var b=$('fbBanner');
-    b.innerHTML='⚠️ '+esc(msg)+' — <code>Function-Firebase-Egmm.js</code> 상단의 egmm-hq-it 설정(apiKey 등)을 입력한 뒤 새로고침하세요.';
+    b.innerHTML='⚠️ '+esc(msg)+' — <code>FUNCTION-FIREBASE-EGMM.js</code> 상단의 egmm-hq-it 설정(apiKey 등)을 입력한 뒤 새로고침하세요.';
     b.classList.add('show');
   }
   /* === 입장 게이트: 접속할 때마다 관리자 PIN 만 확인 ===
@@ -323,7 +323,7 @@
     });
   }
   function boot(){
-    if(!window.EgmmFB){ fbFail('공용 모듈(Function-Firebase-Egmm.js) 로드 필요'); return; }
+    if(!window.EgmmFB){ fbFail('공용 모듈(FUNCTION-FIREBASE-EGMM.js) 로드 필요'); return; }
     window.EgmmFB.ready.then(function(f){
       return pinGate(f);
     }).then(startSubs)
@@ -606,7 +606,7 @@
         .catch(function(e){ console.error(e); toast('비밀번호 처리 실패 — 저장 안 됨','error'); });
     } else done();
   };
-  /* 저장된 비밀번호와 입력값 대조 — 로그인 문제 진단용 (egmm.html 과 동일한 verifyPw 사용) */
+  /* 저장된 비밀번호와 입력값 대조 — 로그인 문제 진단용 (EGMM.html 과 동일한 verifyPw 사용) */
   $('pwTestBtn').onclick=function(){
     if(!editingId || !users[editingId]) return;
     var input=$('fPw').value.trim();
@@ -614,7 +614,7 @@
     var stored=String(users[editingId].pw||'');
     var fmt = stored===''?'저장된 비밀번호 없음(빈 값)' : stored.indexOf('h:')===0?'해시(h:)' : stored.indexOf('p:')===0?'평문(p:)' : '구형 평문';
     window.EgmmFB.verifyPw(stored, input).then(function(ok){
-      if(ok) warnPopup('✅ 일치','입력한 비밀번호가 "'+editingId+'" 에 저장된 값과 일치합니다.\n저장 형식: '+fmt+'\n\n이 값으로 egmm.html 로그인이 되어야 합니다.');
+      if(ok) warnPopup('✅ 일치','입력한 비밀번호가 "'+editingId+'" 에 저장된 값과 일치합니다.\n저장 형식: '+fmt+'\n\n이 값으로 EGMM.html 로그인이 되어야 합니다.');
       else warnPopup('❌ 불일치','입력한 비밀번호가 "'+editingId+'" 에 저장된 값과 다릅니다.\n저장 형식: '+fmt+'\n\n이 상태에서 [저장]을 누르면 입력한 값으로 비밀번호가 새로 저장됩니다.');
     });
   };

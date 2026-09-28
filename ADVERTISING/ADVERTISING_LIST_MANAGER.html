@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>ADVERTISING MANAGER · THE SHAWN</title>
+<title>ADVERTISING MANAGER</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"></script>
 <style>
@@ -766,7 +766,7 @@
     /* EGMM MANAGER 팝업(iframe) 안에서 열림 → 닫기 메시지, 단독 접근 시 EGMM으로 */
     $('backBtn').onclick=function(){
       try{ if(window.parent && window.parent!==window){ window.parent.postMessage('hpm-close','*'); return; } }catch(e){}
-      window.location.href='../EGMM/egmm.html';
+      window.location.href='../EGMM/EGMM.html';
     };
     try{ if(window.parent && window.parent!==window) $('backBtn').textContent='✕ 닫기'; }catch(e){}
     $('exportBtn').onclick=exportXlsx; $('printBtn').onclick=printList;

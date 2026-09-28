@@ -16,11 +16,11 @@
   var APPS = window.PP_APPS = [
     { key:'HMART',      name:'H-MART',      sub:'매장 관리',    path:'HMART/hmart.html',                              color:'#9C3327', mark:'H'  },
     { key:'CAMPEON',    name:'CAMPEON',     sub:'도매 관리',    path:'WHOLSALE/sales-management-campeonwholsale.html', color:'#2F5D46', mark:'CW' },
-    { key:'ADVIEWER',   name:'AD VIEWER',   sub:'광고상품 보기', path:'advertising-viewer.html',                       color:'#A98A55', mark:'AD' },
+    { key:'ADVIEWER',   name:'AD VIEWER',   sub:'광고상품 보기', path:'ADVERTISING/ADVERTISING_LIST_VIEW.html',                       color:'#A98A55', mark:'AD' },
     { key:'NEWITEM',    name:'NEW ITEM',    sub:'신상품 보기',   path:'newitem-viewer.html',                           color:'#3B556F', mark:'NI' },
     { key:'PLUMEM',     name:'PLU MEMORIZE',sub:'PLU 암기 연습', path:'TOOLS/plu-quiz.html',                           color:'#55506B', mark:'PM' },
-    { key:'PLUPREVIEW', name:'PLU PREVIEW', sub:'PLU 미리보기',  path:'TABLET/tablet-plu-preview.html',                       color:'#1E1B16', mark:'PP' },
-    { key:'EGMM',       name:'EGMM',        sub:'운영 콘솔',     path:'EGMM/egmm.html',                                color:'#7D5BA6', mark:'EG' }
+    { key:'PLUPREVIEW', name:'PLU PREVIEW', sub:'PLU 미리보기',  path:'TABLET/TABLET-PLU-PREVIEW.html',                       color:'#1E1B16', mark:'PP' },
+    { key:'EGMM',       name:'EGMM',        sub:'운영 콘솔',     path:'EGMM/EGMM.html',                                color:'#7D5BA6', mark:'EG' }
   ];
   var TKEY='ppInstallTargets';
   window.PP_TARGET=function(k){
@@ -174,12 +174,12 @@
   }
 })();
 </script>
-<link rel="manifest" href="TABLET/TABLET-manifest.json">
+<link rel="manifest" href="TABLET/TABLET-MANIFEST.json">
 <meta name="theme-color" content="#9C3327">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="apple-touch-icon" href="TABLET/TABLET-icon-192.png">
+<link rel="apple-touch-icon" href="TABLET/TABLET-ICON-192.png">
 <script>
 /* ── PWA: 서비스워커 등록 + 우상단 원탭 설치 버튼 ──
    ※ 우상단 원탭 버튼은 새 INSTALL 패널(메뉴별 개별 설치)로 대체됨 → 버튼 생성만 중단, SW 등록은 유지 */
@@ -187,7 +187,7 @@
   if (window.__ppLauncher) return;                 // 홈 화면 설치 런처 모드
   var LEGACY_BTN = false;                          // true 로 바꾸면 예전 '📲 앱 설치' 버튼이 다시 나옴
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
-    try { navigator.serviceWorker.register('TABLET/TABLET-sw.js', { scope: './' }); } catch(e){}
+    try { navigator.serviceWorker.register('TABLET/TABLET-SW.js', { scope: './' }); } catch(e){}
   }
   var standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone;
   if (standalone) return;                       // 이미 앱으로 실행 중
@@ -224,7 +224,7 @@
 })();
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
-<script src="Function-Firebase-Egmm.js"></script>
+<script src="FUNCTION-FIREBASE-EGMM.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/korean-lunar-calendar/dist/korean-lunar-calendar.min.js"></script>
 <script type="module">
   // Firebase SDK
@@ -2540,6 +2540,16 @@
   }
 
   html.pp-framed, html.pp-framed body{ overflow:hidden; }
+  /* 팝업(모달 iframe) */
+  #ppPopOv{ position:fixed; inset:0; z-index:2147483100; background:rgba(30,27,22,.55); backdrop-filter:blur(4px); display:none; align-items:center; justify-content:center; padding:24px; }
+  #ppPopOv.show{ display:flex; }
+  .pp-pop{ width:min(1240px,100%); height:min(900px,100%); background:#FFFDFA; border:1px solid #D6CFC0; border-radius:16px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 40px 90px -30px rgba(30,27,22,.7); }
+  .pp-pop-head{ flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 12px 10px 18px; border-bottom:1px solid #E4DFD4; background:#F7F4ED; }
+  .pp-pop-title{ font-family:var(--mono); font-size:12px; font-weight:800; letter-spacing:.22em; color:#9C3327; }
+  .pp-pop-x{ width:34px; height:34px; border-radius:9px; border:1.5px solid #E4DFD4; background:#FFFDFA; color:#4C463C; font-size:15px; font-weight:800; cursor:pointer; }
+  .pp-pop-x:hover{ border-color:#9C3327; color:#9C3327; background:#F5EAE7; }
+  .pp-pop-frame{ flex:1 1 auto; width:100%; border:0; background:#EDEAE3; }
+  @media (max-width:700px){ #ppPopOv{ padding:0; } .pp-pop{ border-radius:0; border:0; height:100%; } }
   /* 좌상단 MANAGER 아이콘 */
   .topbar-left { position: fixed; top: 16px; left: 16px; z-index: 1200; display: flex; align-items: center; gap: 8px; }
   .mgr-fab {
@@ -3086,7 +3096,7 @@
   // 모드 전환 버튼
   if($('toSignupBtn')) $('toSignupBtn').onclick = setSignupMode;
   if($('toLoginBtn')) $('toLoginBtn').onclick = setLoginMode;
-  // EGMM 박스 → 비밀번호 확인(팝업) 후 별도 페이지(EGMM/egmm.html)로 이동
+  // EGMM 박스 → 비밀번호 확인(팝업) 후 별도 페이지(EGMM/EGMM.html)로 이동
   let egmmPin = '10041004';                        // EGMM 마스터 PIN(이름 선택 안 함=관리자). 저장값은 해시/레거시평문. 절대 DOM 노출 안 함
   // PIN 해시 (안전컨텍스트=HTTPS면 SHA-256, 아니면 평문 폴백). 저장값은 'h:'/'p:'/레거시평문 중 하나.
   async function hashPin(v){
@@ -3138,7 +3148,7 @@
       // 이름 선택 안 함 → 관리자 (마스터 PIN)
       if (await verifyPin(p)) {
         try{ localStorage.setItem('unifiedLogin','1'); sessionStorage.setItem('egmmGate','1'); sessionStorage.setItem('egmmUser', JSON.stringify({name:'', menus:{}})); }catch(e){}
-        ppOpen('EGMM/egmm.html');
+        ppOpen('EGMM/EGMM.html');
       } else { if(egmmPwErr) egmmPwErr.textContent = '마스터 PIN이 올바르지 않습니다'; }
       return;
     }
@@ -3146,7 +3156,7 @@
     var u = egmmUsers.filter(function(x){ return String(x.id)===uid; })[0];
     if (u && await matchUserPin(p, u.pin)) {
       try{ localStorage.setItem('unifiedLogin','1'); sessionStorage.setItem('egmmGate','1'); sessionStorage.setItem('egmmUser', JSON.stringify({name:u.name, menus:u.menus||{}})); }catch(e){}
-      ppOpen('EGMM/egmm.html');
+      ppOpen('EGMM/EGMM.html');
     } else { if(egmmPwErr) egmmPwErr.textContent = '해당 사용자의 PIN이 아닙니다'; }
   };
   /* ══ 메뉴 이동은 전부 전체화면 iframe(셸) 안에서 — 브라우저 주소창은 항상 루트(index) 그대로 ══
@@ -3179,8 +3189,30 @@
     const f = document.getElementById('ppFrame');
     if(f && !(history.state && history.state.ppFrame)){ f.parentNode.removeChild(f); document.documentElement.classList.remove('pp-framed'); }
   });
-  // EGMM → 셸 안에서 열기 (ID/PASSWORD 검증은 EGMM/egmm.html 자체 게이트가 담당)
-  const enterEgmm = () => ppOpen('EGMM/egmm.html');
+  /* ── 팝업(모달 iframe): 광고상품 보기 · 주간 광고지 — 첫 화면 위에 창처럼 뜨고 ✕ 로 닫는다 ── */
+  function ppPopup(path, title){
+    let ov = document.getElementById('ppPopOv');
+    if(!ov){
+      ov = document.createElement('div'); ov.id = 'ppPopOv';
+      ov.innerHTML = '<div class="pp-pop"><div class="pp-pop-head"><span class="pp-pop-title"></span><button type="button" class="pp-pop-x" aria-label="닫기">&#x2715;</button></div><iframe class="pp-pop-frame" title="popup" allow="clipboard-read; clipboard-write; fullscreen"></iframe></div>';
+      document.body.appendChild(ov);
+      ov.querySelector('.pp-pop-x').onclick = ppPopupClose;
+      ov.addEventListener('click', e => { if(e.target === ov) ppPopupClose(); });
+      document.addEventListener('keydown', e => { if(e.key === 'Escape' && ov.classList.contains('show')) ppPopupClose(); });
+    }
+    ov.querySelector('.pp-pop-title').textContent = title || '';
+    ov.querySelector('.pp-pop-frame').src = path;
+    ov.classList.add('show');
+    document.documentElement.classList.add('pp-framed');
+  }
+  function ppPopupClose(){
+    const ov = document.getElementById('ppPopOv'); if(!ov) return;
+    ov.classList.remove('show');
+    ov.querySelector('.pp-pop-frame').src = 'about:blank';
+    if(!document.getElementById('ppFrame')) document.documentElement.classList.remove('pp-framed');
+  }
+  // EGMM → 셸 안에서 열기 (ID/PASSWORD 검증은 EGMM/EGMM.html 자체 게이트가 담당)
+  const enterEgmm = () => ppOpen('EGMM/EGMM.html');
   $('toOdpBtn').onclick = () => enterEgmm();
   $('toOdpBtn').addEventListener('keydown', e => {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); enterEgmm(); }
@@ -3191,20 +3223,20 @@
     $('toCampeonBtn').onclick = () => { ppOpen('WHOLSALE/sales-management-campeonwholsale.html'); };
     $('toCampeonBtn').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ppOpen('WHOLSALE/sales-management-campeonwholsale.html'); } });
   }
-  // PLU PREVIEW 박스 → 바로 이동 (매장 선택·PIN 검증은 tablet-plu-preview.html 자체 게이트가 담당)
+  // PLU PREVIEW 박스 → 바로 이동 (매장 선택·PIN 검증은 TABLET-PLU-PREVIEW.html 자체 게이트가 담당)
   if($('toPluPreviewBtn')){
-    $('toPluPreviewBtn').onclick = () => { ppOpen('TABLET/tablet-plu-preview.html'); };
-    $('toPluPreviewBtn').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ppOpen('TABLET/tablet-plu-preview.html'); } });
+    $('toPluPreviewBtn').onclick = () => { ppOpen('TABLET/TABLET-PLU-PREVIEW.html'); };
+    $('toPluPreviewBtn').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ppOpen('TABLET/TABLET-PLU-PREVIEW.html'); } });
   }
   // ADVERTISING VIEWER 박스 → 접속권한 불필요 · 누구나 바로 보기
   if($('toAdViewerBtn')){
-    const openAdViewer = () => { ppOpen('advertising-viewer.html'); };
+    const openAdViewer = () => { ppPopup('ADVERTISING/ADVERTISING_LIST_VIEW.html', 'ADVERTISING VIEWER'); };
     $('toAdViewerBtn').onclick = openAdViewer;
     $('toAdViewerBtn').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openAdViewer(); } });
   }
   // WEEKLY AD 박스 → 광고 뷰어의 주간 광고지 보기
   if($('toWeeklyAdBtn')){
-    const openWeeklyAd = () => { ppOpen('advertising-viewer.html?view=weekly'); };
+    const openWeeklyAd = () => { ppPopup('ADVERTISING/WEEKLY_AD_VIEW.html', 'WEEKLY AD'); };
     $('toWeeklyAdBtn').onclick = openWeeklyAd;
     $('toWeeklyAdBtn').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openWeeklyAd(); } });
   }

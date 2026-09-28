@@ -1,15 +1,15 @@
 /* =====================================================================
-   Function-Access-Gate.js — ACCESS 기반 공용 입장 게이트
+   FUNCTION-ACCESS-GATE.js — ACCESS 기반 공용 입장 게이트
    ---------------------------------------------------------------------
    앞으로 만드는(또는 교체하는) 모든 HTML 은 이 게이트 하나로
    Firestore ACCESS 컬렉션(egmm-hq-it / DB "egmm")의
    아이디 · 비밀번호 · 직급 · 권한 · 차단 설정에 따라 입장이 결정됩니다.
 
-   배치 위치: 저장소 루트 (Function-Firebase-Egmm.js 와 같은 위치)
+   배치 위치: 저장소 루트 (FUNCTION-FIREBASE-EGMM.js 와 같은 위치)
 
    사용법 (페이지 <body> 최상단 또는 <head> 끝):
-     <script src="../Function-Firebase-Egmm.js"></script>
-     <script src="../Function-Access-Gate.js"></script>
+     <script src="../FUNCTION-FIREBASE-EGMM.js"></script>
+     <script src="../FUNCTION-ACCESS-GATE.js"></script>
      <script>
        AccessGate.require({
          menu:  "MENU-PLU-LIST",   // 이 페이지의 메뉴 코드 (MENU.html 에서 생성한 코드)
@@ -161,7 +161,7 @@
 
       return new Promise(function(resolve){
         function start(){
-          if(!window.EgmmFB){ showErrOnly('Function-Firebase-Egmm.js 로드 필요'); return; }
+          if(!window.EgmmFB){ showErrOnly('FUNCTION-FIREBASE-EGMM.js 로드 필요'); return; }
           window.EgmmFB.ready.then(function(fb){
             var sess=getSession();
             if(!force && sess && sess.id){
@@ -171,7 +171,7 @@
               });
             } else showLogin(fb);
           }).catch(function(){
-            showErrOnly('FIREBASE 설정 필요 — Function-Firebase-Egmm.js 확인');
+            showErrOnly('FIREBASE 설정 필요 — FUNCTION-FIREBASE-EGMM.js 확인');
           });
         }
 

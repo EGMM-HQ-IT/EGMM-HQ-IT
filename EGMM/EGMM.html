@@ -2665,7 +2665,7 @@
 </style>
 </head>
 <body>
-<script src="../Function-Firebase-Egmm.js"></script>
+<script src="../FUNCTION-FIREBASE-EGMM.js"></script>
 <script>
   /* === 진입 게이트(인페이지) === 메인 화면이 보이기 전 ID/PASSWORD 로그인 필수.
      계정: SYSTEM > ACCESS 관리에서 만든 아이디·비밀번호 (Firestore egmm-hq-it / DB egmm / ACCESS 컬렉션)
@@ -2735,6 +2735,7 @@
       egmmItemAnalyzeBtn:'MENU-ITEM-ANALYZE', egmmShawnMgrBtn:'MENU-SHAWN-CLOUD', egmmDeliReqBtn:'MENU-REQUEST-CONFIRM',
       egmmHanaBtn:'MENU-HANA', egmmTaxBtn:'MENU-TAX', egmmEbtBtn:'MENU-EBT', egmmHardLiquorBtn:'MENU-HARD-LIQUOR',
       egmmProductNameMakerBtn:'MENU-PRODUCT-NAME-MAKER', egmmDeliMgmtBtn:'MENU-DELI-MGMT',
+      egmmAdListBtn:'MENU-AD-LIST', egmmWeeklyAdBtn:'MENU-WEEKLY-AD',
       egmmAccessBtn:'MENU-ACCESS', egmmStoreBtn:'MENU-STORE', egmmDeptBtn:'MENU-DEPARTMENT',
       egmmMenuMgrBtn:'MENU-MENU', egmmFuncCodeBtn:'MENU-FUNCTION-CODE' };
     /* SYSTEM 카테고리 = 관리자 모드: LV-0 계정에게만 표시/접속 */
@@ -2785,7 +2786,7 @@
       try{ sessionStorage.setItem('egmmGate','1'); }catch(e){}
       try{ sessionStorage.setItem('egmmUser', JSON.stringify({name:r.user.id, menus:{}})); }catch(e){}
       try{ sessionStorage.setItem('egmmAuth', JSON.stringify({mode:'access', user:r.user})); }catch(e){}
-      /* ACCESS 게이트(Function-Access-Gate.js)를 쓰는 파일들과 세션 공유 — 재로그인 없이 이동 */
+      /* ACCESS 게이트(FUNCTION-ACCESS-GATE.js)를 쓰는 파일들과 세션 공유 — 재로그인 없이 이동 */
       try{ sessionStorage.setItem('egmmAccessAuth', JSON.stringify({id:r.user.id, fullName:r.user.fullName, rank:r.user.rank, level:r.user.level, perms:r.user.perms})); }catch(e){}
       unlock();
     }
@@ -2880,6 +2881,13 @@
     <button class="egmm-menu-btn" id="egmmPurchaseBtn"><span class="egmm-menu-label mlab">DAILY PURCHASE<small>매입일지 보기</small></span></button>
   </div>
 
+  <!-- 박스: ADVERTISING -->
+  <div class="egmm-card">
+    <div class="egmm-card-head"><span class="egmm-card-tick"></span><span class="egmm-card-name">ADVERTISING</span></div>
+    <button class="egmm-menu-btn" id="egmmAdListBtn"><span class="egmm-menu-label mlab">AD LIST MANAGER<small>광고상품 리스트 관리</small></span></button>
+    <button class="egmm-menu-btn" id="egmmWeeklyAdBtn"><span class="egmm-menu-label mlab">WEEKLY AD MANAGER<small>주간 광고지 등록·관리</small></span></button>
+  </div>
+
   <!-- 박스 2: ODP -->
   <div class="egmm-card">
     <div class="egmm-card-head"><span class="egmm-card-tick"></span><span class="egmm-card-name">ODP</span></div>
@@ -2889,7 +2897,7 @@
 
     <button class="egmm-menu-btn" id="egmmToolsBtn"><span class="egmm-menu-label mlab">TOOLS<small>도구 모음</small></span></button>
     <button class="egmm-menu-btn" id="egmmItemAnalyzeBtn"><span class="egmm-menu-label mlab">ITEM ANALYZE<small>품목 분석</small></span></button>
-    <button class="egmm-menu-btn" id="egmmShawnMgrBtn"><span class="egmm-menu-label mlab">MANAGER<small>THE SHAWN 클라우드</small></span></button>
+    <button class="egmm-menu-btn" id="egmmShawnMgrBtn"><span class="egmm-menu-label mlab">MANAGER<small>클라우드</small></span></button>
   </div>
 
   <!-- 박스: REQUEST (한 세로 열) -->
@@ -3455,7 +3463,9 @@
   }
   $('egmmUpcListBtn').onclick = function(){ openInFrame('../upc-list-manager.html', this); };
   var __ocrBtn=$('egmmOcrBtn'); if(__ocrBtn) __ocrBtn.onclick = function(){ openInFrame('../upc-list-convert-ocr.html', this); };
-  $('egmmPluListBtn').onclick = function(){ openInFrame('PLU_MANAGER.html', this); };
+  $('egmmPluListBtn').onclick = function(){ openInFrame('../ITEMLIST/PLU_MANAGER.html', this); };
+  var __adListBtn=$('egmmAdListBtn'); if(__adListBtn) __adListBtn.onclick = function(){ openInFrame('../ADVERTISING/ADVERTISING_LIST_MANAGER.html', this); };
+  var __wkAdBtn=$('egmmWeeklyAdBtn'); if(__wkAdBtn) __wkAdBtn.onclick = function(){ openInFrame('../ADVERTISING/WEEKLY_AD_MANAGER.html', this); };
   var __calBtn=$('egmmCalendarBtn'); if(__calBtn) __calBtn.onclick = function(){ openInFrame('egmm-calendar.html', this); };
   var __dpvBtn=$('egmmPurchaseBtn'); if(__dpvBtn) __dpvBtn.onclick = function(){ openInFrame('daily-purchase-view.html', this); };
   // SYSTEM: 관리자 모드 (MANAGER 폴더 · LV-0 전용 · ACCESS 는 접속 시 암호 재확인)

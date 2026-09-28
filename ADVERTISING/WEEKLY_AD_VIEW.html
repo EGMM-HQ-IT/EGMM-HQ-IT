@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<!--
+  WEEKLY_AD_VIEW.html — WEEKLY AD (주간 광고지 보기)
+  보기 전용 · 로그인 불필요 · index WEEKLY AD 카드 팝업(iframe)에서 열림
+  읽기: Firestore(the-shawn) weekly-ad/_META.current → weekly-ad/{id}-p{n}
+  등록·관리: EGMM > ADVERTISING > WEEKLY AD MANAGER (WEEKLY_AD_MANAGER.html)
+-->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5.0">
+<title>WEEKLY AD</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<style>
+  :root{
+    --bg:#EDEAE3; --bg-elev:#FFFDFA; --bg-elev-2:#F7F4ED; --border:#E4DFD4;
+    --text:#1E1B16; --text-dim:#4C463C; --text-faint:#8C8578; --accent-warm:#2F5D46; --danger:#9C3327; --danger-soft:#F5EAE7;
+    --sh-1:0 1px 2px rgba(30,27,22,.05);
+    --mono:'Pretendard','Malgun Gothic','맑은 고딕',system-ui,sans-serif;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ height:100%; background:var(--bg); color:var(--text); font-family:var(--mono); -webkit-font-smoothing:antialiased; }
+  body{ display:flex; flex-direction:column; }
+  .sm-top{ flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; gap:16px;
+    padding:14px 28px; border-bottom:1px solid var(--border); background:var(--bg-elev); box-shadow:var(--sh-1); }
+  .sm-title{ font-size:22px; font-weight:900; letter-spacing:.14em; text-transform:uppercase; display:flex; align-items:baseline; gap:12px; white-space:nowrap; min-width:0; }
+  .sm-title .ko{ font-size:13.5px; font-weight:800; letter-spacing:.02em; color:var(--text-dim); text-transform:none; overflow:hidden; text-overflow:ellipsis; }
+  .pv-btn{ display:inline-flex; align-items:center; gap:7px; background:var(--bg-elev); border:1.5px solid var(--border);
+    color:var(--text-dim); padding:8px 15px; font-family:var(--mono); font-size:13px; font-weight:800; border-radius:10px; cursor:pointer; white-space:nowrap; }
+  .pv-btn:hover{ border-color:var(--danger); color:var(--danger); background:var(--danger-soft); }
+  .body{ flex:1 1 auto; min-height:0; overflow:auto; -webkit-overflow-scrolling:touch; padding:16px; }
+  .pages{ max-width:1100px; margin:0 auto; display:flex; flex-direction:column; gap:14px; }
+  .pages img{ display:block; width:100%; height:auto; border-radius:10px; background:#fff; box-shadow:0 14px 30px -20px rgba(30,27,22,.42); }
+  .empty{ text-align:center; color:var(--text-faint); padding:60px 20px; font-size:14px; font-weight:700; }
+  .spin{ display:inline-block; width:13px; height:13px; border:2px solid var(--border); border-top-color:var(--accent-warm); border-radius:50%; animation:sp .7s linear infinite; vertical-align:-2px; margin-right:6px; }
+  @keyframes sp{ to{ transform:rotate(360deg); } }
+  .hidden{ display:none !important; }
+  @media (max-width:760px){ .sm-top{ padding:12px 16px; } .sm-title{ font-size:18px; } .body{ padding:10px; } }
+</style>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  const firebaseConfig = { apiKey:"AIzaSyC6t78BS99LX3261cRmApBG8AcZ8HPVxr0", authDomain:"the-shawn.firebaseapp.com", projectId:"the-shawn", storageBucket:"the-shawn.firebasestorage.app", messagingSenderId:"519898602513", appId:"1:519898602513:web:0f35e3dc9c29dce21665b0", measurementId:"G-NKGYGC63JN" };
+  const app=initializeApp(firebaseConfig);
+  window.fbDb=getFirestore(app);
+  window.fbFns={ doc, getDoc };
+  window.dispatchEvent(new Event('fb-ready'));
+</script>
+</head>
+<body>
+  <header class="sm-top">
+    <div class="sm-title">WEEKLY AD <span class="ko" id="adTitle">주간 광고지</span></div>
+    <div><button class="pv-btn" id="backBtn" type="button">← 돌아가기</button></div>
+  </header>
+  <div class="body"><div class="pages" id="pages"><div class="empty"><span class="spin"></span>불러오는 중…</div></div></div>
+<script>
+(function(){
+  'use strict';
+  var $=function(id){ return document.getElementById(id); };
+  var COL='weekly-ad', META='_META';
+  var embedded=false; try{ embedded=(window.parent && window.parent!==window); }catch(e){}
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function whenFb(cb){ if(window.fbDb&&window.fbFns) cb(); else window.addEventListener('fb-ready', cb, {once:true}); }
+  function load(){
+    window.fbFns.getDoc(window.fbFns.doc(window.fbDb, COL, META)).then(function(s){
+      var v=(s&&s.exists&&s.exists())?(s.data()||{}):{};
+      var id=String(v.current||''); var list=Array.isArray(v.list)?v.list:[];
+      var x=list.filter(function(y){ return y.id===id; })[0];
+      if(!id || !x){ $('pages').innerHTML='<div class="empty">게시된 주간 광고지가 없습니다</div>'; return; }
+      $('adTitle').textContent=x.title||'주간 광고지';
+      var reads=[]; for(var i=0;i<(x.pages||0);i++) reads.push(window.fbFns.getDoc(window.fbFns.doc(window.fbDb, COL, id+'-p'+i)));
+      return Promise.all(reads).then(function(ss){
+        var html=''; ss.forEach(function(p,i){ var d=(p&&p.exists&&p.exists())?(p.data()||{}):{}; if(d.b64) html+='<img src="'+d.b64+'" alt="page '+(i+1)+'">'; });
+        $('pages').innerHTML=html||'<div class="empty">페이지 이미지가 없습니다</div>';
+      });
+    }).catch(function(e){ $('pages').innerHTML='<div class="empty">불러오기 실패: '+esc(e&&e.message||e)+'</div>'; });
+  }
+  if(embedded) $('backBtn').classList.add('hidden');
+  $('backBtn').onclick=function(){ if(window.opener && !window.opener.closed){ window.close(); return; } window.location.href='../index.html'; };
+  whenFb(load);
+})();
+</script>
+</body>
+</html>

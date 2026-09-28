@@ -111,7 +111,7 @@
 </head>
 <body>
 <div class="toast" id="toast"></div>
-<div class="gate-note" id="gateNote"><div class="gc">🔒 EGMM 포털을 통해 접속하세요<br><span style="font-size:12px;color:var(--text-faint)">egmm.html 로그인 후 SYSTEM &gt; MENU 메뉴</span></div></div>
+<div class="gate-note" id="gateNote"><div class="gc">🔒 EGMM 포털을 통해 접속하세요<br><span style="font-size:12px;color:var(--text-faint)">EGMM.html 로그인 후 SYSTEM &gt; MENU 메뉴</span></div></div>
 
 <div class="wrap">
   <div class="page-topbar">
@@ -188,8 +188,8 @@
   </div>
 </div></div>
 
-<script src="../Function-Firebase-Egmm.js"></script>
-<script src="../Function-Access-Gate.js"></script>
+<script src="../FUNCTION-FIREBASE-EGMM.js"></script>
+<script src="../FUNCTION-ACCESS-GATE.js"></script>
 <script>
 (function(){
   'use strict';
@@ -221,11 +221,11 @@
 
   function fbFail(msg){
     var b=$('fbBanner');
-    b.innerHTML='⚠️ '+esc(msg)+' — <code>Function-Firebase-Egmm.js</code> 상단의 egmm-hq-it 설정(apiKey 등)을 입력한 뒤 새로고침하세요.';
+    b.innerHTML='⚠️ '+esc(msg)+' — <code>FUNCTION-FIREBASE-EGMM.js</code> 상단의 egmm-hq-it 설정(apiKey 등)을 입력한 뒤 새로고침하세요.';
     b.classList.add('show');
   }
-  if(!window.EgmmFB || !window.AccessGate){ fbFail('공용 모듈(Function-Firebase-Egmm.js · Function-Access-Gate.js) 로드 필요'); return; }
-  /* 관리자 모드: LV-0 계정만 입장 (egmm.html LV-0 로그인 세션은 통과) */
+  if(!window.EgmmFB || !window.AccessGate){ fbFail('공용 모듈(FUNCTION-FIREBASE-EGMM.js · FUNCTION-ACCESS-GATE.js) 로드 필요'); return; }
+  /* 관리자 모드: LV-0 계정만 입장 (EGMM.html LV-0 로그인 세션은 통과) */
   window.AccessGate.require({ level0:true, title:'MENU · ADMIN' }).then(function(){
   window.EgmmFB.ready.then(function(f){
     fb=f;
@@ -471,7 +471,7 @@
     } else write();
   };
 
-  /* ── 기존 메뉴 일괄 등록 (egmm.html 사이드바의 메뉴 코드와 1:1 일치) ── */
+  /* ── 기존 메뉴 일괄 등록 (EGMM.html 사이드바의 메뉴 코드와 1:1 일치) ── */
   var SEED_MENUS=[
     { code:'MENU-PLU-LIST',            name:'PLU LIST',                 portal:'EGMM', url:'plu-list-manager.html' },
     { code:'MENU-UPC-LIST',            name:'UPC LIST / ITEM CODE',     portal:'EGMM', url:'upc-list-manager.html' },

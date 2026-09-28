@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<!--
+  WEEKLY_AD_MANAGER.html — WEEKLY AD MANAGER (주간 광고지 등록·관리)
+  EGMM > ADVERTISING > WEEKLY AD MANAGER (iframe) 에서 사용
+  저장: Firestore(the-shawn) weekly-ad
+    · _META            : { current, list:[{id,title,pages,updatedAt}], updatedAt }
+    · {id}-p{n}        : { flyer:id, idx:n, b64 }   (페이지 이미지 · JPEG · 긴 변 1600px 이하로 축소 저장)
+  보기: WEEKLY_AD_VIEW.html (index WEEKLY AD 카드 팝업)
+-->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WEEKLY AD MANAGER</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<style>
+  :root{
+    --bg:#EDEAE3; --bg-elev:#FFFDFA; --bg-elev-2:#F7F4ED; --border:#E4DFD4; --border-bright:#D6CFC0;
+    --text:#1E1B16; --text-dim:#4C463C; --text-faint:#8C8578;
+    --accent:#1E1B16; --accent-warm:#2F5D46; --accent-soft:#E9EFEA;
+    --brass:#A98A55; --danger:#9C3327; --danger-soft:#F5EAE7;
+    --sh-1:0 1px 2px rgba(30,27,22,.05);
+    --sh-2:0 1px 2px rgba(30,27,22,.05), 0 14px 30px -20px rgba(30,27,22,.42);
+    --mono:'Pretendard','Malgun Gothic','맑은 고딕',system-ui,sans-serif;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ min-height:100%; background:var(--bg); color:var(--text); font-family:var(--mono); -webkit-font-smoothing:antialiased; }
+  .sm-top{ display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px 28px;
+    border-bottom:1px solid var(--border); background:var(--bg-elev); box-shadow:var(--sh-1); position:sticky; top:0; z-index:5; }
+  .sm-title{ font-size:22px; font-weight:900; letter-spacing:.14em; text-transform:uppercase; display:flex; align-items:baseline; gap:12px; white-space:nowrap; }
+  .sm-title .ko{ font-size:13.5px; font-weight:800; letter-spacing:.02em; color:var(--text-dim); text-transform:none; }
+  .pv-btn{ display:inline-flex; align-items:center; gap:7px; background:var(--bg-elev); border:1.5px solid var(--border);
+    color:var(--text-dim); padding:8px 15px; font-family:var(--mono); font-size:13px; font-weight:800; border-radius:10px;
+    cursor:pointer; transition:.15s; white-space:nowrap; }
+  .pv-btn:hover{ border-color:var(--accent-warm); color:var(--text); }
+  .pv-btn.primary{ background:var(--accent-warm); border-color:var(--accent-warm); color:#fff; }
+  .pv-btn.primary:hover{ filter:brightness(1.08); }
+  .pv-btn.danger:hover{ border-color:var(--danger); color:var(--danger); background:var(--danger-soft); }
+  .pv-btn:disabled{ opacity:.5; cursor:not-allowed; }
+  .pv-btn.sm{ padding:6px 10px; font-size:12px; }
+  .wrap{ max-width:1180px; margin:0 auto; padding:20px 28px 60px; display:grid; grid-template-columns:1fr 340px; gap:18px; align-items:start; }
+  .panel{ background:var(--bg-elev); border:1.5px solid var(--border); border-radius:14px; padding:16px; box-shadow:var(--sh-2); }
+  .panel h2{ font-size:14px; font-weight:800; letter-spacing:.06em; display:flex; align-items:center; gap:8px; padding-bottom:10px; border-bottom:1px solid var(--border); margin-bottom:12px; }
+  .panel h2 .cnt{ margin-left:auto; font-size:11px; font-weight:800; color:var(--text-faint); }
+  .field{ margin-bottom:12px; }
+  .field label{ display:block; font-size:12px; font-weight:800; color:var(--text-dim); margin-bottom:5px; letter-spacing:.03em; }
+  .field input[type=text]{ width:100%; border:1.5px solid var(--border); border-radius:10px; padding:11px 13px; font:inherit; font-size:14px; font-weight:700; color:var(--text); background:var(--bg); }
+  .field input:focus{ outline:none; border-color:var(--accent-warm); background:#fff; }
+  .field .hint{ font-size:11px; color:var(--text-faint); font-weight:600; margin-top:4px; line-height:1.5; }
+  .drop{ border:2px dashed var(--border-bright); border-radius:12px; padding:26px 16px; text-align:center; color:var(--text-faint); font-weight:700; font-size:13px; cursor:pointer; background:var(--bg); transition:.15s; }
+  .drop:hover, .drop.over{ border-color:var(--accent-warm); color:var(--accent-warm); background:var(--accent-soft); }
+  .drop input{ display:none; }
+  .pages{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; margin-top:12px; }
+  .pg{ position:relative; border:1.5px solid var(--border); border-radius:10px; overflow:hidden; background:var(--bg-elev-2); }
+  .pg img{ display:block; width:100%; aspect-ratio:3/4; object-fit:cover; }
+  .pg .no{ position:absolute; top:6px; left:6px; background:var(--accent); color:#fff; font-size:11px; font-weight:800; padding:2px 8px; border-radius:999px; }
+  .pg .acts{ display:flex; gap:4px; padding:6px; background:var(--bg-elev); border-top:1px solid var(--border); }
+  .pg .acts button{ flex:1; border:1px solid var(--border); background:var(--bg); border-radius:7px; font:inherit; font-size:12px; font-weight:800; padding:5px 0; cursor:pointer; color:var(--text-dim); }
+  .pg .acts button:hover{ border-color:var(--accent-warm); color:var(--accent-warm); }
+  .pg .acts button.x:hover{ border-color:var(--danger); color:var(--danger); }
+  .btnrow{ display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
+  .list{ display:flex; flex-direction:column; gap:6px; }
+  .row{ display:flex; align-items:center; gap:8px; border:1.5px solid var(--border); border-radius:10px; padding:9px 11px; background:var(--bg); }
+  .row.cur{ border-color:var(--accent-warm); background:var(--accent-soft); }
+  .row .t{ font-size:13px; font-weight:800; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .row .m{ font-size:11px; color:var(--text-faint); font-weight:700; white-space:nowrap; }
+  .badge{ font-size:10px; font-weight:800; padding:2px 8px; border-radius:10px; background:var(--accent-warm); color:#fff; }
+  .empty{ text-align:center; color:var(--text-faint); font-size:13px; font-weight:700; padding:22px 6px; border:2px dashed var(--border); border-radius:10px; }
+  .toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--accent); color:#fff;
+    padding:12px 20px; border-radius:12px; font-size:13px; font-weight:800; box-shadow:0 12px 30px rgba(0,0,0,.25);
+    opacity:0; transition:.25s; z-index:9999; pointer-events:none; }
+  .toast.show{ opacity:1; bottom:34px; }
+  .toast.error{ background:var(--danger); }
+  .prog{ font-size:12px; font-weight:800; color:var(--accent-warm); min-height:16px; margin-top:8px; }
+  @media (max-width:900px){ .wrap{ grid-template-columns:1fr; padding:14px 14px 40px; } .sm-top{ padding:12px 16px; } }
+</style>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  const firebaseConfig = { apiKey:"AIzaSyC6t78BS99LX3261cRmApBG8AcZ8HPVxr0", authDomain:"the-shawn.firebaseapp.com", projectId:"the-shawn", storageBucket:"the-shawn.firebasestorage.app", messagingSenderId:"519898602513", appId:"1:519898602513:web:0f35e3dc9c29dce21665b0", measurementId:"G-NKGYGC63JN" };
+  const app=initializeApp(firebaseConfig);
+  window.fbDb=getFirestore(app);
+  window.fbFns={ doc, getDoc, setDoc, deleteDoc, collection, getDocs, writeBatch };
+  window.dispatchEvent(new Event('fb-ready'));
+</script>
+</head>
+<body>
+  <header class="sm-top">
+    <div class="sm-title">WEEKLY AD <span class="ko">주간 광고지 관리</span></div>
+    <div><button class="pv-btn" id="backBtn" type="button">← 돌아가기</button></div>
+  </header>
+
+  <div class="wrap">
+    <!-- 편집 -->
+    <div class="panel">
+      <h2>✏️ <span id="formTitle">새 광고지 등록</span><span class="cnt" id="pageCnt"></span></h2>
+      <div class="field"><label>제목 (예: 10/6 ~ 10/12 주간 광고)</label><input type="text" id="fTitle" autocomplete="off" placeholder="주간 광고 제목"></div>
+      <div class="drop" id="drop">📷 광고지 이미지 파일을 여기에 놓거나 클릭해서 선택 (JPG · PNG · 여러 장 가능)
+        <input type="file" id="file" accept="image/*" multiple></div>
+      <div class="field"><div class="hint">이미지는 긴 변 1600px · JPEG 로 축소되어 저장됩니다. 페이지 순서는 아래 카드의 ◀ ▶ 로 조정하세요.</div></div>
+      <div class="pages" id="pages"></div>
+      <div class="prog" id="prog"></div>
+      <div class="btnrow">
+        <button class="pv-btn primary" id="saveBtn" type="button">💾 저장 후 게시</button>
+        <button class="pv-btn" id="resetBtn" type="button">새로 입력</button>
+      </div>
+    </div>
+
+    <!-- 저장된 광고지 -->
+    <div class="panel">
+      <h2>🗓️ 저장된 광고지 <span class="cnt" id="listCnt"></span></h2>
+      <div class="list" id="list"><div class="empty">불러오는 중…</div></div>
+      <div class="field" style="margin-top:12px"><div class="hint">「게시」된 광고지가 INDEX 의 WEEKLY AD 에 표시됩니다. 한 번에 하나만 게시됩니다.</div></div>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  'use strict';
+  var $=function(id){ return document.getElementById(id); };
+  var COL='weekly-ad', META='_META';
+  var pages=[];            // [{b64}]
+  var editingId=null, meta={ current:'', list:[] };
+
+  function toast(m,t){ var el=$('toast'); el.textContent=m; el.className='toast show '+(t||''); clearTimeout(el._t); el._t=setTimeout(function(){ el.className='toast '+(t||''); },2400); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function fbReady(){ return window.fbDb && window.fbFns; }
+  function whenFb(cb){ if(fbReady()) cb(); else window.addEventListener('fb-ready', cb, {once:true}); }
+  function newId(){ var d=new Date(); return 'WK-'+d.getFullYear()+('0'+(d.getMonth()+1)).slice(-2)+('0'+d.getDate()).slice(-2)+'-'+Math.random().toString(36).slice(2,6).toUpperCase(); }
+
+  /* 이미지 축소 → JPEG data URL */
+  function shrink(file){
+    return new Promise(function(res,rej){
+      var img=new Image(); var url=URL.createObjectURL(file);
+      img.onload=function(){
+        var MAX=1600, w=img.naturalWidth, h=img.naturalHeight, r=Math.min(1, MAX/Math.max(w,h));
+        var c=document.createElement('canvas'); c.width=Math.round(w*r); c.height=Math.round(h*r);
+        c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+        URL.revokeObjectURL(url);
+        var q=0.82, out=c.toDataURL('image/jpeg',q);
+        while(out.length>900000 && q>0.5){ q-=0.08; out=c.toDataURL('image/jpeg',q); }   // Firestore 1MB 문서 한도 안쪽
+        res(out);
+      };
+      img.onerror=function(){ URL.revokeObjectURL(url); rej(new Error('이미지를 읽을 수 없습니다: '+file.name)); };
+      img.src=url;
+    });
+  }
+  function addFiles(files){
+    var arr=Array.prototype.slice.call(files||[]).filter(function(f){ return /^image\//.test(f.type); });
+    if(!arr.length){ toast('이미지 파일만 등록할 수 있습니다','error'); return; }
+    $('prog').textContent='이미지 처리 중… 0/'+arr.length;
+    var i=0;
+    (function next(){
+      if(i>=arr.length){ $('prog').textContent=''; renderPages(); return; }
+      shrink(arr[i]).then(function(b64){ pages.push({b64:b64}); i++; $('prog').textContent='이미지 처리 중… '+i+'/'+arr.length; next(); })
+        .catch(function(e){ toast(e.message,'error'); i++; next(); });
+    })();
+  }
+  function renderPages(){
+    var box=$('pages');
+    box.innerHTML=pages.map(function(p,i){
+      return '<div class="pg"><span class="no">'+(i+1)+'</span><img src="'+p.b64+'" alt="">'+
+        '<div class="acts"><button type="button" data-mv="'+i+'|-1"'+(i===0?' disabled':'')+'>◀</button>'+
+        '<button type="button" data-mv="'+i+'|1"'+(i===pages.length-1?' disabled':'')+'>▶</button>'+
+        '<button type="button" class="x" data-del="'+i+'">✕</button></div></div>';
+    }).join('');
+    $('pageCnt').textContent=pages.length?(pages.length+' 페이지'):'';
+    Array.prototype.forEach.call(box.querySelectorAll('button[data-mv]'),function(b){ b.onclick=function(){ var p=b.getAttribute('data-mv').split('|'), i=+p[0], d=+p[1], j=i+d; if(j<0||j>=pages.length) return; var t=pages[i]; pages[i]=pages[j]; pages[j]=t; renderPages(); }; });
+    Array.prototype.forEach.call(box.querySelectorAll('button[data-del]'),function(b){ b.onclick=function(){ pages.splice(+b.getAttribute('data-del'),1); renderPages(); }; });
+  }
+
+  /* 드롭·선택 */
+  var drop=$('drop');
+  drop.onclick=function(){ $('file').click(); };
+  $('file').onchange=function(){ addFiles(this.files); this.value=''; };
+  ['dragenter','dragover'].forEach(function(ev){ drop.addEventListener(ev,function(e){ e.preventDefault(); drop.classList.add('over'); }); });
+  ['dragleave','drop'].forEach(function(ev){ drop.addEventListener(ev,function(e){ e.preventDefault(); drop.classList.remove('over'); }); });
+  drop.addEventListener('drop',function(e){ addFiles(e.dataTransfer.files); });
+
+  /* 저장된 목록 */
+  function loadMeta(){
+    return window.fbFns.getDoc(window.fbFns.doc(window.fbDb, COL, META)).then(function(s){
+      var v=(s&&s.exists&&s.exists())?(s.data()||{}):{};
+      meta={ current:String(v.current||''), list:Array.isArray(v.list)?v.list:[] };
+      meta.list.sort(function(a,b){ return (b.updatedAt||0)-(a.updatedAt||0); });
+      renderList();
+    }).catch(function(e){ $('list').innerHTML='<div class="empty">불러오기 실패: '+esc(e&&e.message||e)+'</div>'; });
+  }
+  function renderList(){
+    var box=$('list');
+    $('listCnt').textContent=meta.list.length?(meta.list.length+'개'):'';
+    if(!meta.list.length){ box.innerHTML='<div class="empty">저장된 광고지가 없습니다</div>'; return; }
+    box.innerHTML=meta.list.map(function(x){
+      var cur=(x.id===meta.current);
+      return '<div class="row'+(cur?' cur':'')+'" data-id="'+esc(x.id)+'">'+
+        '<span class="t">'+(cur?'<span class="badge">게시중</span> ':'')+esc(x.title||x.id)+'</span>'+
+        '<span class="m">'+(x.pages||0)+'p</span>'+
+        (cur?'':'<button class="pv-btn sm" type="button" data-pub="'+esc(x.id)+'">게시</button>')+
+        '<button class="pv-btn sm" type="button" data-edit="'+esc(x.id)+'">열기</button>'+
+        '<button class="pv-btn sm danger" type="button" data-del="'+esc(x.id)+'">삭제</button></div>';
+    }).join('');
+    Array.prototype.forEach.call(box.querySelectorAll('[data-pub]'),function(b){ b.onclick=function(){ publish(b.getAttribute('data-pub')); }; });
+    Array.prototype.forEach.call(box.querySelectorAll('[data-edit]'),function(b){ b.onclick=function(){ openFlyer(b.getAttribute('data-edit')); }; });
+    Array.prototype.forEach.call(box.querySelectorAll('[data-del]'),function(b){ b.onclick=function(){ delFlyer(b.getAttribute('data-del')); }; });
+  }
+  function saveMeta(){ return window.fbFns.setDoc(window.fbFns.doc(window.fbDb, COL, META), { current:meta.current, list:meta.list, updatedAt:Date.now() }); }
+  function publish(id){ meta.current=id; saveMeta().then(function(){ toast('게시됨'); renderList(); }).catch(function(e){ toast('실패: '+(e&&e.message||e),'error'); }); }
+  function loadPages(id, n){
+    var reads=[]; for(var i=0;i<n;i++) reads.push(window.fbFns.getDoc(window.fbFns.doc(window.fbDb, COL, id+'-p'+i)));
+    return Promise.all(reads).then(function(ss){ return ss.map(function(s){ var v=(s&&s.exists&&s.exists())?(s.data()||{}):{}; return v.b64?{b64:v.b64}:null; }).filter(Boolean); });
+  }
+  function openFlyer(id){
+    var x=meta.list.filter(function(y){ return y.id===id; })[0]; if(!x) return;
+    $('prog').textContent='불러오는 중…';
+    loadPages(id, x.pages||0).then(function(ps){ pages=ps; editingId=id; $('fTitle').value=x.title||''; $('formTitle').textContent='광고지 수정: '+(x.title||id); $('prog').textContent=''; renderPages(); window.scrollTo(0,0); })
+      .catch(function(e){ $('prog').textContent=''; toast('불러오기 실패: '+(e&&e.message||e),'error'); });
+  }
+  function delPagesOf(id, n){
+    var b=window.fbFns.writeBatch(window.fbDb);
+    for(var i=0;i<n;i++) b.delete(window.fbFns.doc(window.fbDb, COL, id+'-p'+i));
+    return b.commit();
+  }
+  function delFlyer(id){
+    var x=meta.list.filter(function(y){ return y.id===id; })[0]; if(!x) return;
+    if(!confirm('"'+(x.title||id)+'" 광고지를 삭제할까요?')) return;
+    delPagesOf(id, x.pages||0).then(function(){
+      meta.list=meta.list.filter(function(y){ return y.id!==id; });
+      if(meta.current===id) meta.current='';
+      return saveMeta();
+    }).then(function(){ toast('삭제됨'); if(editingId===id) resetForm(); renderList(); })
+      .catch(function(e){ toast('삭제 실패: '+(e&&e.message||e),'error'); });
+  }
+  function resetForm(){ pages=[]; editingId=null; $('fTitle').value=''; $('formTitle').textContent='새 광고지 등록'; $('prog').textContent=''; renderPages(); }
+
+  /* 저장 후 게시 */
+  $('saveBtn').onclick=function(){
+    if(!fbReady()){ toast('연결 준비 중','error'); return; }
+    var title=$('fTitle').value.trim();
+    if(!title){ toast('제목을 입력하세요','error'); $('fTitle').focus(); return; }
+    if(!pages.length){ toast('광고지 이미지를 한 장 이상 등록하세요','error'); return; }
+    var id=editingId||newId();
+    var prev=meta.list.filter(function(y){ return y.id===id; })[0];
+    var prevN=prev?(prev.pages||0):0;
+    $('saveBtn').disabled=true; $('prog').textContent='저장 중… 0/'+pages.length;
+    var i=0;
+    (function next(){
+      if(i>=pages.length){
+        // 이전 버전에 페이지가 더 많았으면 남는 문서 정리
+        var extra=[]; for(var k=pages.length;k<prevN;k++) extra.push(window.fbFns.deleteDoc(window.fbFns.doc(window.fbDb, COL, id+'-p'+k)));
+        Promise.all(extra).then(function(){
+          meta.list=meta.list.filter(function(y){ return y.id!==id; });
+          meta.list.unshift({ id:id, title:title, pages:pages.length, updatedAt:Date.now() });
+          meta.current=id;
+          return saveMeta();
+        }).then(function(){ $('saveBtn').disabled=false; $('prog').textContent=''; toast('저장 · 게시 완료'); editingId=id; $('formTitle').textContent='광고지 수정: '+title; renderList(); })
+          .catch(function(e){ $('saveBtn').disabled=false; $('prog').textContent=''; toast('저장 실패: '+(e&&e.message||e),'error'); });
+        return;
+      }
+      window.fbFns.setDoc(window.fbFns.doc(window.fbDb, COL, id+'-p'+i), { flyer:id, idx:i, b64:pages[i].b64, updatedAt:Date.now() })
+        .then(function(){ i++; $('prog').textContent='저장 중… '+i+'/'+pages.length; next(); })
+        .catch(function(e){ $('saveBtn').disabled=false; $('prog').textContent=''; toast('저장 실패: '+(e&&e.message||e),'error'); });
+    })();
+  };
+  $('resetBtn').onclick=resetForm;
+
+  /* 부트 */
+  $('backBtn').onclick=function(){
+    try{ if(window.parent && window.parent!==window){ window.parent.postMessage('hpm-close','*'); return; } }catch(e){}
+    window.location.href='../EGMM/EGMM.html';
+  };
+  try{ if(window.parent && window.parent!==window) $('backBtn').textContent='✕ 닫기'; }catch(e){}
+  renderPages();
+  whenFb(loadMeta);
+})();
+</script>
+</body>
+</html>
