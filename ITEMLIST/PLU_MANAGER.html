@@ -666,6 +666,14 @@ try{ document.documentElement.setAttribute('data-theme', localStorage.getItem('p
   .plu-hbar.on { display:block; }
   .plu-hbar .th { position:absolute; top:2px; bottom:2px; left:0; min-width:36px; border-radius:6px; background:#A99F8D; will-change:transform; }
   .plu-hbar .th:hover, .plu-hbar.drag .th { background:#6E675B; }
+  /* 직접 그리는 세로 스크롤바 — 표 오른쪽에 항상 표시 (가로 스크롤바와 같은 방식) */
+  .plu-tblrow { display:flex; align-items:stretch; gap:6px; }
+  .plu-tblrow > .plu-table-wrap { flex:1 1 auto; min-width:0; }
+  .plu-vbar { display:none; position:relative; width:16px; flex:0 0 16px; border-radius:8px;
+    background:var(--bg-elev-2, #F7F4ED); border:1px solid var(--border); cursor:pointer; user-select:none; -webkit-user-select:none; touch-action:none; }
+  .plu-vbar.on { display:block; }
+  .plu-vbar .th { position:absolute; left:2px; right:2px; top:0; min-height:36px; border-radius:6px; background:#A99F8D; will-change:transform; }
+  .plu-vbar .th:hover, .plu-vbar.drag .th { background:#6E675B; }
 
   /* 중 카테고리 줄 오른쪽: 메인 선택삭제 버튼 */
   .plu-mainbar { display:flex; align-items:center; gap:10px; }
@@ -1281,6 +1289,12 @@ function __lsWriteNow(){
   if(!wrote && !__lsWarned){ __lsWarned=true; showToast('브라우저 저장 불가 — 파일 연결을 사용하세요 (저장 칩 클릭)','error'); }
 }
 function __lsFlush(){ if(__lsTimer){ clearTimeout(__lsTimer); __lsWriteNow(); } }
+/* [속도 2026-09] 탭·카테고리 이동은 데이터 변경이 아니므로 전체 상태 저장(JSON+gzip)·Firebase 동기화를 돌리지 않는다.
+   화면 위치(S.ui)만 작은 키에 따로 기록 → 이동이 즉시 끝난다. loadState 가 이 키를 덮어 읽는다. */
+function saveUi(){
+  if(!S) return;
+  try{ localStorage.setItem(LS_KEY+':ui', JSON.stringify(S.ui||{})); }catch(e){}
+}
 function saveState(){
   if(!S) return;
   notifySaved();
@@ -1297,6 +1311,7 @@ function loadState(){
     else { json=raw; }
     var st=JSON.parse(json);
     if(!st||!st.tabs||!st.layouts||!st.data) return null;
+    try{ var ui=JSON.parse(localStorage.getItem(LS_KEY+':ui')||'null'); if(ui&&typeof ui==='object') st.ui=Object.assign({}, st.ui||{}, ui); }catch(e){}
     return st;
   }catch(e){ return null; }
 }
@@ -1944,7 +1959,7 @@ function renderBigTabs(){
     b.onclick=function(){
       if(b.querySelector('input')) return;          /* 인라인 편집 중이면 무시 */
       if(i===pluBig) return;                        /* 이미 선택됨 → 더블클릭 대기(재렌더 안 함) */
-      pluBig=i; pluSub=0; searchQ=''; catFilter=''; selRows={}; $('pluSearch').value=''; S.ui.big=i; S.ui.sub=0; saveState(); renderAll();
+      pluBig=i; pluSub=0; searchQ=''; catFilter=''; selRows={}; $('pluSearch').value=''; S.ui.big=i; S.ui.sub=0; saveUi(); renderAll();
     };
     b.ondblclick=function(){
       startTabInlineEdit(b, t.label, function(nm){ renameBigCat(i, nm); }, function(){ renderBigTabs(); });
@@ -2010,7 +2025,7 @@ function renderSubTabs(){
     b.onclick=function(){
       if(b.querySelector('input')) return;
       if(i===pluSub) return;
-      pluSub=i; catFilter=''; selRows={}; S.ui.sub=i; saveState(); renderSubTabs(); renderContent();
+      pluSub=i; catFilter=''; selRows={}; S.ui.sub=i; saveUi(); renderSubTabs(); renderContent();
     };
     b.ondblclick=function(){
       startTabInlineEdit(b, s, function(nm){ renameSubCat(i, nm); }, function(){ renderSubTabs(); });
@@ -2186,9 +2201,9 @@ function bindCatMgr(){
     if(row){ /* 행 클릭 = 그 카테고리 선택 (본 화면도 함께 전환) */
       var i=parseInt(row.getAttribute('data-i'),10);
       if(row.getAttribute('data-cm')==='big'){
-        if(i!==pluBig){ pluBig=i; pluSub=0; searchQ=''; catFilter=''; selRows={}; $('pluSearch').value=''; S.ui.big=i; S.ui.sub=0; saveState(); renderAll(); }
+        if(i!==pluBig){ pluBig=i; pluSub=0; searchQ=''; catFilter=''; selRows={}; $('pluSearch').value=''; S.ui.big=i; S.ui.sub=0; saveUi(); renderAll(); }
       } else {
-        if(i!==pluSub){ pluSub=i; catFilter=''; selRows={}; S.ui.sub=i; saveState(); renderSubTabs(); renderContent(); }
+        if(i!==pluSub){ pluSub=i; catFilter=''; selRows={}; S.ui.sub=i; saveUi(); renderSubTabs(); renderContent(); }
       }
       renderCatMgr();
     }
@@ -2388,22 +2403,66 @@ function globalSearchRows(){
 
 var __lastRenderKey=null;
 /* [리스트만 스크롤] 표 영역 최대 높이 = 화면 높이 - 표 시작 위치 - 하단 여백 */
+/* 표 오른쪽 고정 세로 스크롤바 — scrollTop 과 양방향 동기화 (가로 스크롤바와 같은 구조) */
+function ensureVBar(wrap){
+  if(!wrap) return;
+  var row=wrap.parentNode;
+  if(!row || !row.classList || !row.classList.contains('plu-tblrow')){
+    row=document.createElement('div'); row.className='plu-tblrow';
+    wrap.parentNode.insertBefore(row, wrap); row.appendChild(wrap);
+  }
+  var bar=row.querySelector('.plu-vbar');
+  if(!bar){
+    bar=document.createElement('div'); bar.className='plu-vbar'; bar.innerHTML='<div class="th"></div>';
+    row.appendChild(bar);
+    var th=bar.firstChild, dragY=null, dragT=0;
+    var M={ sh:0, ch:0, bh:0, th:36, raf:0, mraf:0 };
+    function measureNow(){
+      var sh=wrap.scrollHeight, ch=wrap.clientHeight;
+      if(sh===M.sh && ch===M.ch && bar.classList.contains('on')===(sh>ch+1)){ place(); return; }
+      M.sh=sh; M.ch=ch;
+      if(sh<=ch+1){ bar.classList.remove('on'); return; }
+      bar.classList.add('on'); M.bh=bar.clientHeight;
+      M.th=Math.max(36, Math.round(M.bh*M.ch/M.sh)); th.style.height=M.th+'px';
+      place();
+    }
+    function measure(){ if(M.mraf) return; M.mraf=requestAnimationFrame(function(){ M.mraf=0; measureNow(); }); }
+    function place(){ if(M.sh<=M.ch+1) return; th.style.transform='translateY('+Math.round((M.bh-M.th)*(wrap.scrollTop/(M.sh-M.ch)))+'px)'; }
+    function onScroll(){ if(M.raf) return; M.raf=requestAnimationFrame(function(){ M.raf=0; place(); }); }
+    bar.__sync=measure;
+    wrap.addEventListener('scroll', onScroll, {passive:true});
+    function thumbTop(){ return (M.bh-M.th)*(wrap.scrollTop/Math.max(1,(M.sh-M.ch))); }
+    function toScroll(px){ wrap.scrollTop=Math.max(0, Math.min(M.sh-M.ch, (px/Math.max(1,(M.bh-M.th)))*(M.sh-M.ch))); }
+    th.addEventListener('pointerdown', function(e){ dragY=e.clientY; dragT=thumbTop(); bar.classList.add('drag'); th.setPointerCapture(e.pointerId); e.preventDefault(); });
+    th.addEventListener('pointermove', function(e){ if(dragY==null) return; toScroll(dragT+(e.clientY-dragY)); });
+    th.addEventListener('pointerup', function(){ dragY=null; bar.classList.remove('drag'); });
+    th.addEventListener('pointercancel', function(){ dragY=null; bar.classList.remove('drag'); });
+    bar.addEventListener('pointerdown', function(e){ if(e.target===th) return; var r=bar.getBoundingClientRect(); toScroll(e.clientY-r.top-M.th/2); });
+    try{ new ResizeObserver(measure).observe(wrap); }catch(e){}
+  }
+  bar.__sync && bar.__sync();
+}
 /* 표 위 고정 가로 스크롤바 — 표(.plu-table-wrap)의 scrollLeft 와 양방향 동기화 */
 function ensureHBar(wrap){
   if(!wrap) return;
-  var bar=wrap.previousElementSibling;
+  var host=wrap.parentNode; if(host && host.classList && host.classList.contains('plu-tblrow')) host=host.parentNode;   /* 세로 막대 행 바깥에 둔다 */
+  var bar=(host===wrap.parentNode)?wrap.previousElementSibling:wrap.parentNode.previousElementSibling;
   if(!bar || !bar.classList || !bar.classList.contains('plu-hbar')){
     bar=document.createElement('div'); bar.className='plu-hbar'; bar.innerHTML='<div class="th"></div>';
-    wrap.parentNode.insertBefore(bar, wrap);
+    var anchor=(host===wrap.parentNode)?wrap:wrap.parentNode;
+    host.insertBefore(bar, anchor);
     var th=bar.firstChild, dragX=null, dragL=0;
-    var M={ sw:0, cw:0, bw:0, tw:36, raf:0 };
-    function measure(){                       /* 크기 계산은 표 크기가 바뀔 때만 (스크롤마다 layout 읽지 않음) */
-      M.sw=wrap.scrollWidth; M.cw=wrap.clientWidth; M.bw=bar.clientWidth;
+    var M={ sw:0, cw:0, bw:0, tw:36, raf:0, mraf:0 };
+    function measureNow(){                    /* 크기 계산은 표 크기가 바뀔 때만 (스크롤마다 layout 읽지 않음) */
+      var sw=wrap.scrollWidth, cw=wrap.clientWidth;
+      if(sw===M.sw && cw===M.cw && bar.classList.contains('on')===(sw>cw+1)){ place(); return; }
+      M.sw=sw; M.cw=cw; M.bw=bar.clientWidth;
       if(M.sw<=M.cw+1){ bar.classList.remove('on'); return; }
       bar.classList.add('on');
       M.tw=Math.max(36, Math.round(M.bw*M.cw/M.sw)); th.style.width=M.tw+'px';
       place();
     }
+    function measure(){ if(M.mraf) return; M.mraf=requestAnimationFrame(function(){ M.mraf=0; measureNow(); }); }
     function place(){ if(M.sw<=M.cw+1) return; th.style.transform='translateX('+Math.round((M.bw-M.tw)*(wrap.scrollLeft/(M.sw-M.cw)))+'px)'; }
     function onScroll(){ if(M.raf) return; M.raf=requestAnimationFrame(function(){ M.raf=0; place(); }); }
     bar.__sync=measure;
@@ -2422,7 +2481,7 @@ function ensureHBar(wrap){
 function fitTableHeight(wrap){
   wrap=wrap||document.querySelector('#pluContent .plu-table-wrap');
   if(!wrap) return;
-  try{ ensureHBar(wrap); }catch(e){}
+  try{ ensureVBar(wrap); ensureHBar(wrap); }catch(e){}
   try{
     var tb=document.querySelector('.page-topbar');
     if(tb) document.documentElement.style.setProperty('--pluTopH',tb.offsetHeight+'px'); /* 프리즈: 중 탭 sticky 오프셋 */
@@ -2524,29 +2583,26 @@ function renderContent(){
      (로딩이 오래 걸려도 전부 표시. 이전의 셀 수 기준 동적 상한 + [더 보기] 삭제) */
   var shown=rows;
   var useFld=fieldByKey(curBig(),'ITEM_USE'); /* [요구 2026-09] 미사용 행 스타일 (체크=사용중 → 정상 표시) */
-  shown.forEach(function(r){
-    var unused=useFld&&String(getCell(r,useFld))!=='1';
-    h+='<tr data-id="'+escapeHtml(r.id)+'"'+(unused?' class="plu-row-unused"':'')+'>';
-    h+='<td class="plu-c-sel"><input type="checkbox" class="rowSel"'+(selRows[r.id]?' checked':'')+'></td>';
-    if(__gs){ var __loc=__gsMap[r.id]; h+='<td style="color:#1e7a46;font-weight:700;">'+escapeHtml(__loc?(__loc.big+' / '+__loc.sub):'')+'</td>'; }
-    fs.forEach(function(f,i){
-      var isCalc=!!f.formula||(!!f.share&&f.share!==f.key);
-      var cls=isCalc?'plu-c-calc':'editable';
-      cls+=gEdge[i]; /* 묶음 경계 테두리 */
-      if(f.bold) cls+=' plu-c-bold'; /* 굵게(요구 5) */
-      if(normKey(f.key)==='PLU') cls+=' plu-c-no';
-      if(hasStoreVal(r,f)) cls+=' plu-c-storeval'; /* 이 매장에 별도 저장된 값 */
-      var sty='';
-      if(f.align) sty+='text-align:'+f.align+';';
-      if(f.type==='check'&&!isCalc){
-        var on=String(getCell(r,f))==='1';
-        h+='<td class="plu-c-check'+(hasStoreVal(r,f)?' plu-c-storeval':'')+'" data-fi="'+i+'"><input type="checkbox" class="cellChk"'+(on?' checked':'')+'></td>';
-      }else{
-        h+='<td class="'+cls+'" data-fi="'+i+'"'+(sty?' style="'+sty+'"':'')+' title="'+(f.formula?'수식(자동 계산)':(isCalc?'쉐어(참조 자동)':''))+'">'+escapeHtml(dispCell(r,f))+'</td>';
-      }
-    });
-    h+='</tr>';
+  /* [속도 2026-09] 필드에만 의존하는 값(계산 여부·클래스·스타일·제목·목록 원천·서식)은 행 루프 밖에서 1회만 계산.
+     이전엔 셀마다 selSrcSelect(수식 정규식 + 필드 검색)·normKey 를 다시 돌려 행×열×열 비용이 들었다. */
+  var st0=S.curStore;
+  var FP=fs.map(function(f,i){
+    var isCalc=!!f.formula||(!!f.share&&f.share!==f.key);
+    var cls=(isCalc?'plu-c-calc':'editable')+gEdge[i]+(f.bold?' plu-c-bold':'')+(normKey(f.key)==='PLU'?' plu-c-no':'');
+    var sf=null; try{ sf=(f.type==='check')?null:selSrcSelect(f); }catch(e){}
+    return {
+      f:f, key:f.key, isCalc:isCalc, isChk:(f.type==='check'&&!isCalc), all:!!f.allStores,
+      open:'<td class="'+cls, openChk:'<td class="plu-c-check',
+      mid:'" data-fi="'+i+'"'+(f.align?' style="text-align:'+f.align+';"':'')+' title="'+(f.formula?'수식(자동 계산)':(isCalc?'쉐어(참조 자동)':''))+'">',
+      midChk:'" data-fi="'+i+'"><input type="checkbox" class="cellChk"',
+      sf:sf, fmt:f.fmt||''
+    };
   });
+  /* [속도 2026-09 · 가상 스크롤] 행이 많아도 화면에 보이는 구간(+여유분)만 DOM 에 둔다.
+     위/아래는 높이만 차지하는 빈 행(spacer)으로 채워 스크롤 길이·세로 스크롤바는 전체 기준을 유지.
+     행 HTML 은 __rowHtml 이 만들고, 스크롤할 때 구간이 바뀌면 tbody 만 다시 채운다. */
+  var colN=1+(__gs?1:0)+FP.length;
+  __virt={ rows:shown, FP:FP, gs:__gs, useFld:useFld, st0:st0, colN:colN, start:-1, end:-1, rowH:(__virt&&__virt.rowH)||33, wrap:null, tbody:null };
   h+='</tbody></table></div>';
 
   el.style.display='block'; el.style.textAlign='left'; el.style.padding='18px';
@@ -2554,11 +2610,73 @@ function renderContent(){
   bindContent(el,fs,shown);
   var __wrapNew=el.querySelector('.plu-table-wrap');
   if(__wrapNew){
+    __virt.wrap=__wrapNew; __virt.tbody=__wrapNew.querySelector('tbody');
+    __wrapNew.addEventListener('scroll', virtOnScroll, { passive:true });
     fitTableHeight(__wrapNew); /* 리스트 영역만 화면 높이에 맞춰 내부 스크롤 */
     if(__lastRenderKey===__rkey){ __wrapNew.scrollLeft=__sl; __wrapNew.scrollTop=__st; } /* 같은 화면 재렌더 → 위치 복원 */
     /* 다른 탭으로 이동한 경우엔 처음 위치(0) 유지 */
+    virtRender(true);
   }
   __lastRenderKey=__rkey;
+}
+
+/* ── 가상 스크롤 본체 ── */
+var __virt=null, __virtRaf=0;
+var VIRT_MIN=120, VIRT_BUF=30;           /* 이 행 수 이하면 전부 렌더 · 보이는 구간 위아래 여유 행 수 */
+function __rowHtml(r){
+  var V=__virt, FP=V.FP, st0=V.st0;
+  var sv=(st0&&r.sv)?r.sv[st0]:null, v=r.v||{};
+  var unused=V.useFld&&String(getCell(r,V.useFld))!=='1';
+  var out='<tr data-id="'+escapeHtml(r.id)+'"'+(unused?' class="plu-row-unused"':'')+'>'+
+    '<td class="plu-c-sel"><input type="checkbox" class="rowSel"'+(selRows[r.id]?' checked':'')+'></td>';
+  if(V.gs){ var __loc=__gsMap[r.id]; out+='<td style="color:#1e7a46;font-weight:700;">'+escapeHtml(__loc?(__loc.big+' / '+__loc.sub):'')+'</td>'; }
+  for(var ci=0;ci<FP.length;ci++){
+    var P=FP[ci], k=P.key;
+    var hasSv=!!(sv&&sv[k]!=null);                       /* 이 매장에 별도 저장된 값 표시 (원래 hasStoreVal 과 동일) */
+    var val=(hasSv&&!P.all)?sv[k]:(v[k]!=null?v[k]:'');  /* 전체매장 필드는 항상 마스터 값 (원래 getCell 과 동일) */
+    if(P.isChk){
+      out+=P.openChk+(hasSv?' plu-c-storeval':'')+P.midChk+(String(val)==='1'?' checked':'')+'></td>';
+    }else{
+      var d;
+      if(P.sf) d=optNameByField(P.sf,val);
+      else if(P.fmt==='price') d=fmtPrice(val);
+      else if(P.fmt==='percent') d=fmtPercent(val);
+      else d=String(val==null?'':val);
+      out+=P.open+(hasSv?' plu-c-storeval':'')+P.mid+escapeHtml(d)+'</td>';
+    }
+  }
+  return out+'</tr>';
+}
+function virtRender(force){
+  var V=__virt; if(!V||!V.wrap||!V.tbody||!V.wrap.isConnected) return;
+  var n=V.rows.length;
+  if(n<=VIRT_MIN){
+    if(V.start!==0||V.end!==n){ var a=[]; for(var i=0;i<n;i++) a.push(__rowHtml(V.rows[i])); V.tbody.innerHTML=a.join(''); V.start=0; V.end=n; virtAfter(); }
+    return;
+  }
+  var rowH=V.rowH||33, top=V.wrap.scrollTop, ch=V.wrap.clientHeight||600;
+  var first=Math.floor(top/rowH), vis=Math.ceil(ch/rowH);
+  var start=Math.max(0, first-VIRT_BUF), end=Math.min(n, first+vis+VIRT_BUF);
+  if(start%2) start--;                                    /* 짝수 시작 → 줄무늬(nth-child) 위상 유지 */
+  if(!force && start>=V.start && end<=V.end && (start-V.start)<VIRT_BUF/2 && (V.end-end)<VIRT_BUF/2) return;   /* 여유분 안 → 유지 */
+  var parts=['<tr class="plu-vsp" style="height:'+(start*rowH)+'px"><td colspan="'+V.colN+'" style="padding:0;border:0;"></td></tr>'];
+  for(var i=start;i<end;i++) parts.push(__rowHtml(V.rows[i]));
+  parts.push('<tr class="plu-vsp" style="height:'+((n-end)*rowH)+'px"><td colspan="'+V.colN+'" style="padding:0;border:0;"></td></tr>');
+  V.tbody.innerHTML=parts.join('');
+  V.start=start; V.end=end;
+  virtAfter();
+}
+function virtAfter(){
+  var V=__virt; if(!V) return;
+  /* 실제 행 높이 1회 보정 (33px 가정이 스타일과 다르면 spacer 높이가 어긋나므로) */
+  var tr=V.tbody.querySelector('tr[data-id]');
+  if(tr){ var hh=tr.getBoundingClientRect().height; if(hh>8 && Math.abs(hh-V.rowH)>0.5){ V.rowH=hh; V.start=-1; virtRender(true); return; } }
+  var row=V.wrap.parentNode, vb=row&&row.classList&&row.classList.contains('plu-tblrow')?row.querySelector('.plu-vbar'):null;
+  if(vb&&vb.__sync) vb.__sync();
+}
+function virtOnScroll(){
+  if(__virtRaf) return;
+  __virtRaf=requestAnimationFrame(function(){ __virtRaf=0; virtRender(false); });
 }
 
 function rowById(id){
