@@ -1859,8 +1859,11 @@
   }
   function pluOf(r){ if(!r) return ''; if(r.plu!=null&&String(r.plu).trim()!=='') return String(r.plu); if(r.extra){ if(r.extra.PLU) return String(r.extra.PLU); if(r.extra.plu) return String(r.extra.plu); } return ''; }
   // 요구2: KOR DESC / ENG DESC 필드에서 이름을 가져옴 (직접필드 r.kor/r.eng 또는 extra의 여러 이름)
-  function korOf(r){ return String((r&&r.kor)||getVal(r,'KOR DESC')||getVal(r,'KOR')||getVal(r,'KOREAN')||getVal(r,'한글명')||'').trim(); }
-  function engOf(r){ return String((r&&r.eng)||getVal(r,'ENG DESC')||getVal(r,'ENG')||getVal(r,'ENGLISH')||getVal(r,'영문명')||'').trim(); }
+  /* (2026-09) 상품명 앞의 "XXXXX)" 태그(예: "ORGANIC) SPINACH", "로컬) 감자")는 모든 리스트에서 표시하지 않는다 — 태그만 떼고 나머지 이름만 */
+  var NAME_TAG_RX=/^(?:[^\s()]+\)\s*)+/;
+  function stripNameTag(s){ s=String(s==null?'':s).trim(); var t=s.replace(NAME_TAG_RX,'').trim(); return t||s; }
+  function korOf(r){ return stripNameTag((r&&r.kor)||getVal(r,'KOR DESC')||getVal(r,'KOR')||getVal(r,'KOREAN')||getVal(r,'한글명')||''); }
+  function engOf(r){ return stripNameTag((r&&r.eng)||getVal(r,'ENG DESC')||getVal(r,'ENG')||getVal(r,'ENGLISH')||getVal(r,'영문명')||''); }
   function nameOf(r){ return korOf(r)||engOf(r); }
   // 카테고리 한글/영문 — CATE(KOR)/CATE(ENG) 별도 필드 우선, 없으면 합쳐진 cate 파싱
   function extraGet(r, names){
