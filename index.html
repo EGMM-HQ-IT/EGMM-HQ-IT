@@ -19,7 +19,7 @@
     { key:'ADVIEWER',   name:'AD VIEWER',   sub:'광고상품 보기', path:'advertising-viewer.html',                       color:'#A98A55', mark:'AD' },
     { key:'NEWITEM',    name:'NEW ITEM',    sub:'신상품 보기',   path:'newitem-viewer.html',                           color:'#3B556F', mark:'NI' },
     { key:'PLUMEM',     name:'PLU MEMORIZE',sub:'PLU 암기 연습', path:'TOOLS/plu-quiz.html',                           color:'#55506B', mark:'PM' },
-    { key:'PLUPREVIEW', name:'PLU PREVIEW', sub:'PLU 미리보기',  path:'tablet-plu-preview.html',                       color:'#1E1B16', mark:'PP' },
+    { key:'PLUPREVIEW', name:'PLU PREVIEW', sub:'PLU 미리보기',  path:'TABLET/tablet-plu-preview.html',                       color:'#1E1B16', mark:'PP' },
     { key:'EGMM',       name:'EGMM',        sub:'운영 콘솔',     path:'EGMM/egmm.html',                                color:'#7D5BA6', mark:'EG' }
   ];
   var TKEY='ppInstallTargets';
@@ -164,12 +164,12 @@
   }
 })();
 </script>
-<link rel="manifest" href="TABLET-manifest.json">
+<link rel="manifest" href="TABLET/TABLET-manifest.json">
 <meta name="theme-color" content="#9C3327">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="apple-touch-icon" href="TABLET-icon-192.png">
+<link rel="apple-touch-icon" href="TABLET/TABLET-icon-192.png">
 <script>
 /* ── PWA: 서비스워커 등록 + 우상단 원탭 설치 버튼 ──
    ※ 우상단 원탭 버튼은 새 INSTALL 패널(메뉴별 개별 설치)로 대체됨 → 버튼 생성만 중단, SW 등록은 유지 */
@@ -177,7 +177,7 @@
   if (window.__ppLauncher) return;                 // 홈 화면 설치 런처 모드
   var LEGACY_BTN = false;                          // true 로 바꾸면 예전 '📲 앱 설치' 버튼이 다시 나옴
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
-    try { navigator.serviceWorker.register('TABLET-sw.js'); } catch(e){}
+    try { navigator.serviceWorker.register('TABLET/TABLET-sw.js', { scope: './' }); } catch(e){}
   }
   var standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone;
   if (standalone) return;                       // 이미 앱으로 실행 중
@@ -3112,8 +3112,8 @@
   }
   // PLU PREVIEW 박스 → 바로 이동 (매장 선택·PIN 검증은 tablet-plu-preview.html 자체 게이트가 담당)
   if($('toPluPreviewBtn')){
-    $('toPluPreviewBtn').onclick = () => { window.location.href = 'tablet-plu-preview.html'; };
-    $('toPluPreviewBtn').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); window.location.href = 'tablet-plu-preview.html'; } });
+    $('toPluPreviewBtn').onclick = () => { window.location.href = 'TABLET/tablet-plu-preview.html'; };
+    $('toPluPreviewBtn').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); window.location.href = 'TABLET/tablet-plu-preview.html'; } });
   }
   // ADVERTISING VIEWER 박스 → 접속권한 불필요 · 누구나 바로 보기
   if($('toAdViewerBtn')){
