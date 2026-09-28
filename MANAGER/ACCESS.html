@@ -156,7 +156,11 @@
         <h2><span class="ico">✏️</span> <span id="formTitle">새 계정 만들기</span></h2>
         <div class="frow">
           <div class="field"><label>아이디 (ID)</label><input type="text" id="fId" placeholder="예: JOHN" autocomplete="off" autocapitalize="characters"></div>
-          <div class="field"><label>비밀번호 (PASSWORD)</label><input type="password" id="fPw" placeholder="" autocomplete="new-password">
+          <div class="field"><label>비밀번호 (PASSWORD)</label>
+            <div style="display:flex;gap:6px;align-items:stretch;">
+              <input type="password" id="fPw" placeholder="" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" style="flex:1;min-width:0;">
+              <button class="btn ghost sm" id="pwTestBtn" type="button" title="선택한 계정에 저장된 비밀번호와 입력값이 맞는지 확인" style="display:none;white-space:nowrap;">🔎 확인</button>
+            </div>
             <div class="hint" id="pwHint">새 계정: 필수 입력</div></div>
         </div>
         <div class="frow">
@@ -532,6 +536,7 @@
     $('fAll').checked=false; syncAllToggle();
     Array.prototype.forEach.call($('permGrid').querySelectorAll('input'),function(c){ c.checked=false; });
     $('delBtn').style.display='none';
+    $('pwTestBtn').style.display='none';
     renderUsers();
   }
   function loadUser(id){
@@ -550,6 +555,7 @@
     Array.prototype.forEach.call($('permGrid').querySelectorAll('input'),function(c){ c.checked=perms.indexOf(c.value)>=0; });
     syncAllToggle();
     $('delBtn').style.display='';
+    $('pwTestBtn').style.display='';
     renderUsers();
     window.scrollTo(0,0);
   }
@@ -596,8 +602,21 @@
         .catch(function(e){ console.error(e); toast('저장 실패 — 권한/네트워크 확인','error'); });
     };
     if(pw){
-      window.EgmmFB.hashPw(pw).then(function(h){ data.pw = h || ('p:'+pw); done(); });
+      window.EgmmFB.hashPw(pw).then(function(h){ if(!h) console.warn('[ACCESS] SHA-256 불가 — 평문(p:) 저장'); data.pw = h || ('p:'+pw); done(); })
+        .catch(function(e){ console.error(e); toast('비밀번호 처리 실패 — 저장 안 됨','error'); });
     } else done();
+  };
+  /* 저장된 비밀번호와 입력값 대조 — 로그인 문제 진단용 (egmm.html 과 동일한 verifyPw 사용) */
+  $('pwTestBtn').onclick=function(){
+    if(!editingId || !users[editingId]) return;
+    var input=$('fPw').value.trim();
+    if(!input){ toast('확인할 비밀번호를 입력하세요','error'); $('fPw').focus(); return; }
+    var stored=String(users[editingId].pw||'');
+    var fmt = stored===''?'저장된 비밀번호 없음(빈 값)' : stored.indexOf('h:')===0?'해시(h:)' : stored.indexOf('p:')===0?'평문(p:)' : '구형 평문';
+    window.EgmmFB.verifyPw(stored, input).then(function(ok){
+      if(ok) warnPopup('✅ 일치','입력한 비밀번호가 "'+editingId+'" 에 저장된 값과 일치합니다.\n저장 형식: '+fmt+'\n\n이 값으로 egmm.html 로그인이 되어야 합니다.');
+      else warnPopup('❌ 불일치','입력한 비밀번호가 "'+editingId+'" 에 저장된 값과 다릅니다.\n저장 형식: '+fmt+'\n\n이 상태에서 [저장]을 누르면 입력한 값으로 비밀번호가 새로 저장됩니다.');
+    });
   };
   function loadUserSoon(id){ setTimeout(function(){ if(users[id]) loadUser(id); },400); }
 
