@@ -75,7 +75,7 @@
     --c-box:#7A6448;
     --c-local:#8E4A34;
     --c-sales:#3B556F;
-    --c-etc:#6E675B;
+    --c-fish:#2B5F8A;
     --c-weekly:#8A6E3C;
     --c-custom:#55506B;
     /* 그림자 */
@@ -248,7 +248,7 @@
   .cat-box[data-cat="BOX"].on{ background:var(--c-box); border-color:var(--c-box); }
   .cat-box[data-cat="LOCAL"].on{ background:var(--c-local); border-color:var(--c-local); }
   .cat-box[data-cat="SALES"].on{ background:var(--c-sales); border-color:var(--c-sales); }
-  .cat-box[data-cat="ETC"].on{ background:var(--c-etc); border-color:var(--c-etc); }
+  .cat-box[data-cat="FISH"].on{ background:var(--c-fish); border-color:var(--c-fish); }
   .cat-box[data-cat="WEEKLY"].on{ background:var(--c-weekly); border-color:var(--c-weekly); }
   .cat-box[data-cat="CUSTOM"].on{ background:var(--c-custom); border-color:var(--c-custom); }
 
@@ -413,9 +413,9 @@
   }
   .plu-item .num{
     font-family:var(--num); font-variant-numeric:tabular-nums;
-    font-size:31px; font-weight:700; color:var(--red); line-height:1.05; letter-spacing:.005em;
+    font-size:22px; font-weight:700; color:var(--red); line-height:1.05; letter-spacing:.005em;
   }
-  .plu-item .en{ font-size:15px; color:var(--ink); font-weight:800; max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; letter-spacing:.005em; line-height:1.3; }
+  .plu-item .en{ font-size:20px; color:var(--ink); font-weight:800; max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; letter-spacing:.005em; line-height:1.3; }
   .plu-item .ko{ font-size:15px; color:var(--ink-dim); font-weight:500; max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.3; }
   .plu-item:active{ background:var(--panel); border-color:var(--line-2); }
   .plu-item.sel{
@@ -423,8 +423,22 @@
     box-shadow:inset 0 0 0 1px var(--accent), 0 10px 24px -16px rgba(47,93,70,.8);
   }
   .plu-item.sel::before{ content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--accent); }
-  /* PLU 리스트 — 번호는 31px 유지, 영문·한글·스페인어 이름은 모두 15px 통일 */
-  body.lang-EN .plu-item .en, body.lang-ES .plu-item .en, body.lang-KO .plu-item .en, body.lang-ZH .plu-item .en{ font-size:15px; }
+  /* PLU 리스트 — 번호 22px · 주 이름(영문) 20px · 보조 이름 15px */
+  body.lang-EN .plu-item .en, body.lang-ES .plu-item .en, body.lang-KO .plu-item .en, body.lang-ZH .plu-item .en{ font-size:20px; }
+  /* LOCAL / ORGANIC 좌우 분할 */
+  .split-wrap{ display:grid; grid-template-columns:1fr 1fr; gap:0; min-height:100%; }
+  .split-col{ min-width:0; }
+  .split-col + .split-col{ border-left:2px solid var(--line-2); }
+  .split-col .crumb.slim{ position:sticky; top:0; z-index:2; background:var(--panel); }
+  .plu-grid.split{ grid-template-columns:repeat(2,1fr); }
+  body.portrait .plu-grid.split{ grid-template-columns:1fr; }
+  /* 중간 분류 일러스트 — 왼쪽 이미지, 박스 밖으로 나가는 부분은 잘라냄 */
+  .cate-btn.has-img{ flex-direction:row; justify-content:flex-start; gap:0; padding:0; text-align:left; }
+  .cate-btn .cimg{ flex:0 0 42%; align-self:stretch; overflow:hidden; position:relative; border-right:1px solid var(--line); }
+  .cate-btn .cimg img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center; display:block; }
+  .cate-btn .cbody{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; flex:1; min-width:0; padding:10px; text-align:center; }
+  .cate-btn.has-img .cbody{ align-items:flex-start; text-align:left; padding:10px 12px; }
+  .cate-btn .cbody .ce, .cate-btn .cbody .ck{ max-width:100%; overflow:hidden; text-overflow:ellipsis; }
   body.lang-EN .plu-item .ko, body.lang-ES .plu-item .ko, body.lang-KO .plu-item .ko, body.lang-ZH .plu-item .ko{ font-size:15px; }
 
   /* ===== 주간 광고 (WEEKLY SALES) ===== */
@@ -1135,9 +1149,9 @@
     <button class="cat-box on" data-cat="PRODUCE" data-ic="🥬"><span class="lb">PRODUCE</span><span class="sub">청과 전체</span></button>
     <button class="cat-box" data-cat="VEGETABLE" data-ic="🥕"><span class="lb">VEGETABLE</span><span class="sub">야채</span></button>
     <button class="cat-box" data-cat="FRUIT" data-ic="🍎"><span class="lb">FRUIT</span><span class="sub">과일</span></button>
-    <button class="cat-box" data-cat="LOCAL" data-ic="🏠"><span class="lb">LOCAL</span><span class="sub">로컬</span></button>
+    <button class="cat-box" data-cat="LOCAL" data-ic="🏠"><span class="lb">LOCAL / ORGANIC</span><span class="sub">로컬 · 유기농</span></button>
     <button class="cat-box" data-cat="BOX" data-ic="📦"><span class="lb">BOX</span><span class="sub">박스</span></button>
-    <button class="cat-box" data-cat="ETC" data-ic="➕"><span class="lb">NEW ITEM</span><span class="sub">신상품</span></button>
+    <button class="cat-box" data-cat="FISH" data-ic="🐟"><span class="lb">FISH</span><span class="sub">수산</span></button>
     <button class="cat-box" data-cat="CUSTOM" data-ic="★"><span class="lb">CUSTOM</span><span class="sub">사용자 정의</span></button>
     <button class="cat-box" data-cat="SALES" data-ic="🏷️"><span class="lb">SALES ITEM</span><span class="sub">광고상품</span></button>
     <button class="cat-box" data-cat="WEEKLY" data-ic="🗓️"><span class="lb">WEEKLY SALES</span><span class="sub">주간광고상품</span></button>
@@ -1450,6 +1464,11 @@
     const t=(String(b&&b.id||'')+' '+String(b&&b.name||'')).toLowerCase();
     return t.indexOf('produce')>=0 || t.indexOf('청과')>=0;
   }
+  /* 수산 대분류 (FISH 버튼) — 이름/ID 에 수산·fish·seafood·해산 */
+  function isFishBig(b){
+    const t=(String(b&&b.id||'')+' '+String(b&&b.name||'')).toLowerCase();
+    return t.indexOf('수산')>=0 || t.indexOf('fish')>=0 || t.indexOf('seafood')>=0 || t.indexOf('해산')>=0;
+  }
 
   /* PLU 리스트 읽기.
        store        : 선택 매장 이름 (매장별 값 sv 를 마스터 v 위에 덮음)
@@ -1466,8 +1485,8 @@
     if(cachedSavedAt && meta.savedAt && meta.savedAt===cachedSavedAt)
       return { unchanged:true, meta };                       // 변경 없음 — 상품 문서 안 읽음
 
-    const bigs=(meta.tree||[]).filter(isProduceBig);
-    if(!bigs.length)
+    const bigs=(meta.tree||[]).filter(function(b){ return isProduceBig(b)||isFishBig(b); });
+    if(!bigs.some(isProduceBig))
       throw new Error('청과 대분류를 찾지 못했습니다 — 현재 대분류: '+(meta.tree||[]).map(function(b){return b.name||b.id;}).join(', '));
 
     const normStore = String(store||'').toUpperCase().replace(/\s+/g,'');
@@ -1475,6 +1494,7 @@
     const cloud={}; let got=0;
     for(const b of bigs){
       const rows=[];
+      const bigKey = isFishBig(b) ? 'FISH' : 'PRODUCE';
       for(const sb of (b.subs||[])){
         let snap;
         try{ snap = await getDocs(collection(pluDb, PLU_ROOT, b.id, sb.id)); }
@@ -1507,6 +1527,7 @@
             plu:plu, kor:kor, eng:eng,
             cate: (cKo&&cEn) ? (cKo+' ('+cEn+')') : (cKo||cEn||cRaw||''),
             sub: String(sb.name||sb.id||''),               // 소분류 한글 원본 (야채·과일·로컬·박스·유기농…)
+            big: bigKey,                                    // 대분류: PRODUCE(청과) / FISH(수산)
             order: (typeof dd.order==='number'?dd.order:0),
             extra: { 'CATE(KOR)':cKo, 'CATE(ENG)':cEn, 'ITEM_POS':String(v.ITEM_POS||'') }
           });
@@ -1723,6 +1744,7 @@
     VEGETABLE:[[1000,1999]],
     FRUIT    :[[2000,2999]],
     LOCAL    :[[3000,3999]],
+    ORGANIC  :[[90000,99999]],
     BOX      :[[80000,89999]]
   };
   function pluInRange(r, catKey){
@@ -1796,8 +1818,9 @@
          야채 1000~1999 · 청과(과일 버튼) 2000~2999 · 로컬 3000~3999 · 박스 80000~89999
        범위 밖 번호(유기농 90000번대 등)와 번호 없는 행은 "청과 전체"에서만 보인다.
        이전의 소분류 이름 키워드 방식(subMatch)은 아래 PLU_RANGES 로 대체 — subMatch 는 SALES/ETC 용으로만 남는다. */
-    if(catKey==='PRODUCE') return pool;                    // 청과 전체 = 대분류 전체
-    if(PLU_RANGES[catKey]) return pool.filter(function(r){ return pluInRange(r, catKey); });
+    if(catKey==='PRODUCE') return pool.filter(function(r){ return r.big!=='FISH'; });   // 청과 전체 (수산 제외)
+    if(catKey==='FISH')    return pool.filter(function(r){ return r.big==='FISH'; });   // 수산 대분류 전체
+    if(PLU_RANGES[catKey]) return pool.filter(function(r){ return r.big!=='FISH' && pluInRange(r, catKey); });
     if(catKey==='SALES'||catKey==='ETC'){
       var conf=(DATA.custom&&DATA.custom[catKey])||null;
       // 매니저(tablet-plu-preview-manager)에서 직접 입력한 항목 우선
@@ -1933,6 +1956,7 @@
   /* ===== 상태 ===== */
   var DATA=null;
   var curCat='PRODUCE', curCate='', selPlu='', searchTerm='', fbReady=false, isAdmin=false;
+  var DATA_SCHEMA='v2-fish';          // 캐시 구조 버전 — 바뀌면 다음 UPDATE 때 상품 문서를 다시 읽는다 (수산 추가)
   var view='cate';   // 'cate' = CATE 버튼 그리드, 'list' = 상품 리스트
   /* 가운데 리스트 보기 방식 — 'CATE'(카테고리별) / 'FLAT'(순서대로 · PLU 번호순) */
   var listMode='CATE';
@@ -2969,7 +2993,7 @@
                      광고·설정   = the-shawn / plu-preview-config (기존 그대로)
            둘을 나란히 시작해 동시에 기다린다. */
         var pluTask=(async function(){
-          try{ return { r: await window.__fbFetchPlu(STORE, DATA&&DATA.pluSavedAt) }; }
+          try{ return { r: await window.__fbFetchPlu(STORE, (DATA&&DATA.schema===DATA_SCHEMA)?DATA.pluSavedAt:null) }; }
           catch(e){ return { err:(e&&e.message)?e.message:String(e) }; }
         })();
         var pcAll=await window.__fbFetchPreview();
@@ -2993,7 +3017,7 @@
           if(DATA&&DATA.custom){ for(var ck in DATA.custom){ if(!custom[ck]) custom[ck]=DATA.custom[ck]; } }
           var msg=(pc.msg!=null)?String(pc.msg):((DATA&&DATA.msg)||'');
           var weekly=Array.isArray(pc.weekly)?pc.weekly:((DATA&&DATA.weekly)||[]);
-          DATA={ cloud:cloud, custom:custom, msg:msg, weekly:weekly, store:STORE, savedAt:Date.now(),
+          DATA={ cloud:cloud, custom:custom, msg:msg, weekly:weekly, store:STORE, savedAt:Date.now(), schema:DATA_SCHEMA,
                  // plu-local-ver 업로드 시각 — 다음 UPDATE 때 같으면 상품 문서를 다시 읽지 않는다
                  pluSavedAt:(plu&&plu.meta&&plu.meta.savedAt)||((DATA&&DATA.pluSavedAt)||null) };
           await cacheSet(DATA);
@@ -3063,10 +3087,52 @@
       var __cf=DATA.custom&&DATA.custom[curCat];
       if(__cf&&Array.isArray(__cf.items)&&__cf.items.length){ renderProductList(pane); return; }
     }
+    // 로컬/유기농: 좌우 분할 · 박스: 분류 단계 없이 곧장 전체 목록
+    if(curCat==='LOCAL'){ renderLocalOrganic(pane); return; }
+    if(curCat==='BOX'){ renderProductList(pane, true); return; }
     // 순서대로 보기 — 분류 없이 이 카테고리의 전체 상품을 PLU 번호순으로
     if(listMode==='FLAT' && vmodeApplies()){ renderFlatList(pane); return; }
     if(view==='cate'){ renderCateGrid(pane); }
     else { renderProductList(pane); }
+  }
+
+  /* 공용: 상품 행 배열 → 정렬 → plu-item 버튼 HTML */
+  function sortRowsForList(rows){
+    var LOC2=(curLang==='KO')?'ko':(curLang==='ES'?'es':(curLang==='ZH'?'zh':'en'));
+    if(sortMode==='PLU'){
+      rows.sort(function(a,b){ var x=parseInt(pluOf(a),10), y=parseInt(pluOf(b),10);
+        if(isNaN(x)&&isNaN(y)) return 0; if(isNaN(x)) return 1; if(isNaN(y)) return -1; return x-y; });
+    } else {
+      rows.sort(function(a,b){
+        var na=itemName(korOf(a), engOf(a)).main||'', nb=itemName(korOf(b), engOf(b)).main||'';
+        try{ var c=na.localeCompare(nb, LOC2, { sensitivity:'base', numeric:true }); if(c) return c; }catch(e){ if(na<nb) return -1; if(na>nb) return 1; }
+        return (parseInt(pluOf(a),10)||0)-(parseInt(pluOf(b),10)||0);
+      });
+    }
+    return rows;
+  }
+  function pluItemsHtml(rows){
+    var h='';
+    rows.forEach(function(r){
+      var plu=pluOf(r), en=engOf(r), ko=korOf(r), nm=itemName(ko, en);
+      h+='<button class="plu-item'+(plu===selPlu?' sel':'')+'" data-plu="'+esc(plu)+'" data-ko="'+esc(ko)+'" data-en="'+esc(en)+'">'+
+        '<span class="num">'+esc(plu)+'</span>'+
+        (nm.main?('<span class="en">'+esc(nm.main)+'</span>'):'')+
+        (nm.sub?('<span class="ko">'+esc(nm.sub)+'</span>'):'')+
+        '</button>';
+    });
+    return h;
+  }
+  /* LOCAL / ORGANIC — 왼쪽 로컬(3000~3999) · 오른쪽 유기농(90000~99999) 좌우 분할, 분류 단계 없이 바로 목록 */
+  function renderLocalOrganic(pane){
+    var L=sortRowsForList(rowsForCat('LOCAL').slice()), O=sortRowsForList(rowsForCat('ORGANIC').slice());
+    function col(title, rows){
+      return '<div class="split-col">'+
+        '<div class="crumb slim"><span class="crumb-title">'+title+'<span class="cnt">'+rows.length+'개</span></span></div>'+
+        (rows.length ? '<div class="plu-grid split">'+pluItemsHtml(rows)+'</div>' : '<div class="empty">표시할 상품이 없습니다</div>')+
+        '</div>';
+    }
+    pane.innerHTML='<div class="split-wrap">'+col('LOCAL', L)+col('ORGANIC', O)+'</div>';
   }
 
   /* 순서대로 보기 — 카테고리 전체 상품을 PLU 1000 · 1001 · 1002 … 순으로 */
@@ -3399,13 +3465,26 @@
       ? '<div class="crumb slim"><span class="crumb-title">'+esc(catLb2)+' <small>카테고리별</small><span class="cnt">'+list.length+'개 분류</span></span>'+vmodeHtml()+'</div>'
       : '')+'<div class="cate-grid">';
     list.forEach(function(c){
-      html+='<button class="cate-btn" data-cate="'+esc(c.key)+'">'+
+      var img=cateImgUrl(c);
+      html+='<button class="cate-btn'+(img?' has-img':'')+'" data-cate="'+esc(c.key)+'">'+
+        (img?('<span class="cimg"><img src="'+esc(img)+'" alt="" loading="lazy" onerror="this.parentNode.parentNode.classList.remove(\'has-img\');this.parentNode.remove()"></span>'):'')+
+        '<span class="cbody">'+
         '<span class="ce">'+esc(c.main)+'</span>'+
         (c.sub?('<span class="ck">'+esc(c.sub)+'</span>'):'')+
-        '</button>';
+        '</span></button>';
     });
     html+='</div>';
     pane.innerHTML=html;
+  }
+  /* 중간 분류 일러스트 — TABLET/cate_img/{영문 분류명 슬러그}.png
+       예: "APPLE" → cate_img/apple.png · "GREEN ONION" → cate_img/green-onion.png
+       파일이 없으면 이미지 칸 없이 기존처럼 이름만 표시된다 */
+  var CATE_IMG_DIR='cate_img';
+  function cateImgUrl(c){
+    var sp=cateKeyParts(c.key); var en=String(sp.eng||engForCate(c.key)||'').trim();
+    if(!en) return '';
+    var slug=en.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+    return slug ? (CATE_IMG_DIR+'/'+slug+'.png') : '';
   }
   // 한글 품목명 → 영문 (CATE 에 영문이 없을 때 표시용)
 
