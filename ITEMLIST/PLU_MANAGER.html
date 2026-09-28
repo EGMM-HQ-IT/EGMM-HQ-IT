@@ -661,6 +661,12 @@ try{ document.documentElement.setAttribute('data-theme', localStorage.getItem('p
   .plu-table-wrap::-webkit-scrollbar-thumb { background:#B9B1A2; border-radius:8px; border:3px solid var(--bg-elev-2, #F7F4ED); }
   .plu-table-wrap::-webkit-scrollbar-thumb:hover { background:#8C8578; }
   .plu-table-wrap { scrollbar-width:auto; scrollbar-color:#B9B1A2 var(--bg-elev-2, #F7F4ED); }
+  /* 직접 그리는 가로 스크롤바 — OS 오버레이 스크롤바(iPad·macOS)와 무관하게 표 바로 위에 항상 표시 */
+  .plu-hbar { display:none; position:relative; height:16px; margin:0 0 6px; border-radius:8px;
+    background:var(--bg-elev-2, #F7F4ED); border:1px solid var(--border); cursor:pointer; user-select:none; -webkit-user-select:none; touch-action:none; }
+  .plu-hbar.on { display:block; }
+  .plu-hbar .th { position:absolute; top:2px; bottom:2px; left:0; min-width:36px; border-radius:6px; background:#A99F8D; }
+  .plu-hbar .th:hover, .plu-hbar.drag .th { background:#6E675B; }
 
   /* 중 카테고리 줄 오른쪽: 메인 선택삭제 버튼 */
   .plu-mainbar { display:flex; align-items:center; gap:10px; }
@@ -2380,9 +2386,38 @@ function globalSearchRows(){
 
 var __lastRenderKey=null;
 /* [리스트만 스크롤] 표 영역 최대 높이 = 화면 높이 - 표 시작 위치 - 하단 여백 */
+/* 표 위 고정 가로 스크롤바 — 표(.plu-table-wrap)의 scrollLeft 와 양방향 동기화 */
+function ensureHBar(wrap){
+  if(!wrap) return;
+  var bar=wrap.previousElementSibling;
+  if(!bar || !bar.classList || !bar.classList.contains('plu-hbar')){
+    bar=document.createElement('div'); bar.className='plu-hbar'; bar.innerHTML='<div class="th"></div>';
+    wrap.parentNode.insertBefore(bar, wrap);
+    var th=bar.firstChild, dragX=null, dragL=0;
+    function sync(){
+      var sw=wrap.scrollWidth, cw=wrap.clientWidth;
+      if(sw<=cw+1){ bar.classList.remove('on'); return; }
+      bar.classList.add('on');
+      var bw=bar.clientWidth, tw=Math.max(36, Math.round(bw*cw/sw));
+      th.style.width=tw+'px';
+      th.style.left=Math.round((bw-tw)*(wrap.scrollLeft/(sw-cw)))+'px';
+    }
+    bar.__sync=sync;
+    wrap.addEventListener('scroll', sync, {passive:true});
+    function toScroll(px){ var sw=wrap.scrollWidth, cw=wrap.clientWidth, bw=bar.clientWidth, tw=th.offsetWidth; wrap.scrollLeft=Math.max(0, Math.min(sw-cw, (px/(bw-tw))*(sw-cw))); }
+    th.addEventListener('pointerdown', function(e){ dragX=e.clientX; dragL=th.offsetLeft; bar.classList.add('drag'); th.setPointerCapture(e.pointerId); e.preventDefault(); });
+    th.addEventListener('pointermove', function(e){ if(dragX==null) return; toScroll(dragL+(e.clientX-dragX)); });
+    th.addEventListener('pointerup', function(){ dragX=null; bar.classList.remove('drag'); });
+    th.addEventListener('pointercancel', function(){ dragX=null; bar.classList.remove('drag'); });
+    bar.addEventListener('pointerdown', function(e){ if(e.target===th) return; var r=bar.getBoundingClientRect(); toScroll(e.clientX-r.left-th.offsetWidth/2); });
+    try{ new ResizeObserver(sync).observe(wrap); var t=wrap.querySelector('table'); if(t) new ResizeObserver(sync).observe(t); }catch(e){}
+  }
+  bar.__sync && bar.__sync();
+}
 function fitTableHeight(wrap){
   wrap=wrap||document.querySelector('#pluContent .plu-table-wrap');
   if(!wrap) return;
+  try{ ensureHBar(wrap); }catch(e){}
   try{
     var tb=document.querySelector('.page-topbar');
     if(tb) document.documentElement.style.setProperty('--pluTopH',tb.offsetHeight+'px'); /* 프리즈: 중 탭 sticky 오프셋 */
