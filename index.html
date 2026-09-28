@@ -44,7 +44,7 @@
     g.fillText(app.mark, s/2, s*0.44);
     g.fillStyle='rgba(255,255,255,.72)';
     g.font='700 '+(s*0.088)+'px -apple-system,"Helvetica Neue",Arial,sans-serif';
-    g.fillText('THE SHAWN', s/2, s*0.775);
+    g.fillText('H-MART', s/2, s*0.775);
     return c.toDataURL('image/png');
   };
 
@@ -139,7 +139,7 @@
 </script>
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
-<title>THE SHAWN</title>
+<title>H-MART</title>
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
 <script>
 /* hmartus.com 등 다른 페이지의 iframe 안에서 열렸을 때:
@@ -337,15 +337,19 @@
     mix-blend-mode: multiply;
   }
 
-  /* === LOCK SCREEN (단순) === */
+  /* === LOCK SCREEN (랜딩 포털 컨테이너 — 스크롤 가능한 풀페이지) === */
   .lock-screen {
     position: fixed;
     inset: 0;
     display: flex;
-    align-items: center;
-    justify-content: center;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
     z-index: 100;
-    padding: 24px;
+    padding: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    background: var(--bg);
   }
 
   .lock-card {
@@ -2528,13 +2532,13 @@
   .topbar-left { position: fixed; top: 16px; left: 16px; z-index: 1200; display: flex; align-items: center; gap: 8px; }
   .mgr-fab {
     display: inline-flex; align-items: center; gap: 6px;
-    background: var(--bg-elev); border: 1.5px solid var(--border); color: var(--text-dim);
-    padding: 8px 12px; border-radius: 999px; cursor: pointer;
-    font-family: var(--mono); font-size: 12px; font-weight: 800; letter-spacing: .04em;
-    box-shadow: 0 6px 20px rgba(30,27,22,0.10);
-    transition: border-color .15s, color .15s, transform .12s;
+    background: #FFFDFA; border: 1.5px solid rgba(255,255,255,.55); color: var(--hm-red);
+    padding: 8px 14px; border-radius: 999px; cursor: pointer;
+    font-family: var(--mono); font-size: 12px; font-weight: 800; letter-spacing: .12em;
+    box-shadow: 0 8px 22px -8px rgba(60,10,6,.6);
+    transition: background .15s, color .15s, transform .12s;
   }
-  .mgr-fab:hover { border-color: var(--accent-warm); color: var(--text); }
+  .mgr-fab:hover { background: var(--hm-red-deep); color: #fff; border-color: rgba(255,255,255,.35); }
   .mgr-fab:active { transform: scale(0.96); }
   .mgr-fab span { font-weight: 800; }
 
@@ -2556,125 +2560,275 @@
   .egmm-auto-row { display: flex; align-items: center; gap: 8px; margin: 2px 0 14px; font-size: 13px; font-weight: 700; color: var(--text-dim); cursor: pointer; user-select: none; }
   .egmm-auto-row input { width: 18px; height: 18px; cursor: pointer; accent-color: var(--accent-warm); }
 
-  /* === 랜딩 포털 (미니멀) === */
+  /* ==========================================================================
+     랜딩 포털 — H-MART BRAND LAYOUT
+       · 상단: H-MART 레드 브랜드 히어로(타이포 워드마크 + 슬로건)
+       · 히어로에 걸친 대형 H-MART 메인 카드(매장 관리 입장)
+       · 하단: 나머지 메뉴를 섹션(MANAGEMENT / STORE SUPPORT / TABLET ONLY)으로 정렬
+       ※ 아이콘 배치는 추후 논의 — 이 버전은 레이아웃·브랜드 톤에 집중
+     ========================================================================== */
+  :root{
+    --hm-red:#9C3327;          /* H-MART 브랜드 레드 (theme-color 와 동일) */
+    --hm-red-deep:#6F1F16;
+    --hm-red-bright:#B93B2D;
+    --hm-red-soft:#F5EAE7;
+    --hm-red-line:#E8CFCA;
+  }
   .portal-wrap{
-    width:100%; max-width:1160px; position:relative; z-index:1;
-    display:flex; flex-direction:column; align-items:center;
+    width:100%; min-height:100%; position:relative; z-index:1; flex:0 0 auto;
+    display:flex; flex-direction:column;
     animation: portalIn .55s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
   @keyframes portalIn{ from{ opacity:0; transform:translateY(14px); } to{ opacity:1; transform:none; } }
-  .portal-grid{ display:grid; grid-template-columns:repeat(2, 1fr); gap:16px; width:100%; max-width:660px; margin:0 auto; }
-  /* 구역(섹션) 레이아웃 — 구역별 한 줄 · 라인 구분 */
-  .portal-cats{ display:flex; flex-direction:column; width:100%; max-width:1120px; margin:0 auto; }
-  .portal-cat{ display:grid; grid-template-columns:220px 1fr; gap:26px; align-items:center; padding:20px 4px; }
-  .portal-cat + .portal-cat{ border-top:1px solid var(--border); }
-  .portal-cat-title{
-    font-family:var(--mono); font-size:13px; font-weight:800; letter-spacing:.12em;
-    color:var(--text-dim); text-transform:uppercase;
-    display:flex; align-items:center; gap:8px; padding-left:2px;
+
+  /* ── 브랜드 히어로 ── */
+  .hm-hero{
+    position:relative; overflow:hidden; color:#fff; flex:0 0 auto;
+    background:
+      radial-gradient(120% 90% at 100% 0%, rgba(255,255,255,.10) 0%, transparent 55%),
+      linear-gradient(135deg, var(--hm-red-bright) 0%, var(--hm-red) 48%, var(--hm-red-deep) 100%);
+    padding:64px 40px 124px;
   }
-  .portal-cat-title::before{ content:''; width:4px; height:14px; background:var(--accent-warm); border-radius:2px; flex:0 0 auto; }
-  .portal-cat-title .ko{ text-transform:none; letter-spacing:.02em; color:var(--text-faint); font-size:12px; }
-  .portal-cat-cards{ display:flex; gap:14px; flex-wrap:wrap; }
-  .portal-cat .portal-card{ flex:0 0 262px; min-height:100px; padding:18px 20px; flex-direction:column; }
-  .portal-cat .portal-name{ font-size:21px; }
-  .portal-ko{ margin-top:7px; font-family:var(--mono); font-size:13px; font-weight:700; color:var(--text-dim); letter-spacing:.02em; }
-  .portal-card-wide{ grid-column:1 / -1; min-height:118px; }
+  /* 배경의 거대한 "H" 타이포 (브랜드 이니셜 장식) */
+  .hm-hero::before{
+    content:'H'; position:absolute; right:-2vw; top:-22%;
+    font-family:var(--serif); font-size:clamp(360px, 46vw, 640px); font-weight:900; line-height:1;
+    color:rgba(255,255,255,.07); letter-spacing:-.06em; pointer-events:none; user-select:none;
+  }
+  /* 미세한 사선 텍스처 */
+  .hm-hero::after{
+    content:''; position:absolute; inset:0; pointer-events:none;
+    background:repeating-linear-gradient(135deg, rgba(255,255,255,.035) 0 2px, transparent 2px 16px);
+    mask-image:linear-gradient(to bottom, rgba(0,0,0,.6), rgba(0,0,0,.15));
+    -webkit-mask-image:linear-gradient(to bottom, rgba(0,0,0,.6), rgba(0,0,0,.15));
+  }
+  .hm-hero-in{
+    position:relative; z-index:1; max-width:1120px; margin:0 auto;
+    display:flex; flex-direction:column; gap:22px;
+  }
+  .hm-eyebrow{
+    display:flex; align-items:center; gap:14px;
+    font-family:var(--mono); font-size:11px; font-weight:800; letter-spacing:.34em; color:rgba(255,255,255,.78);
+  }
+  .hm-eyebrow::before{ content:''; width:30px; height:2px; background:#fff; flex:0 0 auto; }
+  .hm-wordmark{
+    display:flex; align-items:baseline; gap:.08em; flex-wrap:wrap;
+    font-family:var(--serif); font-weight:900; letter-spacing:-.035em; line-height:.9;
+    font-size:clamp(64px, 10vw, 124px); color:#fff;
+  }
+  .hm-wordmark .dash{
+    display:inline-block; width:.44em; height:.11em; background:#fff; border-radius:3px;
+    transform:translateY(-.34em);
+  }
+  .hm-tag{
+    font-family:var(--mono); font-size:15px; font-weight:600; line-height:1.7;
+    color:rgba(255,255,255,.84); max-width:560px; word-break:keep-all;
+  }
+  .hm-tag b{ color:#fff; font-weight:800; }
+  .hm-chips{ display:flex; gap:8px; flex-wrap:wrap; margin-top:4px; }
+  .hm-chip{
+    padding:6px 12px; border-radius:999px; border:1px solid rgba(255,255,255,.35);
+    font-family:var(--mono); font-size:11px; font-weight:800; letter-spacing:.14em; color:rgba(255,255,255,.9);
+    background:rgba(255,255,255,.08);
+  }
+
+  /* ── 메인 카드 2개 (H-MART 매장 관리 · EGMM 운영 콘솔) — 히어로에 걸치기 ── */
+  .hm-primary-wrap{
+    position:relative; z-index:2; max-width:1120px; width:100%; margin:-76px auto 0; padding:0 40px;
+    display:grid; grid-template-columns:1fr 1fr; gap:20px;
+  }
+  .portal-card.hm-primary{
+    display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:22px;
+    min-height:0; padding:30px 30px; text-align:left;
+    background:#FFFDFA; border:1px solid var(--hm-red-line); border-top:6px solid var(--hm-red); border-radius:24px;
+    box-shadow:0 34px 70px -34px rgba(111,31,22,.65), 0 2px 8px rgba(30,27,22,.05);
+  }
+  .portal-card.hm-primary::before{ display:none; }
+  .portal-card.hm-primary:hover{ border-color:var(--hm-red); border-top-color:var(--hm-red); transform:translateY(-4px); box-shadow:0 44px 80px -36px rgba(111,31,22,.75); }
+  .hm-mark{
+    width:76px; height:76px; border-radius:20px; flex:0 0 auto;
+    display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(160deg, var(--hm-red-bright), var(--hm-red-deep)); color:#fff;
+    font-family:var(--serif); font-size:40px; font-weight:900; letter-spacing:-.04em;
+    box-shadow:0 16px 28px -16px rgba(156,51,39,.9);
+  }
+  .hm-primary-egmm .hm-mark{ font-size:28px; letter-spacing:.02em; background:linear-gradient(160deg, #3A342B, var(--text)); box-shadow:0 16px 28px -16px rgba(30,27,22,.9); }
+  .hm-primary-egmm{ border-top-color:var(--text) !important; }
+  .hm-primary-egmm .hm-cta{ background:var(--text); }
+  .hm-primary-egmm:hover{ border-color:var(--text) !important; }
+  .hm-primary-egmm:hover .hm-cta{ background:#000 !important; }
+  .hm-primary .portal-name{ font-size:clamp(24px, 2.4vw, 32px); font-weight:800; letter-spacing:-.015em; color:var(--text); line-height:1.15; white-space:nowrap; }
+  .hm-primary .portal-ko{ margin-top:6px; font-size:12px; font-weight:800; letter-spacing:.16em; color:var(--text-faint); }
+  .hm-cta{
+    display:inline-flex; align-items:center; gap:12px;
+    padding:16px 26px; border-radius:14px; background:var(--hm-red); color:#fff;
+    font-family:var(--mono); font-size:13px; font-weight:800; letter-spacing:.12em; white-space:nowrap;
+    transition:background .18s, transform .18s;
+  }
+  .hm-cta .ar{ font-size:16px; transition:transform .18s; }
+  .hm-primary:hover .hm-cta{ background:var(--hm-red-deep); }
+  .hm-primary:hover .hm-cta .ar{ transform:translateX(4px); }
+
+  /* ── 섹션(구역) 레이아웃 ── */
+  .portal-cats{
+    width:100%; max-width:1120px; margin:0 auto; padding:60px 40px 24px;
+    display:flex; flex-direction:column; gap:44px;
+  }
+  .portal-cat{ display:grid; grid-template-columns:210px 1fr; gap:36px; align-items:start; }
+  .portal-cat-title{
+    display:flex; flex-direction:column; gap:6px; padding-top:4px;
+    font-family:var(--mono); font-size:12px; font-weight:800; letter-spacing:.26em; color:var(--hm-red); text-transform:uppercase;
+  }
+  .portal-cat-title::before{ content:''; width:38px; height:3px; background:var(--hm-red); border-radius:2px; margin-bottom:8px; }
+  .portal-cat-title .ko{ font-size:15px; font-weight:700; letter-spacing:.01em; color:var(--text); text-transform:none; }
+  .portal-cat-cards{ display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:16px; }
+
+  /* ── 일반 카드 ── */
   .portal-card{
-    position:relative; overflow:hidden; background:var(--bg-elev);
-    border:1.5px solid var(--border); border-radius:18px;
-    min-height:150px; display:flex; align-items:center; justify-content:center;
-    cursor:pointer; text-align:center; padding:24px;
-    box-shadow:0 8px 30px rgba(30,27,22,0.05);
+    position:relative; overflow:hidden; background:#FFFDFA;
+    border:1px solid var(--border); border-radius:18px;
+    min-height:112px; padding:22px 24px;
+    display:flex; flex-direction:column; justify-content:center;
+    cursor:pointer; text-align:left;
+    box-shadow:0 1px 2px rgba(30,27,22,.04), 0 12px 28px -24px rgba(30,27,22,.35);
     transition:border-color .22s, transform .22s cubic-bezier(0.2,0.8,0.2,1), box-shadow .22s;
   }
   .portal-card::before{
-    content:''; position:absolute; top:0; left:0; right:0; height:3px;
-    background:var(--accent-warm); transform:scaleX(0); transform-origin:center;
+    content:''; position:absolute; top:0; left:0; right:0; height:4px;
+    background:var(--hm-red); transform:scaleX(0); transform-origin:left;
     transition:transform .25s cubic-bezier(0.2,0.8,0.2,1);
   }
-  .portal-card:hover{ border-color:var(--accent-warm); transform:translateY(-5px); box-shadow:0 24px 48px rgba(30,27,22,0.10); }
+  .portal-card:hover{ border-color:var(--hm-red); transform:translateY(-4px); box-shadow:0 24px 44px -26px rgba(156,51,39,.55); }
   .portal-card:hover::before{ transform:scaleX(1); }
-  .portal-card:active{ transform:translateY(-2px) scale(.99); }
-  .portal-card:focus-visible{ outline:2px solid var(--accent-warm); outline-offset:2px; }
+  .portal-card:active{ transform:translateY(-1px) scale(.99); }
+  .portal-card:focus-visible{ outline:2px solid var(--hm-red); outline-offset:2px; }
   .portal-name{
-    font-family:var(--serif); font-size:27px; font-weight:700; color:var(--text);
-    line-height:1.25; letter-spacing:.02em; word-break:keep-all;
+    font-family:var(--serif); font-size:20px; font-weight:800; color:var(--text);
+    line-height:1.2; letter-spacing:-.005em; word-break:keep-all;
   }
+  .portal-ko{ margin-top:6px; font-family:var(--mono); font-size:13px; font-weight:600; color:var(--text-dim); letter-spacing:.01em; }
+  .portal-card .pc-arrow{
+    position:absolute; right:22px; bottom:22px;
+    font-family:var(--mono); font-size:16px; font-weight:800; color:var(--hm-red);
+    opacity:0; transform:translateX(-8px); transition:opacity .2s, transform .2s;
+  }
+  .portal-card:hover .pc-arrow{ opacity:1; transform:none; }
   .portal-tablet-badge{
-    display:block; margin-top:8px;
-    color:#9C3327;
-    font-family:var(--mono); font-size:12px; font-weight:800; letter-spacing:.03em;
+    display:inline-flex; align-items:center; gap:6px; margin-bottom:12px; align-self:flex-start;
+    padding:4px 10px; border-radius:999px; background:var(--hm-red-soft); color:var(--hm-red);
+    font-family:var(--mono); font-size:10px; font-weight:800; letter-spacing:.16em;
   }
-  /* PLU PREVIEW 카드: 이름 + 배지를 세로로 (배지가 이름 아래에 오도록) */
-  #toPluPreviewBtn{ flex-direction:column; }
+  .portal-tablet-badge::before{ content:''; width:6px; height:6px; border-radius:50%; background:var(--hm-red); }
+
+  /* ── 푸터 ── */
+  .hm-foot{
+    max-width:1120px; width:100%; margin:0 auto; padding:28px 40px 56px;
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    font-family:var(--mono); font-size:11px; font-weight:700; letter-spacing:.18em; color:var(--text-faint);
+  }
+  .hm-foot::before{ content:''; flex:1 1 auto; height:1px; background:var(--border); order:2; }
+  .hm-foot .l{ order:1; color:var(--hm-red); }
+  .hm-foot .r{ order:3; }
+
+  /* ── 반응형 ── */
   @media (max-width:900px){
-    .portal-grid{ grid-template-columns:1fr; max-width:400px; }
-    .portal-cats{ max-width:400px; }
-    .portal-cat{ grid-template-columns:1fr; gap:10px; padding:16px 2px; }
-    .portal-cat .portal-card{ flex:1 1 100%; }
-    .portal-card{ min-height:96px; }
+    .hm-hero{ padding:56px 22px 100px; }
+    .hm-hero::before{ right:-14vw; top:-12%; font-size:clamp(280px, 70vw, 420px); }
+    .hm-primary-wrap{ margin-top:-60px; padding:0 18px; grid-template-columns:1fr; gap:14px; }
+    .portal-card.hm-primary{ grid-template-columns:auto 1fr; gap:16px; padding:22px 20px; border-radius:20px; }
+    .hm-primary .hm-cta{ grid-column:1 / -1; justify-content:center; }
+    .hm-primary .portal-name{ font-size:22px; white-space:normal; }
+    .hm-mark{ width:64px; height:64px; border-radius:16px; font-size:34px; }
+    .hm-primary .portal-name{ font-size:26px; }
+    .portal-cats{ padding:40px 18px 12px; gap:32px; }
+    .portal-cat{ grid-template-columns:1fr; gap:14px; }
+    .portal-cat-title{ flex-direction:row; align-items:center; gap:12px; }
+    .portal-cat-title::before{ margin-bottom:0; width:22px; }
+    .portal-cat-cards{ grid-template-columns:1fr 1fr; gap:12px; }
+    .portal-card{ min-height:112px; padding:20px 18px 18px; }
+    .hm-foot{ padding:20px 18px 48px; }
   }
-  @media (min-width:901px) and (max-width:1180px){
-    .portal-cats{ max-width:900px; }
-    .portal-cat .portal-card{ flex:1 1 240px; max-width:300px; }
+  @media (max-width:560px){
+    .hm-wordmark{ font-size:clamp(52px, 17vw, 72px); }
+    .hm-tag{ font-size:13.5px; }
+    .portal-cat-cards{ grid-template-columns:1fr; }
+    .hm-primary .portal-name{ font-size:22px; }
   }
 </style>
 </head>
 <body>
 
-<!-- 좌상단 MANAGER · EGMM · ITEM ANALYZE -->
-<div class="topbar-left">
-  <button class="mgr-fab" id="toOdpBtn" type="button" title="EGMM" aria-label="EGMM"><span>EGMM</span></button>
-</div>
-
 <!-- LOGIN SCREEN -->
 <div class="lock-screen" id="lockScreen">
   <div class="portal-wrap">
+
+    <!-- ── H-MART 브랜드 히어로 (워드마크만) ── -->
+    <header class="hm-hero">
+      <div class="hm-hero-in">
+        <h1 class="hm-wordmark" aria-label="H-MART"><span>H</span><span class="dash" aria-hidden="true"></span><span>MART</span></h1>
+      </div>
+    </header>
+
+    <!-- ── 메인 진입: EGMM · H-MART (히어로에 걸친 대형 카드 2개) ── -->
+    <div class="hm-primary-wrap">
+      <div class="portal-card hm-primary hm-primary-egmm" id="toOdpBtn" role="button" tabindex="0" aria-label="EGMM">
+        <div class="hm-mark" aria-hidden="true">EG</div>
+        <div class="portal-name">EGMM</div>
+        <div class="hm-cta">입장 <span class="ar" aria-hidden="true">&rarr;</span></div>
+      </div>
+      <div class="portal-card hm-primary" id="toHmartBtn" role="button" tabindex="0" aria-label="H-MART">
+        <div class="hm-mark" aria-hidden="true">H</div>
+        <div class="portal-name">H-MART</div>
+        <div class="hm-cta">입장 <span class="ar" aria-hidden="true">&rarr;</span></div>
+      </div>
+    </div>
+
     <div class="portal-cats">
-      <!-- 구역 1: 매장·도매 관리 -->
+      <!-- WHOLESALE -->
       <div class="portal-cat">
-        <div class="portal-cat-title">MANAGEMENT <span class="ko">매장 · 도매 관리</span></div>
+        <div class="portal-cat-title">WHOLESALE</div>
         <div class="portal-cat-cards">
-          <div class="portal-card" id="toHmartBtn" role="button" tabindex="0" aria-label="H-MART">
-            <div class="portal-name">H-MART</div>
-            <div class="portal-ko">매장 관리</div>
-          </div>
-          <div class="portal-card" id="toCampeonBtn" role="button" tabindex="0" aria-label="CAMPEON WHOLESALE">
-            <div class="portal-name">CAMPEON WHOLESALE</div>
-            <div class="portal-ko">도매 관리</div>
+          <div class="portal-card" id="toCampeonBtn" role="button" tabindex="0" aria-label="CAMPEON">
+            <div class="portal-name">CAMPEON</div>
+            <span class="pc-arrow" aria-hidden="true">&rarr;</span>
           </div>
         </div>
       </div>
-      <!-- 구역 2: 광고 · 신상품 · 퀴즈 -->
+      <!-- SUPPORT -->
       <div class="portal-cat">
-        <div class="portal-cat-title">STORE SUPPORT <span class="ko">매장 지원</span></div>
+        <div class="portal-cat-title">SUPPORT</div>
         <div class="portal-cat-cards">
           <div class="portal-card" id="toAdViewerBtn" role="button" tabindex="0" aria-label="ADVERTISING VIEWER">
             <div class="portal-name">ADVERTISING VIEWER</div>
-            <div class="portal-ko">광고상품 보기</div>
+            <span class="pc-arrow" aria-hidden="true">&rarr;</span>
           </div>
           <div class="portal-card" id="toNewViewerBtn" role="button" tabindex="0" aria-label="NEW ITEM VIEWER">
             <div class="portal-name">NEW ITEM VIEWER</div>
-            <div class="portal-ko">신상품 보기</div>
+            <span class="pc-arrow" aria-hidden="true">&rarr;</span>
           </div>
           <div class="portal-card" id="toPluQuizBtn" role="button" tabindex="0" aria-label="PLU MEMORIZE">
             <div class="portal-name">PLU MEMORIZE</div>
-            <div class="portal-ko">PLU 암기 연습</div>
+            <span class="pc-arrow" aria-hidden="true">&rarr;</span>
           </div>
         </div>
       </div>
-      <!-- 구역 3: 태블릿 전용 -->
+      <!-- TABLET ONLY -->
       <div class="portal-cat">
-        <div class="portal-cat-title">TABLET ONLY <span class="ko">태블릿 전용</span></div>
+        <div class="portal-cat-title">TABLET ONLY</div>
         <div class="portal-cat-cards">
           <div class="portal-card" id="toPluPreviewBtn" role="button" tabindex="0" aria-label="PLU PREVIEW">
             <div class="portal-name">PLU PREVIEW</div>
-            <div class="portal-ko">PLU 미리보기</div>
+            <span class="pc-arrow" aria-hidden="true">&rarr;</span>
           </div>
         </div>
       </div>
     </div>
+
+    <footer class="hm-foot">
+      <span class="l">H-MART</span>
+      <span class="r">2026</span>
+    </footer>
+
   </div>
 </div>
 
@@ -4170,7 +4324,7 @@
           placeholder="작업 지침이나 컨텍스트를 입력하세요...
 
 예시:
-- 프로젝트: THE SHAWN
+- 프로젝트: H-MART
 - 다음 작업: 새 기능 추가
 - 주의사항: ...">${escapeHtml(note.text || '')}</textarea>
         <div class="claude-note-footer">
@@ -4366,7 +4520,7 @@
     const a = document.createElement('a');
     const stamp = new Date().toISOString().slice(0,10);
     a.href = url;
-    a.download = `theshawn-${stamp}.vault`;
+    a.download = `hmart-${stamp}.vault`;
     a.click();
     URL.revokeObjectURL(url);
     showToast('백업 파일이 다운로드되었습니다', 'success');
@@ -4952,25 +5106,6 @@
     color:#fff; font-family:inherit; font-size:12px; font-weight:700; letter-spacing:.06em; cursor:pointer; white-space:nowrap; }
   .ppi-go:active{ background:#000; }
 
-  /* 메뉴 카드마다 붙는 개별 설치 버튼 (바탕화면/홈 화면 인스톨) */
-  .portal-card{ position:relative; }
-  .pc-inst{
-    position:absolute; top:10px; right:10px; z-index:5;
-    display:inline-flex; align-items:center; gap:4px;
-    padding:5px 10px; border-radius:20px; cursor:pointer;
-    border:1px solid #D6CFC0; background:#FFFDFA; color:#4C463C;
-    font-family:'Pretendard',-apple-system,sans-serif; font-size:10px; font-weight:800; letter-spacing:.04em;
-    box-shadow:0 3px 10px -6px rgba(30,27,22,.5); transition:all .15s;
-  }
-  .pc-inst:hover{ border-color:#1E1B16; background:#1E1B16; color:#fff; }
-  .pc-inst:active{ transform:scale(.95); }
-  #egmmInstMini{
-    margin-left:6px; width:30px; height:30px; border-radius:9px; cursor:pointer;
-    border:1px solid #D6CFC0; background:#FFFDFA; color:#4C463C;
-    font-size:13px; font-weight:800; line-height:1;
-    box-shadow:0 3px 10px -6px rgba(30,27,22,.5); transition:all .15s;
-  }
-  #egmmInstMini:hover{ border-color:#1E1B16; background:#1E1B16; color:#fff; }
 </style>
 
 <button id="ppInstBtn" type="button" title="아이패드 홈 화면에 설치"><span class="t">HOME</span><span class="b">INSTALL</span></button>
@@ -5065,35 +5200,7 @@
     location.href = location.pathname + '?app=' + encodeURIComponent(key);
   });
 
-  /* ── 각 메뉴 카드에 개별 [⬇ 설치] 버튼 — 누르면 그 메뉴의 홈 화면 설치 안내로 이동 ── */
-  var CARD2APP={ toHmartBtn:'HMART', toCampeonBtn:'CAMPEON', toAdViewerBtn:'ADVIEWER',
-                 toNewViewerBtn:'NEWITEM', toPluQuizBtn:'PLUMEM', toPluPreviewBtn:'PLUPREVIEW' };
-  function goInstall(key,ev){
-    if(ev){ ev.stopPropagation(); ev.preventDefault(); }
-    location.href = location.pathname + '?app=' + encodeURIComponent(key);
-  }
-  function addInstallBadges(){
-    Object.keys(CARD2APP).forEach(function(id){
-      var card=document.getElementById(id);
-      if(!card || card.querySelector('.pc-inst')) return;
-      var b=document.createElement('button');
-      b.type='button'; b.className='pc-inst'; b.title='이 메뉴를 홈 화면(바탕화면)에 설치';
-      b.innerHTML='&#8681; 설치';
-      b.addEventListener('click', function(ev){ goInstall(CARD2APP[id], ev); });
-      card.appendChild(b);
-    });
-    /* EGMM (좌상단 버튼) 옆 미니 설치 버튼 */
-    var fab=document.getElementById('toOdpBtn');
-    if(fab && fab.parentNode && !document.getElementById('egmmInstMini')){
-      var m=document.createElement('button');
-      m.type='button'; m.id='egmmInstMini'; m.title='EGMM 을 홈 화면(바탕화면)에 설치';
-      m.innerHTML='&#8681;';
-      m.addEventListener('click', function(ev){ goInstall('EGMM', ev); });
-      fab.parentNode.appendChild(m);
-    }
-  }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', addInstallBadges);
-  else addInstallBadges();
+  /* (메뉴 카드별 개별 설치 버튼 제거 — 홈 화면 설치는 우상단 HOME INSTALL 패널에서 일괄 처리) */
 })();
 </script>
 
