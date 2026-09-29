@@ -3609,7 +3609,8 @@
     var sp=cateKeyParts(__direct ? (curCat==='SALES'?'SALES ITEM|광고상품':'ETC|기타상품') : curCate);
     var cEng=sp.eng || engForCate(curCate);
     var cnm=cateName(sp.kor, cEng);
-    var head='<div class="crumb">'+
+    /* [2026-09] 중간 분류 목록 헤더도 상위 카테고리 화면과 같은 slim 헤더 — 헤더 높이 차이로 리스트가 미세하게 밀리던 문제 */
+    var head='<div class="crumb slim">'+
       '<span class="crumb-title">'+esc(cnm.main||sp.kor)+(cnm.sub?(' <small>'+esc(cnm.sub)+'</small>'):'')+'<span class="cnt">'+rows.length+'개</span></span>'+
       (vmodeApplies()?vmodeHtml():'')+'</div>';
     if(!rows.length){ pane.innerHTML=head+'<div class="empty">표시할 상품이 없습니다</div>'; return; }
