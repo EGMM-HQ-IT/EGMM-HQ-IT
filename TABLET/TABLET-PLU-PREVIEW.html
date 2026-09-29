@@ -1757,6 +1757,18 @@
     BOX      :[[80000,89999]],
     FISH     :[[6000,6999]]
   };
+  /* 행의 대분류 — 태그(big) → 소분류 이름 추정 → PLU 6000번대(청과 트리 한정) → 청과 */
+  var DELI_SUBS={'델리':1,'레몬랜드':1,'베이커리':1,'매장자체':1,'행복떡집':1,'한양떡집':1,'deli':1,'bakery':1};
+  var FISH_SUBS={'수산':1,'seafood':1,'fish':1,'해산':1};
+  function bigOf(r){
+    if(!r) return 'PRODUCE';
+    if(r.big==='DELI'||r.big==='FISH'||r.big==='PRODUCE') return r.big;
+    var sb=String(rowSub(r)||'').trim().toLowerCase();
+    if(DELI_SUBS[sb]) return 'DELI';
+    if(FISH_SUBS[sb]) return 'FISH';
+    if(pluInRange(r,'FISH')) return 'FISH';
+    return 'PRODUCE';
+  }
   function pluInRange(r, catKey){
     var n=parseInt(pluOf(r),10); if(isNaN(n)) return false;
     var rs=PLU_RANGES[catKey]||[];
@@ -1829,12 +1841,15 @@
        범위 밖 번호(유기농 90000번대 등)와 번호 없는 행은 "청과 전체"에서만 보인다.
        이전의 소분류 이름 키워드 방식(subMatch)은 아래 PLU_RANGES 로 대체 — subMatch 는 SALES/ETC 용으로만 남는다. */
     /* 수산(FISH) = PLU 6000~6999 이거나 수산 대분류에서 온 행. 청과 전체·야채·과일 등에는 안 섞인다 */
-    function isFishRow(r){ return r.big==='FISH' || pluInRange(r,'FISH'); }
-    function isDeliRow(r){ return r.big==='DELI'; }                       /* 델리(DELI) = 델리 대분류에서 온 행 */
-    if(catKey==='PRODUCE') return pool.filter(function(r){ return !isFishRow(r) && !isDeliRow(r); });
-    if(catKey==='FISH')    return pool.filter(isFishRow);
-    if(catKey==='DELI')    return pool.filter(isDeliRow);
-    if(PLU_RANGES[catKey]) return pool.filter(function(r){ return !isFishRow(r) && !isDeliRow(r) && pluInRange(r, catKey); });
+    /* [디버깅 2026-09] 대분류 판정 순서:
+         ① 행에 붙은 대분류 태그(big: DELI / FISH / PRODUCE) 가 최우선 — 델리 상품의 PLU 가 6000번대여도 델리다.
+         ② 태그가 없는(옛 캐시) 행은 소분류 이름으로 추정 (델리·베이커리… → DELI, 수산 → FISH).
+         ③ PLU 6000~6999 범위는 청과(PRODUCE) 트리의 행에만 적용한다.
+       이전 코드는 ③(범위)를 태그보다 먼저 봐서 6000번대 델리 상품이 FISH 에 잡혔다. */
+    if(catKey==='PRODUCE') return pool.filter(function(r){ return bigOf(r)==='PRODUCE'; });
+    if(catKey==='FISH')    return pool.filter(function(r){ return bigOf(r)==='FISH'; });
+    if(catKey==='DELI')    return pool.filter(function(r){ return bigOf(r)==='DELI'; });
+    if(PLU_RANGES[catKey]) return pool.filter(function(r){ return bigOf(r)==='PRODUCE' && pluInRange(r, catKey); });
     if(catKey==='SALES'||catKey==='ETC'){
       var conf=(DATA.custom&&DATA.custom[catKey])||null;
       // 매니저(tablet-plu-preview-manager)에서 직접 입력한 항목 우선
@@ -1908,7 +1923,7 @@
     var raw=cateRawOf(r);
     if(raw && !isNumericCate(raw)) return raw;
     /* 수산(FISH) 행에 분류 값이 없으면 소분류 이름(수산·박스)으로 묶는다 — 빈 분류 때문에 행이 사라지지 않게 */
-    if(r && (r.big==='FISH' || r.big==='DELI' || pluInRange(r,'FISH'))){ var sb=rowSub(r); if(sb){ var SUB_EN={'수산':'SEAFOOD','박스':'BOX','냉동':'FROZEN','건어물':'DRIED','조개':'SHELLFISH','델리':'DELI','베이커리':'BAKERY','레몬랜드':'LEMON LAND','매장자체':'IN-STORE','행복떡집':'HAPPY RICE CAKE','한양떡집':'HANYANG RICE CAKE'}; return SUB_EN[sb] ? (sb+' \u0001 '+SUB_EN[sb]) : sb; } }
+    if(r && bigOf(r)!=='PRODUCE'){ var sb=rowSub(r); if(sb){ var SUB_EN={'수산':'SEAFOOD','박스':'BOX','냉동':'FROZEN','건어물':'DRIED','조개':'SHELLFISH','델리':'DELI','베이커리':'BAKERY','레몬랜드':'LEMON LAND','매장자체':'IN-STORE','행복떡집':'HAPPY RICE CAKE','한양떡집':'HANYANG RICE CAKE'}; return SUB_EN[sb] ? (sb+' \u0001 '+SUB_EN[sb]) : sb; } }
     return '';
   }
   // 카테고리 키 → {kor, eng}
