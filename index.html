@@ -3177,6 +3177,11 @@
     }
     f.src = path;
     document.documentElement.classList.add('pp-framed');
+    /* 키보드 포커스를 셸 안으로 — 누른 카드 버튼에 포커스가 남아 있으면 키 입력이 카드로 가고 로그인 창엔 안 들어간다 */
+    try{ if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); }catch(e){}
+    const giveFocus = () => { try{ f.focus(); f.contentWindow && f.contentWindow.focus(); }catch(e){} };
+    giveFocus();
+    f.addEventListener('load', () => { giveFocus(); setTimeout(giveFocus, 150); }, { once:true });
     try{ if(!(history.state && history.state.ppFrame)) history.pushState({ ppFrame:1 }, ''); }catch(e){}
   }
   function ppClose(){
