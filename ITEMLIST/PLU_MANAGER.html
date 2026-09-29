@@ -3388,18 +3388,23 @@ function fillGroupRow(gRow,headers,merges,gRowIdx){
    묶음이 없는 열만 남은 필드를 레이아웃 순서대로 가져가므로 열 순서·누락 열과 무관하게 정확.
    1) 확정 묶음(셀 값·병합) + 필드명 정확 일치
    2) 추정 묶음(왼쪽에서 이어 채운 것) + 필드명 정확 일치
-   3) 필드명(또는 KEY) 단독 일치 — 아직 안 쓰인 필드를 레이아웃 순서대로
+   3) 필드명 정확 일치(대소문자 구분: SIZE ≠ size, PACK ≠ pack, ORIGIN ≠ origin, PLU TYPE ≠ PLU Type)
+      — [버그 수정 2026-09] 묶음 없는 1행 필드명 파일에서 대소문자만 다른 필드가 서로 섞여
+        (예: SIZE 열이 HANA size 필드로, 이후 size 열은 무시) 엉뚱한 필드에 들어가던 문제
+   4) 필드명(또는 KEY) 대소문자 무시 일치 — 아직 안 쓰인 필드를 레이아웃 순서대로
    gHard: fillGroupRow 의 hard 배열(없으면 값 있는 묶음은 전부 확정으로 취급) */
+function exactKey(s){ return String(s==null?'':s).replace(/\s+/g,' ').trim(); }
 function buildMapping(headers,layout,gRow,gHard){
-  var byGL={}, byL={};
+  var byGL={}, byL={}, byX={};
   (layout||[]).forEach(function(f){
     var gl=normKey(f.group||'')+'|'+normKey(f.label);
     if(byGL[gl]==null) byGL[gl]=f.key;
+    var x=exactKey(f.label); if(!byX[x]) byX[x]=[]; if(byX[x].indexOf(f.key)<0) byX[x].push(f.key);
     var l=normKey(f.label); if(!byL[l]) byL[l]=[]; if(byL[l].indexOf(f.key)<0) byL[l].push(f.key);
     var k=normKey(f.key); if(!byL[k]) byL[k]=[]; if(byL[k].indexOf(f.key)<0) byL[k].push(f.key);
   });
   var used={};
-  var res=headers.map(function(hh,i){ return { idx:i, header:String(hh==null?'':hh), key:null, n:normKey(hh), g:(gRow&&gRow[i]!=null)?normKey(gRow[i]):'' }; });
+  var res=headers.map(function(hh,i){ return { idx:i, header:String(hh==null?'':hh), key:null, n:normKey(hh), x:exactKey(hh), g:(gRow&&gRow[i]!=null)?normKey(gRow[i]):'' }; });
   function pass(hardOnly){
     res.forEach(function(m){
       if(m.key||!m.n||!m.g) return;
@@ -3411,7 +3416,12 @@ function buildMapping(headers,layout,gRow,gHard){
   }
   pass(true);   /* 1) 확정 묶음 */
   pass(false);  /* 2) 추정 묶음 */
-  res.forEach(function(m){ /* 3) 필드명 단독 */
+  res.forEach(function(m){ /* 3) 필드명 정확 일치(대소문자 구분) */
+    if(m.key||!m.n) return;
+    var cx=byX[m.x]||[];
+    for(var j=0;j<cx.length;j++){ if(!used[cx[j]]){ m.key=cx[j]; used[m.key]=1; break; } }
+  });
+  res.forEach(function(m){ /* 4) 필드명·KEY 대소문자 무시 */
     if(m.key||!m.n) return;
     var cands=byL[m.n]||[];
     for(var j=0;j<cands.length;j++){ if(!used[cands[j]]){ m.key=cands[j]; used[m.key]=1; break; } }
