@@ -3163,7 +3163,11 @@
        · 하위 페이지가 "돌아가기"로 index.html 을 열면(iframe 안) index 상단 스크립트가 {pp:'close'} 를 보내고 셸이 iframe 을 닫는다
        · 뒤로가기 버튼: 셸이 연 history 항목이 빠지면(popstate) iframe 을 닫는다 */
   window.__ppShell = true;
+  /* 홈 화면 아이콘(독립 앱 모드)에서는 iframe 안의 입력창에 iOS 키보드가 뜨지 않는 WebKit 문제가 있어
+     셸(iframe)을 쓰지 않고 바로 이동한다 — 독립 앱 모드는 주소창이 없으므로 주소를 감출 이유도 없다 */
+  const ppStandalone = () => { try{ return navigator.standalone===true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches); }catch(e){ return false; } };
   function ppOpen(path){
+    if(ppStandalone()){ window.location.href = path; return; }
     let f = document.getElementById('ppFrame');
     if(!f){
       f = document.createElement('iframe'); f.id = 'ppFrame';
