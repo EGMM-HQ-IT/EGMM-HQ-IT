@@ -3365,7 +3365,40 @@ function cellStr(v){
    1) 묶음행(gRow)이 있으면 "묶음+필드명" 정확 일치 우선
    2) 필드명 단독 일치 — 같은 이름이 여러 개면 아직 안 쓰인 것을 레이아웃 순서대로 배정
    3) KEY 일치도 허용 */
-function buildMapping(headers,layout,gRow){
+/* [버그 수정 2026-09 · 열 밀림] 묶음행(gRow) 채우기 — 엑셀에서 묶음 이름은 보통 병합 셀이라
+   첫 열에만 값이 있고 나머지 열은 빈칸으로 읽힌다. 그러면 ENGLISH/KOREA 처럼 같은 필드명이
+   여러 묶음에 있을 때 빈 묶음 열이 "레이아웃 순서의 다음 미사용 필드"로 흘러가
+   (예: BRAND 의 KOREA → COMPANY KOREA) 값이 엉뚱한 필드에 들어갔다.
+   ① 시트의 병합 범위(!merges)로 묶음 이름을 병합된 모든 열에 복사(확정 묶음)
+   ② 병합 정보가 없어도 왼쪽 묶음 이름을 빈 열로 이어 채움(추정 묶음 — 정확 일치할 때만 사용)
+   반환 {gRow:채운 묶음행, hard:[열별 확정 여부]} */
+function fillGroupRow(gRow,headers,merges,gRowIdx){
+  var out=[], hard=[], n=Math.max((gRow||[]).length,(headers||[]).length);
+  for(var i=0;i<n;i++){ var v=(gRow&&gRow[i]!=null)?cellStr(gRow[i]):''; out[i]=v; hard[i]=v!==''; }
+  if(merges&&merges.length&&gRowIdx!=null){
+    merges.forEach(function(m){
+      if(!m||!m.s||!m.e) return;
+      if(m.s.r>gRowIdx||m.e.r<gRowIdx) return;              /* 묶음행을 포함하는 병합만 */
+      var v=out[m.s.c]||''; if(v==='') return;
+      for(var c=m.s.c;c<=m.e.c;c++){ if(c<n&&out[c]===''){ out[c]=v; hard[c]=true; } }
+    });
+  }
+  var last='';
+  for(var j=0;j<n;j++){
+    if(out[j]!==''){ last=out[j]; continue; }
+    if(last&&cellStr(headers&&headers[j])!==''){ out[j]=last; hard[j]=false; } /* 추정 묶음 */
+  }
+  return {gRow:out,hard:hard};
+}
+/* 매칭 규칙 (중복 필드명 지원 — 델리 ENGLISH/KOREA/DEPARTMENT/UNIT SIZE 등)
+   [버그 수정 2026-09] 열 순서대로 한 번에 배정하던 방식 → 3단계 배정으로 변경.
+   같은 필드명이 여러 묶음에 있어도 "묶음+필드명"이 확정된 열이 먼저 자리를 잡고,
+   묶음이 없는 열만 남은 필드를 레이아웃 순서대로 가져가므로 열 순서·누락 열과 무관하게 정확.
+   1) 확정 묶음(셀 값·병합) + 필드명 정확 일치
+   2) 추정 묶음(왼쪽에서 이어 채운 것) + 필드명 정확 일치
+   3) 필드명(또는 KEY) 단독 일치 — 아직 안 쓰인 필드를 레이아웃 순서대로
+   gHard: fillGroupRow 의 hard 배열(없으면 값 있는 묶음은 전부 확정으로 취급) */
+function buildMapping(headers,layout,gRow,gHard){
   var byGL={}, byL={};
   (layout||[]).forEach(function(f){
     var gl=normKey(f.group||'')+'|'+normKey(f.label);
@@ -3374,16 +3407,24 @@ function buildMapping(headers,layout,gRow){
     var k=normKey(f.key); if(!byL[k]) byL[k]=[]; if(byL[k].indexOf(f.key)<0) byL[k].push(f.key);
   });
   var used={};
-  return headers.map(function(hh,i){
-    var n=normKey(hh);
-    if(!n) return { idx:i, header:String(hh==null?'':hh), key:null };
-    var key=null;
-    var g=(gRow&&gRow[i]!=null)?normKey(gRow[i]):'';
-    if(g){ var ek=byGL[g+'|'+n]; if(ek!=null&&!used[ek]) key=ek; }
-    if(!key){ var cands=byL[n]||[]; for(var j=0;j<cands.length;j++){ if(!used[cands[j]]){ key=cands[j]; break; } } }
-    if(key) used[key]=1;
-    return { idx:i, header:String(hh==null?'':hh), key:key };
+  var res=headers.map(function(hh,i){ return { idx:i, header:String(hh==null?'':hh), key:null, n:normKey(hh), g:(gRow&&gRow[i]!=null)?normKey(gRow[i]):'' }; });
+  function pass(hardOnly){
+    res.forEach(function(m){
+      if(m.key||!m.n||!m.g) return;
+      var isHard=(!gHard)||!!gHard[m.idx];
+      if(hardOnly!==isHard) return;
+      var ek=byGL[m.g+'|'+m.n];
+      if(ek!=null&&!used[ek]){ m.key=ek; used[ek]=1; }
+    });
+  }
+  pass(true);   /* 1) 확정 묶음 */
+  pass(false);  /* 2) 추정 묶음 */
+  res.forEach(function(m){ /* 3) 필드명 단독 */
+    if(m.key||!m.n) return;
+    var cands=byL[m.n]||[];
+    for(var j=0;j<cands.length;j++){ if(!used[cands[j]]){ m.key=cands[j]; used[m.key]=1; break; } }
   });
+  return res.map(function(m){ return { idx:m.idx, header:m.header, key:m.key }; });
 }
 /* 그룹행 감지: 다음 행이 필드명과 더 많이 일치하면 첫 행=묶음, 둘째 행=필드 */
 function detectGroupHeader(aoa,hIdx,layout){
@@ -3401,7 +3442,7 @@ function detectGroupHeader(aoa,hIdx,layout){
    "레이아웃 필드명과 가장 많이 일치하는 행"을 필드명 행으로 잡는다.
    (기존: 첫 번째 비어있지 않은 행 = 헤더 → 제목 줄이 있으면 전 열 매칭 실패
     → "아예 업데이트가 안 되는" 증상의 원인) 반환: {hIdx, gRow(있으면), score} */
-function findHeaderSmart(aoa,layout){
+function findHeaderSmart(aoa,layout,merges){
   var byN={}; (layout||[]).forEach(function(f){ byN[normKey(f.label)]=1; byN[normKey(f.key)]=1; });
   function mc(r){ var n=0; r=r||[]; for(var i=0;i<r.length;i++){ var v=normKey(cellStr(r[i])); if(v&&byN[v]) n++; } return n; }
   function ne(r){ var n=0; r=r||[]; for(var i=0;i<r.length;i++){ if(cellStr(r[i])!=='') n++; } return n; }
@@ -3409,13 +3450,16 @@ function findHeaderSmart(aoa,layout){
   var lim=Math.min(aoa.length,10);
   for(var i=0;i<lim;i++){ var sc=mc(aoa[i]); if(sc>best.score){ best={idx:i,score:sc}; } }
   if(best.score>=2){
-    var gRow=null;
+    var gRow=null, gHard=null;
     if(best.idx>0){
       var above=aoa[best.idx-1]||[];
       /* 바로 윗줄에 내용이 있고 그 줄 스스로가 필드명 행이 아니면 묶음 줄로 취급 */
-      if(ne(above)>0&&mc(above)<best.score) gRow=above.map(function(x){ return cellStr(x); });
+      if(ne(above)>0&&mc(above)<best.score){
+        var fg=fillGroupRow(above.map(function(x){ return cellStr(x); }),(aoa[best.idx]||[]).map(function(x){ return cellStr(x); }),merges||null,best.idx-1);
+        gRow=fg.gRow; gHard=fg.hard;
+      }
     }
-    return {hIdx:best.idx,gRow:gRow,score:best.score};
+    return {hIdx:best.idx,gRow:gRow,gHard:gHard,score:best.score};
   }
   return null; /* 필드명과 2개 이상 일치하는 행 없음 → 레거시 감지 사용 */
 }
@@ -3553,11 +3597,13 @@ function runImportDiag(file){
       wb.SheetNames.forEach(function(nm){
         var aoa=XLSX.utils.sheet_to_json(wb.Sheets[nm],{header:1,raw:true,defval:''});
         if(!aoa.length){ lines.push('■ 시트 '+nm+': 비어 있음'); return; }
-        var __sm=findHeaderSmart(aoa,lay);
-        var hIdx,grouped,gRow,hRow,dataStart;
-        if(__sm){ hIdx=__sm.hIdx; gRow=__sm.gRow; grouped=!!gRow; hRow=aoa[hIdx]||[]; dataStart=hIdx+1; }
-        else { hIdx=sheetHeaderRow(aoa); grouped=detectGroupHeader(aoa,hIdx,lay); gRow=grouped?aoa[hIdx]:null; hRow=grouped?(aoa[hIdx+1]||[]):(aoa[hIdx]||[]); dataStart=hIdx+(grouped?2:1); }
-        var map=buildMapping(hRow,lay,gRow);
+        var __mg=(wb.Sheets[nm]&&wb.Sheets[nm]['!merges'])||null;
+        var __sm=findHeaderSmart(aoa,lay,__mg);
+        var hIdx,grouped,gRow,gHard=null,hRow,dataStart;
+        if(__sm){ hIdx=__sm.hIdx; gRow=__sm.gRow; gHard=__sm.gHard; grouped=!!gRow; hRow=aoa[hIdx]||[]; dataStart=hIdx+1; }
+        else { hIdx=sheetHeaderRow(aoa); grouped=detectGroupHeader(aoa,hIdx,lay); hRow=grouped?(aoa[hIdx+1]||[]):(aoa[hIdx]||[]); dataStart=hIdx+(grouped?2:1);
+               gRow=null; if(grouped){ var __fg=fillGroupRow((aoa[hIdx]||[]).map(cellStr),hRow.map(cellStr),__mg,hIdx); gRow=__fg.gRow; gHard=__fg.hard; } }
+        var map=buildMapping(hRow,lay,gRow,gHard);
         var okN=0; map.forEach(function(m){ if(m.key) okN++; });
         var miss=map.filter(function(m){ return !m.key&&String(m.header||'').trim()!==''; });
         lines.push('■ 시트 '+nm+' — 헤더 '+(grouped?'2단(묶음+필드)':'1단')+' · 데이터 '+(aoa.length-dataStart)+'행');
@@ -3597,7 +3643,8 @@ function onImportFile(file){
       var ws=wb.Sheets[nm]; if(!ws) return;
       var aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true});
       if(!aoa.length) return;
-      var __smart=findHeaderSmart(aoa,curLayout());
+      var __merges=ws['!merges']||null;
+      var __smart=findHeaderSmart(aoa,curLayout(),__merges);
       var hIdx0=__smart?__smart.hIdx:sheetHeaderRow(aoa);
       var headers=(aoa[hIdx0]||[]).map(function(x){ return cellStr(x); });
       if(!headers.some(function(x){return x!=='';})) return;
@@ -3616,7 +3663,7 @@ function onImportFile(file){
       }catch(e){}
       /* [요구 2026-09] 클릭해 선택한 소분류가 기본 목적지 — 시트명 자동 지정 제거
          (미리보기의 시트별 드롭다운에서 직접 바꾸는 것만 허용) */
-      sheets.push({name:nm,aoa:aoa,hIdx0:hIdx0,use:true,targetSub:curSub(),fml:fml,baseCol:baseCol,smart:__smart||null});
+      sheets.push({name:nm,aoa:aoa,hIdx0:hIdx0,use:true,targetSub:curSub(),fml:fml,baseCol:baseCol,smart:__smart||null,merges:__merges});
     });
     if(!sheets.length){ uiAlert('가져올 데이터가 없습니다 (빈 파일)'); return; }
     /* [부분 업데이트] 2열 파일(1열=PLU · 2열=값) → 어떤 필드에 넣을지 선택 후 PLU 정확 매칭 갱신 */
@@ -3639,11 +3686,13 @@ function impApplyHeaderMode(){
          수동 토글(grouped)은 묶음 줄 사용 여부만 제어. */
       s.hIdx=s.smart.hIdx;
       s.gRow=(impCtx.grouped&&s.smart.gRow)?s.smart.gRow:null;
+      s.gHard=s.gRow?(s.smart.gHard||null):null;
     } else if(impCtx.grouped && (s.aoa[s.hIdx0+1]||[]).length){
-      s.gRow=(s.aoa[s.hIdx0]||[]).map(function(x){ return cellStr(x); });
       s.hIdx=s.hIdx0+1;
+      var __fg=fillGroupRow((s.aoa[s.hIdx0]||[]).map(function(x){ return cellStr(x); }),(s.aoa[s.hIdx]||[]).map(function(x){ return cellStr(x); }),s.merges||null,s.hIdx0);
+      s.gRow=__fg.gRow; s.gHard=__fg.hard;
     } else {
-      s.gRow=null;
+      s.gRow=null; s.gHard=null;
       s.hIdx=s.hIdx0;
     }
     s.headers=(s.aoa[s.hIdx]||[]).map(function(x){ return cellStr(x); });
@@ -3654,7 +3703,8 @@ function renderImportModal(){
   var first=null;
   impCtx.sheets.forEach(function(s){ if(!first&&s.use) first=s; });
   if(!first) first=impCtx.sheets[0];
-  var map=buildMapping(first.headers,lay,first.gRow||null);
+  var map=buildMapping(first.headers,lay,first.gRow||null,first.gHard||null);
+  var __lblN={}; lay.forEach(function(f){ var k=normKey(f.label); __lblN[k]=(__lblN[k]||0)+1; }); /* 중복 필드명 → 매칭 결과에 묶음 표시 */
   var h='';
   h+='<div class="plu-imp-hint"><b>'+escapeHtml(impCtx.fname)+'</b></div>';
   h+='<div class="icp-opt"><label style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;"><input type="checkbox" id="impGrouped"'+(impCtx.grouped?' checked':'')+'> 1행=묶음 이름 · 2행=필드명 (3행부터 데이터)</label></div>';
@@ -3672,10 +3722,12 @@ function renderImportModal(){
   h+='<table class="plu-imp-map"><thead><tr><th>엑셀 열 제목</th><th>매칭 결과</th></tr></thead><tbody>';
   map.forEach(function(m){
     if(m.header===''){ return; }
-    var gtx=(first.gRow&&cellStr(first.gRow[m.idx]))?' <span style="color:#3b5b8c;font-weight:700;">[묶음: '+escapeHtml(cellStr(first.gRow[m.idx]))+']</span>':'';
+    var __gh=first.gRow&&cellStr(first.gRow[m.idx])&&(!first.gHard||first.gHard[m.idx]); /* 확정 묶음(셀 값·병합)만 표시 — 추정 묶음은 표시 안 함 */
+    var gtx=__gh?' <span style="color:#3b5b8c;font-weight:700;">[묶음: '+escapeHtml(cellStr(first.gRow[m.idx]))+']</span>':'';
     if(m.key){
       var f=fieldByKey(big,m.key);
-      h+='<tr><td>'+escapeHtml(m.header)+gtx+'</td><td class="imp-ok">✓ '+escapeHtml(f?f.label:m.key)+'</td></tr>';
+      var __fl=f?((f.group&&__lblN[normKey(f.label)]>1)?(f.group+' · '+f.label):f.label):m.key;
+      h+='<tr><td>'+escapeHtml(m.header)+gtx+'</td><td class="imp-ok">✓ '+escapeHtml(__fl)+'</td></tr>';
     }else{
       h+='<tr><td>'+escapeHtml(m.header)+gtx+'</td><td><span class="imp-miss">✗ 매칭 없음 — 무시됨 (현재 필드에 없음)</span></td></tr>';
     }
@@ -3685,7 +3737,7 @@ function renderImportModal(){
   /* [요구 5] STORE/LOCATION 열 값에서 매장 자동 감지 → 리스트 기본 선택 */
   var detStores=[], det99=false;
   (function(){
-    var m0=buildMapping(first.headers,lay,first.gRow||null);
+    var m0=buildMapping(first.headers,lay,first.gRow||null,first.gHard||null);
     var cols=[]; m0.forEach(function(m){ var f0=m.key?fieldByKey(big,m.key):null; if(isStoreField(f0)) cols.push(m.idx); });
     if(!cols.length){ first.headers.forEach(function(hh,ci){ if(normKey(hh)==='LOCATION'||normKey(hh)==='STORE') cols.push(ci); }); }
     if(cols.length){
@@ -3743,7 +3795,7 @@ function runImport(){
   var big=curBig();
   var opts={
     big:big,
-    sheets:impCtx.sheets.filter(function(s){return s.use;}).map(function(s){ return {name:s.name,aoa:s.aoa,hIdx:s.hIdx,headers:s.headers,targetSub:s.targetSub,gRow:s.gRow||null,fml:s.fml||null,baseCol:s.baseCol||0}; }),
+    sheets:impCtx.sheets.filter(function(s){return s.use;}).map(function(s){ return {name:s.name,aoa:s.aoa,hIdx:s.hIdx,headers:s.headers,targetSub:s.targetSub,gRow:s.gRow||null,gHard:s.gHard||null,fml:s.fml||null,baseCol:s.baseCol||0}; }),
     store:($('impStore')?$('impStore').value:''),
     matchKey:($('impMatch')?$('impMatch').value:''),
     wipeEmpty:($('impWipe')?$('impWipe').checked:false),
@@ -3863,7 +3915,7 @@ function applyImport(opts){
   }
 
   opts.sheets.forEach(function(sh){
-    var map=buildMapping(sh.headers,lay,sh.gRow||null).filter(function(m){ return !!m.key; });
+    var map=buildMapping(sh.headers,lay,sh.gRow||null,sh.gHard||null).filter(function(m){ return !!m.key; });
     if(!map.length) return;
     /* [요구 2026-09] 엑셀에 있는 함수 그대로 적용: 열에 수식이 있으면 그 필드의 수식으로 교체 */
     if(sh.fml){
