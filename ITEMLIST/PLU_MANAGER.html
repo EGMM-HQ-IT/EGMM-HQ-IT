@@ -873,7 +873,6 @@ html[data-theme=night] .plu-cm-row.cur { border-color:#4d8bea; background:#1e2c4
       <!-- [선택삭제] 메뉴 버튼 왼쪽 -->
       <button class="plu-tool-btn plu-delsel" id="delSelBtn" type="button">🗑 선택삭제</button>
       <!-- [MODULE 08] 기능 메뉴 버튼 (팝업은 아래 모달) -->
-      <button class="plu-menu-btn" id="menuBtn" type="button">☰ 메뉴</button>
       <button class="page-back topbar-mini mainact" id="pluBackBtn">돌아가기</button>
     </div>
   </div>
@@ -5224,7 +5223,7 @@ function init(){
   $('optSaveBtn').onclick=optSave;
   $('exX').onclick=function(){ $('exOv').classList.remove('show'); };
   $('fillX').onclick=function(){ $('fillOv').classList.remove('show'); };
-  $('menuBtn').onclick=function(ev){ ev.stopPropagation(); toggleMenuPop(); };
+  /* ☰ 메뉴 버튼 제거(2026-09) — 메뉴는 EGMM 사이드바 서브메뉴에서 실행. 팝업 코드는 __pluMenuRun 이 닫기용으로만 사용 */
   initSync(); /* [MODULE 17] 창 간 동기화 시작 */
   $('menuX').onclick=function(){ toggleMenuPop(false); };
   $('printX').onclick=function(){ $('printOv').classList.remove('show'); };

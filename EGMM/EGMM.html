@@ -2292,10 +2292,10 @@
     flex-direction: column;
     background: radial-gradient(125% 85% at 50% -12%, #ffffff 0%, var(--bg) 44%, #f1efe6 100%); }
   /* ── 상단바 ── */
-  .eg-topbar { flex: 0 0 62px; display: flex; align-items: center; justify-content: space-between;
+  .eg-topbar { flex: 0 0 50px; display: flex; align-items: center; justify-content: space-between;
     padding: 0 20px; background: var(--bg-elev); border-bottom: 1px solid var(--border);
     box-shadow: 0 2px 14px rgba(30,27,22,.05); }
-  .eg-topbar .egmm-wordmark { font-size: 24px; letter-spacing: .16em; }
+  .eg-topbar .egmm-wordmark { font-size: 17px; letter-spacing: .12em; }
   .eg-topbar-actions { display: flex; align-items: center; gap: 10px; }
   .eg-top-msg, .eg-top-exit { position: relative; display: inline-flex; align-items: center; gap: 7px;
     background: var(--bg-elev); border: 1px solid var(--border); color: var(--text-dim);
@@ -2453,6 +2453,9 @@
   .eg-sub-arrow { transition: transform .18s; }
   .egmm-menu-btn.sub-open .eg-sub-arrow { transform: rotate(180deg); }
   .eg-submenu { display: flex; flex-direction: column; gap: 3px; margin: -2px 0 8px 12px; padding-left: 8px; border-left: 2px solid var(--border); }
+  .eg-submenu[hidden] { display: none; }   /* hidden 속성이 display:flex 에 눌려 접히지 않던 버그 수정 */
+  .egmm-menu-btn .eg-sub-arrow { font-size: 24px; line-height: 1; color: var(--text-dim); }
+  .egmm-menu-btn.sub-open .eg-sub-arrow { color: var(--accent-warm); }
   .eg-sub-btn { text-align: left; background: transparent; border: 1px solid transparent; border-radius: 7px; padding: 6px 9px;
     font-family: var(--mono); font-size: 11.5px; font-weight: 700; color: var(--text-dim); cursor: pointer; }
   .eg-sub-btn:hover { background: #fff; border-color: var(--border); color: var(--text); }
@@ -2857,7 +2860,6 @@
      <div class="egmm-wordmark">EGMM<span class="dot">.</span></div>
    </div>
    <div class="eg-topbar-actions">
-     <button class="eg-top-msg" id="egMsgOpenBtn" type="button">💬 메시지<span class="egmm-chat-alarm-dot"></span></button>
      <button class="eg-top-exit" id="egmmExitBtn" type="button">← 처음으로</button>
    </div>
  </header>
