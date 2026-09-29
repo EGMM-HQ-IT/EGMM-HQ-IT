@@ -2287,6 +2287,24 @@
   .egmm-screen { display: none; min-height: 100vh; position: relative; z-index: 1; }
   .egmm-screen.active { display: block; }
 
+  /* ===== NIGHT 모드 (상단 🌙 버튼 · PLU/UPC 매니저와 같은 팔레트 · localStorage pluLocalTheme 공유) ===== */
+  html[data-theme=night] {
+    color-scheme: dark;
+    --bg:#12151c; --bg-elev:#1a1f2a; --bg-elev-2:#161a23;
+    --border:#2a3140; --border-bright:#3c4557;
+    --text:#e7eaf2; --text-dim:#a3acbf; --text-faint:#6d7689;
+    --accent:#3b62c4; --accent-soft:#222a3a; --accent-warm:#d4af6a;
+    --danger:#e05b5b; --success:#3fae6a;
+  }
+  html[data-theme=night] #egmmMenu { background: var(--bg); }
+  html[data-theme=night] body::before, html[data-theme=night] body::after { display: none; }
+  html[data-theme=night] .eg-side { background: var(--bg); }
+  html[data-theme=night] .eg-frame, html[data-theme=night] .eg-mgr-frame { background: var(--bg); }
+  html[data-theme=night] .egmm-menu-btn:hover, html[data-theme=night] .eg-sub-btn:hover { background: var(--bg-elev-2); }
+  html[data-theme=night] .egmm-card { box-shadow: 0 1px 0 rgba(255,255,255,.04) inset, 0 14px 44px rgba(0,0,0,.35); }
+  html[data-theme=night] .egmm-menu-btn.active, html[data-theme=night] .egmm-menu-btn.active:hover { background: var(--accent-soft); }
+  html[data-theme=night] .eg-topbar { box-shadow: 0 2px 14px rgba(0,0,0,.35); }
+
   /* ===== EGMM 런처 홈 (정제 리디자인) ===== */
   #egmmMenu { display: none; position: fixed; inset: 0; z-index: 90; overflow: hidden;
     flex-direction: column;
@@ -2860,6 +2878,7 @@
      <div class="egmm-wordmark">EGMM<span class="dot">.</span></div>
    </div>
    <div class="eg-topbar-actions">
+     <button class="eg-top-exit" id="egThemeBtn" type="button" title="화면 모드 전환 (DAY / NIGHT)">🌙 NIGHT</button>
      <button class="eg-top-exit" id="egmmExitBtn" type="button">← 처음으로</button>
    </div>
  </header>
@@ -3456,6 +3475,19 @@
       (d.head||d.documentElement).appendChild(st);
     }catch(e){}
   }
+  /* ── NIGHT 모드: EGMM 화면 전체 + 열려 있는 모든 프레임(PLU/UPC 매니저 등)에 함께 적용 ── */
+  var THEME_KEY='pluLocalTheme';
+  function curTheme(){ try{ return localStorage.getItem(THEME_KEY)==='night'?'night':'day'; }catch(e){ return 'day'; } }
+  function applyTheme(t){
+    t=(t==='night')?'night':'day';
+    document.documentElement.setAttribute('data-theme',t);
+    var b=$('egThemeBtn'); if(b){ b.textContent=(t==='night')?'☀️ DAY':'🌙 NIGHT'; }
+    for(var k in __frames){ try{ var d=__frames[k].contentDocument; if(d&&d.documentElement) d.documentElement.setAttribute('data-theme',t);
+      var tb=d&&d.getElementById('themeBtn'); if(tb){ tb.textContent=(t==='night')?'☀️ DAY':'🌙 NIGHT'; } }catch(e){} }
+  }
+  function toggleTheme(){ var t=(curTheme()==='night')?'day':'night'; try{ localStorage.setItem(THEME_KEY,t); }catch(e){} applyTheme(t); }
+  var __themeBtn=$('egThemeBtn'); if(__themeBtn) __themeBtn.onclick=toggleTheme;
+  applyTheme(curTheme());
   // 메뉴별 iframe 유지(캐시): 전환 시 재로드 없음
   var __frames={};
   function openInFrame(url, btn){
@@ -3465,7 +3497,7 @@
     if(!f){
       f=document.createElement('iframe');
       f.className='eg-frame'; f.title='content'; f.src=url;
-      f.addEventListener('load', function(){ __trimFrame(f); });
+      f.addEventListener('load', function(){ __trimFrame(f); try{ f.contentDocument.documentElement.setAttribute('data-theme', curTheme()); }catch(e){} });
       var host=document.querySelector('.eg-main'); if(host) host.appendChild(f);
       __frames[url]=f;
     }
