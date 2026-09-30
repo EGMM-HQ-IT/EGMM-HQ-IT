@@ -3354,6 +3354,26 @@ function buildMapping(headers,layout){
 }
 
 var impCtx=null;
+/* [요구 2026-09 · UPC 모드] 업체(VENDER) 목록 — EGMM > SYSTEM > VENDER 에서 관리 (Firestore VENDER/{축약어}).
+   불러오기에서 업체를 지정하면 그 축약어 이름의 대분류(카테고리)로 저장되고 VENDER 필드 = 축약어 */
+var __venderList=null, __venderLoading=null;
+function fbLoadVenders(){
+  if(__venderList) return Promise.resolve(__venderList);
+  if(__venderLoading) return __venderLoading;
+  __venderLoading=fbConnect().then(function(conn){
+    return conn.M.fs.getDocs(conn.M.fs.collection(conn.db,'VENDER')).then(function(snap){
+      var out=[]; snap.forEach(function(d){ if(d.id.charAt(0)==='_') return; var v=d.data()||{}; out.push({code:String(v.code||d.id).toUpperCase(),name:String(v.name||''),nameKo:String(v.nameKo||''),order:(v.order!=null?v.order:9999)}); });
+      out.sort(function(a,b){ return (a.order-b.order)||a.code.localeCompare(b.code); });
+      __venderList=out; return out;
+    });
+  }).catch(function(e){ __venderLoading=null; throw e; });
+  return __venderLoading;
+}
+function venderOptionsHtml(sel){
+  var h='<option value="">(지정 안 함 — 현재 카테고리 '+escapeHtml(curBig())+')</option>';
+  (__venderList||[]).forEach(function(v){ h+='<option value="'+escapeHtml(v.code)+'"'+(v.code===sel?' selected':'')+'>'+escapeHtml(v.code)+(v.name?' — '+escapeHtml(v.name):'')+(v.nameKo?' ('+escapeHtml(v.nameKo)+')':'')+'</option>'; });
+  return h;
+}
 /* ═══ [MODULE 19 · PARTIAL-UPDATE] 2열 엑셀(PLU + 값) 부분 업데이트 ═══
    - 감지: 데이터가 정확히 2열이고 1열이 PLU(숫자/헤더 "PLU")로 보이면 발동
    - 화면: 값을 넣을 필드 선택(수식·쉐어 제외) + 미리보기 · 적용 대상(매장) 표시
@@ -3567,6 +3587,12 @@ function renderImportModal(){
   var h='';
   h+='<div class="plu-imp-hint"><b>'+escapeHtml(impCtx.fname)+'</b></div>';
 
+  if(APP_MODE==='UPC'){
+    /* [요구 2026-09] 업체 지정 — 선택하면 축약어 이름의 대분류로 저장 + VENDER 필드 = 축약어 (아래 소분류 선택은 무시) */
+    var __vsel=(impCtx.vender!=null)?impCtx.vender:(( __venderList||[]).some(function(v){ return v.code===curBig(); })?curBig():'');
+    h+='<div class="icp-lbl">업체(VENDER) 지정 — 지정하면 그 축약어 카테고리로 저장되고 VENDER 필드에 축약어가 들어갑니다</div>';
+    h+='<select class="icp-sel" id="impVender">'+(__venderList?venderOptionsHtml(__vsel):'<option value="">업체 목록 불러오는 중… (EGMM > SYSTEM > VENDER)</option>')+'</select>';
+  }
   h+='<div class="icp-lbl">시트 · 들어갈 소분류</div>';
   impCtx.sheets.forEach(function(s,i){
     h+='<div class="icp-opt icp-opt-sub" style="gap:10px;">';
@@ -3643,6 +3669,15 @@ function renderImportModal(){
   $('impBody').querySelectorAll('.imp-sheet-use').forEach(function(cb){ cb.onchange=function(){ impCtx.sheets[parseInt(cb.getAttribute('data-i'),10)].use=cb.checked; renderImportModal(); }; });
   $('impBody').querySelectorAll('.imp-sheet-sub').forEach(function(sl){ sl.onchange=function(){ impCtx.sheets[parseInt(sl.getAttribute('data-i'),10)].targetSub=sl.value; }; });
   $('impCancel').onclick=function(){ $('impOv').classList.remove('show'); };
+  if(APP_MODE==='UPC'){
+    var __vs=$('impVender');
+    if(__vs){
+      __vs.onchange=function(){ impCtx.vender=__vs.value; };
+      if(!__venderList){ fbLoadVenders().then(function(){ var el=$('impVender'); if(!el) return; var cur=(impCtx.vender!=null)?impCtx.vender:(( __venderList||[]).some(function(v){ return v.code===curBig(); })?curBig():''); el.innerHTML=venderOptionsHtml(cur); impCtx.vender=el.value; })
+        .catch(function(e){ var el=$('impVender'); if(el) el.innerHTML='<option value="">(업체 목록을 불러오지 못함 — 현재 카테고리로 저장) '+escapeHtml(String(e&&e.message||e))+'</option>'; }); }
+      else impCtx.vender=__vs.value;
+    }
+  }
   /* [요구 2026-09 ③] 실행 전 확인 팝업 — "이 엑셀 열을 이 리스트 필드에 업데이트합니다" 를 열별로 보여주고 확정 */
   $('impGo').onclick=function(){ confirmImportThenRun(); };
 }
@@ -3660,6 +3695,11 @@ function confirmImportThenRun(){
   });
   lines.push('');
   lines.push('기존 행 매칭: "'+((fieldByKey(big,keyF)||{}).label||'PLU')+'" 값이 같은 행은 업데이트, 없으면 새 행 추가 (빈 값 행은 건너뜀)');
+  if(APP_MODE==='UPC'){
+    var __vc=$('impVender')?$('impVender').value:'';
+    if(__vc){ var __vo=(__venderList||[]).filter(function(v){ return v.code===__vc; })[0]; lines.push('업체 지정: '+__vc+(__vo&&__vo.name?' ('+__vo.name+')':'')+' → 카테고리 "'+__vc+'" 에 저장 · VENDER = '+__vc+' (위 시트별 소분류 선택은 무시)'); }
+    else lines.push('업체 지정 없음 → 현재 카테고리('+big+')에 저장');
+  }
   lines.push('매장: '+(st||'기본(전체)'));
   lines.push('');
   lines.push('위 필드에 업데이트합니다. 진행할까요?');
@@ -3674,7 +3714,8 @@ function runImport(){
     store:($('impStore')?$('impStore').value:''),
     matchKey:($('impMatch')?$('impMatch').value:''),
     wipeEmpty:($('impWipe')?$('impWipe').checked:false),
-    routeByPlu:($('impRoute')?$('impRoute').checked:false)
+    routeByPlu:($('impRoute')?$('impRoute').checked:false),
+    vender:(APP_MODE==='UPC'&&$('impVender'))?String($('impVender').value||'').toUpperCase():''
   };
   if(!opts.sheets.length){ showToast('가져올 시트를 선택하세요','error'); return; }
   if(opts.store&&S.stores.indexOf(opts.store)<0) S.stores.push(opts.store); /* 감지된 새 매장 등록 */
@@ -3682,6 +3723,7 @@ function runImport(){
   /* 수식 필드 재계산 — 엑셀 함수 적용 시 전 대분류, 아니면 손댄 대분류(DEPARTMENT 라우팅 포함) */
   if(res.fml){ S.tabs.forEach(function(t){ calcAll(t.label); }); }
   else { for(var __bg2 in (res.bigs||{})) calcAll(__bg2); }
+  if(opts.vender){ for(var __ti=0;__ti<S.tabs.length;__ti++){ if(S.tabs[__ti].label===opts.vender){ pluBig=__ti; pluSub=0; S.ui.big=__ti; S.ui.sub=0; break; } } } /* 업체 지정 → 그 카테고리 화면으로 */
   renderBigTabs(); renderSubTabs(); /* 부서 라우팅으로 소분류가 자동 생성됐을 수 있음 */
   saveState(); $('impOv').classList.remove('show'); renderStoreBar(); renderContent();
   showToast('불러오기 완료 — 업데이트 '+res.upd+' · 추가 '+res.add+(res.skipped?' · 기준값 없음 건너뜀 '+res.skipped:'')+(res.moved?' · 소분류 이동 '+res.moved:'')+(res.dept?' · DEPARTMENT 라우팅 '+res.dept:'')+(res.unhid?' · 숨김 해제 '+res.unhid+'필드':'')+(res.fml?' · 엑셀 함수 적용 '+res.fml:'')+(res.storesAdded?' · 매장 추가 '+res.storesAdded:''),'success');
@@ -3779,6 +3821,14 @@ function applyImport(opts){
   function tabOf(bg){ for(var i=0;i<S.tabs.length;i++){ if(S.tabs[i].label===bg) return S.tabs[i]; } return null; }
   function deptBigOf(n){ for(var i=0;i<S.tabs.length;i++){ var L=S.tabs[i].label; if(S.deptMap&&S.deptMap[L]!=null&&parseInt(S.deptMap[L],10)===n) return L; } return null; }
   function ensureSub(bg,name){ var tt=tabOf(bg); if(!tt) return false; if(tt.subs.indexOf(name)<0){ tt.subs.push(name); } if(!S.data[bg]) S.data[bg]={}; if(!S.data[bg][name]) S.data[bg][name]=[]; return true; }
+  /* [요구 2026-09 · UPC 모드] 업체 지정: 축약어 이름의 대분류가 없으면 생성 (소분류 = 축약어) */
+  var venderBig='';
+  if(opts.vender){
+    venderBig=String(opts.vender).toUpperCase();
+    if(!tabOf(venderBig)){ S.tabs.push({label:venderBig,doc:venderBig,subs:[venderBig]}); S.layouts[venderBig]=masterLayoutOf(S); S.data[venderBig]={}; S.data[venderBig][venderBig]=[]; }
+    ensureSub(venderBig,(tabOf(venderBig).subs[0]||venderBig));
+    stats.bigs[venderBig]=1;
+  }
   var idxByBig={}; idxByBig[big]=null; /* import 대분류 인덱스는 아래 index 재사용 */
   function getIdx(bg){
     if(bg===big) return index;
@@ -3857,7 +3907,8 @@ function applyImport(opts){
 
       /* [MODULE 22] 행별 대분류 결정 — DEPARTMENT 값이 설정된 대분류와 일치하면 그쪽으로 */
       var rowBig=big, deptMatched=false;
-      if(deptCi>=0){
+      if(venderBig){ rowBig=venderBig; vals.VENDER_VENDER=venderBig; } /* 업체 지정: 그 카테고리 + VENDER = 축약어 (DEPARTMENT 라우팅 안 함) */
+      else if(deptCi>=0){
         var dvRaw=cellStr(row[deptCi]);
         var dv=parseInt(String(dvRaw==null?'':dvRaw).replace(/[^0-9]/g,''),10);
         if(!isNaN(dv)){ var db=deptBigOf(dv); if(db){ rowBig=db; deptMatched=true; if(db!==big) stats.dept=(stats.dept||0)+1; stats.bigs[db]=1; } }
@@ -3866,7 +3917,7 @@ function applyImport(opts){
 
       /* 목적지 소분류: DEPARTMENT 로 청과에 온 행은 항상 PLU 범위 규칙(자동배치 체크와 무관),
          그 외 청과는 체크 시에만. 범위 소분류가 없으면 자동 생성. */
-      var dest=(rowBig===big)?sh.targetSub:rowSubs[0];
+      var dest=venderBig?rowSubs[0]:((rowBig===big)?sh.targetSub:rowSubs[0]);
       var destByRule=false;
       if(rowBig==='청과'&&pluF&&(deptMatched||opts.routeByPlu)){
         var pv=vals[pluF.key];
@@ -5256,7 +5307,8 @@ window.__PLU={
   matchRename:matchRename, matchRenamePrefix:matchRenamePrefix, openMatchTool:openMatchTool,
   fsConnect:fsConnect, fsWriteNow:fsWriteNow, notifySaved:notifySaved,
   _setFsHandle:function(h){ fsHandle=h; fsStatus='ok'; renderSaveChip(); },
-  _fsStatus:function(){ return fsStatus; }, htmlFolderHint:htmlFolderHint
+  _fsStatus:function(){ return fsStatus; }, htmlFolderHint:htmlFolderHint,
+  fbLoadVenders:fbLoadVenders, _setVenders:function(l){ __venderList=l; } /* 테스트용: 업체 목록 주입 */
 };
 
 /* ═══════════════════════════════════════════════════════════════════════════

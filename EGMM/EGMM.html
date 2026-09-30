@@ -2766,9 +2766,9 @@
       egmmProductNameMakerBtn:'MENU-PRODUCT-NAME-MAKER', egmmDeliMgmtBtn:'MENU-DELI-MGMT',
       egmmAdListBtn:'MENU-AD-LIST', egmmWeeklyAdBtn:'MENU-WEEKLY-AD',
       egmmAccessBtn:'MENU-ACCESS', egmmStoreBtn:'MENU-STORE', egmmDeptBtn:'MENU-DEPARTMENT',
-      egmmMenuMgrBtn:'MENU-MENU', egmmFuncCodeBtn:'MENU-FUNCTION-CODE' };
+      egmmMenuMgrBtn:'MENU-MENU', egmmFuncCodeBtn:'MENU-FUNCTION-CODE', egmmVenderBtn:'MENU-VENDER' };
     /* SYSTEM 카테고리 = 관리자 모드: LV-0 계정에게만 표시/접속 */
-    var SYSTEM_CODES={ 'MENU-ACCESS':1, 'MENU-STORE':1, 'MENU-DEPARTMENT':1, 'MENU-MENU':1, 'MENU-FUNCTION-CODE':1 };
+    var SYSTEM_CODES={ 'MENU-ACCESS':1, 'MENU-STORE':1, 'MENU-DEPARTMENT':1, 'MENU-MENU':1, 'MENU-FUNCTION-CODE':1, 'MENU-VENDER':1 };
     function hideEmptyCards(){
       Array.prototype.forEach.call(document.querySelectorAll('.eg-side .egmm-card'), function(card){
         var any=false;
@@ -2895,6 +2895,7 @@
     <button class="egmm-menu-btn" id="egmmDeptBtn"><span class="egmm-menu-label mlab">DEPARTMENT<small>부서 생성 · 관리 (DEPT-코드)</small></span></button>
     <button class="egmm-menu-btn" id="egmmMenuMgrBtn"><span class="egmm-menu-label mlab">MENU<small>메뉴 생성 · 권한 (MENU-코드)</small></span></button>
     <button class="egmm-menu-btn" id="egmmFuncCodeBtn"><span class="egmm-menu-label mlab">FUNCTION CODE<small>직급 · 부서 · 메뉴 코드 관리</small></span></button>
+    <button class="egmm-menu-btn" id="egmmVenderBtn"><span class="egmm-menu-label mlab">VENDER<small>업체명 · 축약어 관리 (UPC MANAGER VENDER)</small></span></button>
   </div>
 
   <!-- 박스 1: EGMM -->
@@ -3562,6 +3563,7 @@
   var __deptBtn=$('egmmDeptBtn'); if(__deptBtn) __deptBtn.onclick = function(){ openInFrame('../MANAGER/DEPARTMENT.html', this); };
   var __menuMgrBtn=$('egmmMenuMgrBtn'); if(__menuMgrBtn) __menuMgrBtn.onclick = function(){ openInFrame('../MANAGER/MENU.html', this); };
   var __fcodeBtn=$('egmmFuncCodeBtn'); if(__fcodeBtn) __fcodeBtn.onclick = function(){ openInFrame('../MANAGER/FUNCTION-CODE.html', this); };
+  var __venderBtn=$('egmmVenderBtn'); if(__venderBtn) __venderBtn.onclick = function(){ openInFrame('../MANAGER/VENDER.html', this); };
   // 공용 대형 팝업 (도구 모음 등에서 사용)
   (function(){
     var big=document.createElement('div');
