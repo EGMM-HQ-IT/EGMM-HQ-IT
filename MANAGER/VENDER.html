@@ -50,9 +50,17 @@
   .btn.danger:hover{ background:var(--danger); color:#fff; }
   .btn.sm{ padding:8px 13px; font-size:12px; }
 
+  .sortbar{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:10px; font-size:12px; font-weight:800; color:var(--text-dim); }
+  .sortbar .sb{ border:1.5px solid var(--border); background:var(--bg); color:var(--text-dim); border-radius:8px; padding:6px 11px; font:inherit; font-size:12px; font-weight:800; cursor:pointer; }
+  .sortbar .sb.on{ background:var(--accent-warm); border-color:var(--accent-warm); color:#fff; }
+  .sortbar .sb.dir{ margin-left:4px; }
+  .drow .mv{ display:flex; flex-direction:column; gap:2px; }
+  .drow .mv button{ border:1px solid var(--border); background:var(--bg-elev); border-radius:6px; font:inherit; font-size:10px; font-weight:800; padding:1px 7px; cursor:pointer; color:var(--text-dim); }
+  .drow .mv button:disabled{ opacity:.3; cursor:default; }
   .dlist{ display:flex; flex-direction:column; gap:7px; }
   .drow{ display:grid; grid-template-columns:130px 1fr 1fr 1.3fr auto; gap:10px; align-items:center;
     border:1.5px solid var(--border); border-radius:12px; padding:11px 14px; background:var(--bg); }
+  .drow.manual{ grid-template-columns:auto 130px 1fr 1fr 1.3fr auto; }
   .drow.edit{ border-color:var(--accent-warm); background:var(--accent-soft); }
   .drow .dc{ font-size:14px; font-weight:800; color:var(--accent-warm); letter-spacing:.02em; word-break:break-all; }
   .drow .dn{ font-size:15px; font-weight:800; }
@@ -113,6 +121,14 @@
 
   <div class="panel">
     <h2><span class="ico">🏢</span> 업체 목록 <span class="cnt" id="dCnt"></span></h2>
+    <div class="sortbar" id="sortBar">정렬:
+      <button class="sb" data-sort="code" type="button">축약어</button>
+      <button class="sb" data-sort="name" type="button">업체명</button>
+      <button class="sb" data-sort="nameKo" type="button">한글명</button>
+      <button class="sb" data-sort="items" type="button">영업 품목</button>
+      <button class="sb" data-sort="manual" type="button">직접 순서 (▲▼)</button>
+      <button class="sb dir" id="sortDir" type="button" title="오름차순 / 내림차순">▲ 오름차순</button>
+    </div>
     <div class="dlist" id="dList"></div>
   </div>
 </div>
@@ -174,12 +190,46 @@
     return set;
   }
 
+  /* [정렬] 축약어·업체명·한글명·영업 품목 오름/내림 · 직접 순서(▲▼ = order 필드 저장) — 선택은 브라우저에 기억 */
+  var sortKey='code', sortAsc=true;
+  try{ var __ss=JSON.parse(localStorage.getItem('venderSort')||'null'); if(__ss&&__ss.key){ sortKey=__ss.key; sortAsc=__ss.asc!==false; } }catch(e){}
+  function saveSort(){ try{ localStorage.setItem('venderSort',JSON.stringify({key:sortKey,asc:sortAsc})); }catch(e){} }
+  function sortedCodes(){
+    var codes=Object.keys(depts);
+    if(sortKey==='manual'){
+      codes.sort(function(a,b){ var oa=(depts[a].order!=null?depts[a].order:9999), ob=(depts[b].order!=null?depts[b].order:9999); return (oa-ob)||a.localeCompare(b); });
+      return codes;
+    }
+    codes.sort(function(a,b){
+      var va=String(sortKey==='code'?a:(depts[a][sortKey]||'')), vb=String(sortKey==='code'?b:(depts[b][sortKey]||''));
+      if(va===''&&vb!=='') return 1; if(vb===''&&va!=='') return -1;
+      var c=va.localeCompare(vb,'ko',{sensitivity:'base',numeric:true}); if(!c) c=a.localeCompare(b);
+      return sortAsc?c:-c;
+    });
+    return codes;
+  }
+  function renderSortBar(){
+    Array.prototype.forEach.call($('sortBar').querySelectorAll('.sb[data-sort]'),function(b){ b.classList.toggle('on',b.getAttribute('data-sort')===sortKey); });
+    $('sortDir').textContent=sortAsc?'▲ 오름차순':'▼ 내림차순'; $('sortDir').style.display=(sortKey==='manual')?'none':'';
+  }
+  Array.prototype.forEach.call($('sortBar').querySelectorAll('.sb[data-sort]'),function(b){ b.onclick=function(){ sortKey=b.getAttribute('data-sort'); saveSort(); renderList(); }; });
+  $('sortDir').onclick=function(){ sortAsc=!sortAsc; saveSort(); renderList(); };
+  function moveManual(code,dir){ /* 직접 순서: 이웃과 order 교환 → 두 문서 저장 */
+    var codes=sortedCodes(), i=codes.indexOf(code), j=i+dir; if(i<0||j<0||j>=codes.length) return;
+    var a=codes[i], b=codes[j];
+    codes[i]=b; codes[j]=a;
+    var ups=[]; codes.forEach(function(c,k){ if(depts[c].order!==k){ depts[c].order=k; ups.push(fb.setDoc(fb.doc(fb.db,'VENDER',c),{order:k,updatedAt:Date.now()},{merge:true})); } });
+    renderList();
+    Promise.all(ups).catch(function(e){ console.error(e); toast('순서 저장 실패 — 권한 확인','error'); });
+  }
   function renderList(){
-    var codes=Object.keys(depts).sort();
+    renderSortBar();
+    var codes=sortedCodes();
     var html='';
-    codes.forEach(function(c){
+    codes.forEach(function(c,i){
       var d=depts[c];
-      html+='<div class="drow'+(c===editingCode?' edit':'')+'">'
+      html+='<div class="drow'+(c===editingCode?' edit':'')+(sortKey==='manual'?' manual':'')+'">'
+        +(sortKey==='manual'?('<span class="mv"><button type="button" data-up="'+esc(c)+'"'+(i===0?' disabled':'')+'>▲</button><button type="button" data-down="'+esc(c)+'"'+(i===codes.length-1?' disabled':'')+'>▼</button></span>'):'')
         +'<span class="dc">'+esc(c)+'</span>'
         +'<span class="dn">'+esc(d.name||'')+'</span>'
         +'<span class="dk">'+esc(d.nameKo||'')+'</span>'
@@ -197,6 +247,8 @@
     Array.prototype.forEach.call($('dList').querySelectorAll('button[data-del]'),function(b){
       b.onclick=function(){ delDept(b.getAttribute('data-del')); };
     });
+    Array.prototype.forEach.call($('dList').querySelectorAll('button[data-up]'),function(b){ b.onclick=function(){ moveManual(b.getAttribute('data-up'),-1); }; });
+    Array.prototype.forEach.call($('dList').querySelectorAll('button[data-down]'),function(b){ b.onclick=function(){ moveManual(b.getAttribute('data-down'),1); }; });
   }
 
   /* 축약어는 자동 생성하지 않음 — 사용자가 직접 지정 (예: STI-WA) */
