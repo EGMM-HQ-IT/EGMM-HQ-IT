@@ -3430,6 +3430,32 @@ function buildMapping(headers,layout){
 }
 
 var impCtx=null;
+/* 업체 리스트 파일 감지: 1행이 앱 필드명과 하나도 안 맞고(별칭·유사 포함) 데이터 A열의 80% 이상이 7자리 이상 숫자 */
+function isVendorListSheet(aoa,headers){
+  /* A열 데이터가 UPC 모양(7자리 이상 숫자 80% 이상)이고, 1행 A열이 UPC/PLU 필드명이 아니면(비어 있거나 밀려 있음) 리스트 파일.
+     1행 A열이 정확히 UPC/PLU 필드명인 정상 내보내기 파일은 필드명 매칭으로. */
+  var n=0,ok=0;
+  for(var i=1;i<Math.min(aoa.length,400);i++){ var a=cellStr((aoa[i]||[])[0]); if(a==='') continue; n++; if(/^\d{7,}$/.test(a)) ok++; }
+  if(!(n>0 && ok>=Math.ceil(n*0.8))) return false;
+  var pk=fieldByKey(curBig(),'ITEM_PLU')||fieldByKey(curBig(),'PLU');
+  var mp=buildMapping(headers||[],curLayout());
+  var a1=mp[0]; if(pk&&a1&&a1.key===pk.key&&!a1.similar) return false;
+  return true;
+}
+/* 리스트 파일 한 행 → 값 (규칙 위반 시 {skip:사유}) */
+function vendorListRow(row,big){
+  var a=cellStr(row[0]), b=cellStr(row[1]), c=cellStr(row[2]);
+  if(a===''&&b===''&&c==='') return null;
+  if(!/^\d+$/.test(a)) return {skip:'UPC 영문자/기호'};
+  if(a.length<=6) return {skip:'UPC 6자리 이하'};
+  if(/[^A-Za-z0-9_\-]/.test(b)) return {skip:'ITEM CODE 특수문자'};
+  var sp=splitDescEK(c), v={};
+  v.ITEM_PLU=a; if(b) v.VENDER_ITEM_CODE=b;
+  if(sp.eng) v.ITEM_ENGLISH=sp.eng; if(sp.kor) v.ITEM_KOREA=sp.kor;
+  var sz=parseSizeText(sp.eng); if(!sz.size) sz=parseSizeText(sp.kor);
+  if(sz.size){ if(fieldByKey(big,'UNIT_SIZE_3')) v.UNIT_SIZE_3=sz.size; if(sz.unit&&fieldByKey(big,'UNIT_CODE')) v.UNIT_CODE=sz.unit; if(sz.pk&&fieldByKey(big,'UNIT_SIZE_2')) v.UNIT_SIZE_2=sz.pk; if(sz.cs&&fieldByKey(big,'UNIT_SIZE')) v.UNIT_SIZE=sz.cs; }
+  return {v:v};
+}
 /* [요구 2026-09 · UPC 모드] 업체(VENDER) 목록 — EGMM > SYSTEM > VENDER 에서 관리 (Firestore VENDER/{축약어}).
    불러오기에서 업체를 지정하면 그 축약어 이름의 대분류(카테고리)로 저장되고 VENDER 필드 = 축약어 */
 var __venderList=null, __venderLoading=null;
@@ -3636,16 +3662,24 @@ function onImportFile(file){
       sheets.push({name:nm,aoa:aoa,hIdx:0,headers:headers,use:true,targetSub:curSub(),fml:fml,baseCol:baseCol});
     });
     if(!sheets.length){ uiAlert('가져올 데이터가 없습니다 (빈 파일)'); return; }
-    /* [요구 2026-09 ①] 모든 시트에 PLU/UPC 열 필수 — 상품 정보 변경은 반드시 PLU/UPC 로 행을 찾아 수정 */
-    (function(){
+    /* [확정 규칙 2026-09-30 · UPC 모드] 업체 리스트 파일 — 필드명(1행)은 불안정하므로 무시하고 열 위치로 읽는다:
+       A열 = UPC (6자리 이하·영문자 포함 행 제외) · B열 = ITEM CODE (- _ 외 특수문자 포함 행 제외) ·
+       C열 = 상품명 → ENGLISH_DESC / KOREA_DESC 분리 + 용량 → CASE/PACK/SIZE/UNIT CODE · VENDER = 지정 업체.
+       자동 감지: 1행이 앱 필드와 하나도 안 맞고 A열 값이 대부분 7자리 이상 숫자면 리스트 파일 (팝업에서 바꿀 수 있음) */
+    var __listMode=false;
+    if(APP_MODE==='UPC'){
+      __listMode=sheets.every(function(sh){ return isVendorListSheet(sh.aoa,sh.headers); });
+    }
+    /* [요구 2026-09 ①] 모든 시트에 PLU/UPC 열 필수 — 상품 정보 변경은 반드시 PLU/UPC 로 행을 찾아 수정 (리스트 파일은 A열이 UPC) */
+    if(!__listMode) (function(){
       var __pk=fieldByKey(curBig(),'ITEM_PLU')||fieldByKey(curBig(),'PLU'); var __bad=[];
       sheets.forEach(function(sh){ var mp=buildMapping(sh.headers,curLayout()); if(!__pk||!mp.some(function(m){ return m.key===__pk.key; })) __bad.push(sh.name); });
       if(__bad.length){ sheets=[]; uiAlert('엑셀에 '+(__pk?__pk.label:'PLU')+' 열이 없습니다 — 상품 정보는 '+(__pk?__pk.label:'PLU')+' 기준으로 해당 행을 찾아 수정하므로 불러올 수 없습니다.\n1행 필드명에 "'+(__pk?__pk.label:'PLU')+'" 열을 넣어 주세요.\n(시트: '+__bad.join(', ')+')','불러오기 불가'); }
     })();
     if(!sheets.length) return;
     /* [부분 업데이트] 2열 파일(1열=PLU · 2열=값) → 어떤 필드에 넣을지 선택 후 PLU 정확 매칭 갱신 */
-    if(sheets.length===1 && isPartialSheet(sheets[0].aoa)){ openPartialUpdate(file.name,sheets[0].aoa); return; }
-    impCtx={fname:file.name,sheets:sheets};
+    if(!__listMode && sheets.length===1 && isPartialSheet(sheets[0].aoa)){ openPartialUpdate(file.name,sheets[0].aoa); return; }
+    impCtx={fname:file.name,sheets:sheets,listMode:__listMode};
     /* [요구 2026-09] 불러오기는 현재 셋팅된 필드 그대로 데이터만 채움 —
        필드 추가/변경 없음. 매칭 안 되는 열은 무시(미리보기에 표시만) */
     renderImportModal(); $('impOv').classList.add('show');
@@ -3678,6 +3712,22 @@ function renderImportModal(){
     h+='</select></div>';
   });
 
+  if(APP_MODE==='UPC'){
+    h+='<div class="icp-opt" style="gap:14px;"><label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;"><input type="radio" name="impMode" value="fields"'+(impCtx.listMode?'':' checked')+'> 1행 필드명으로 매칭</label>'
+      +'<label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;"><input type="radio" name="impMode" value="list"'+(impCtx.listMode?' checked':'')+'> 업체 리스트 파일 (필드명 무시 · A=UPC · B=ITEM CODE · C=상품명)</label></div>';
+  }
+  if(impCtx.listMode){
+    var __pkL=(fieldByKey(big,'ITEM_PLU')||{}).label||'UPC';
+    h+='<div class="icp-lbl" style="margin-top:12px;">업체 리스트 파일 규칙 (시트: '+escapeHtml(first.name)+' · 1행 필드명 무시)</div>';
+    h+='<table class="plu-imp-map"><thead><tr><th>엑셀 열</th><th>들어가는 필드 · 규칙</th></tr></thead><tbody>'
+      +'<tr><td>A열</td><td class="imp-ok">✓ '+escapeHtml(__pkL)+' — 숫자만 · 7자리 이상 (6자리 이하·영문자 포함 행은 제외)</td></tr>'
+      +'<tr><td>B열</td><td class="imp-ok">✓ ITEM CODE — 영문·숫자·-·_ 만 (그 외 특수문자 포함 행은 제외)</td></tr>'
+      +'<tr><td>C열</td><td class="imp-ok">✓ ENGLISH_DESC + KOREA_DESC (영문/한글 자동 분리) + CASE/PACK/SIZE/UNIT CODE (용량 추출)</td></tr>'
+      +'<tr><td>—</td><td class="imp-ok">✓ VENDER = 위에서 지정한 업체 축약어'+(VENDOR_BY_BIG[big]?' (지정 없으면 '+escapeHtml(VENDOR_BY_BIG[big])+')':'')+'</td></tr>'
+      +'</tbody></table>';
+    map=[];
+  }
+  if(!impCtx.listMode){
   h+='<div class="icp-lbl" style="margin-top:12px;">열 매칭 (시트: '+escapeHtml(first.name)+')</div>';
   h+='<table class="plu-imp-map"><thead><tr><th>엑셀 열 제목</th><th>매칭 결과</th></tr></thead><tbody>';
   map.forEach(function(m){
@@ -3694,6 +3744,7 @@ function renderImportModal(){
     }
   });
   h+='</tbody></table>';
+  }
 
   /* [요구 5] STORE/LOCATION 열 값에서 매장 자동 감지 → 리스트 기본 선택 */
   var detStores=[], det99=false;
@@ -3726,7 +3777,7 @@ function renderImportModal(){
 
   var mappedKeys=[]; map.forEach(function(m){ if(m.key&&mappedKeys.indexOf(m.key)<0) mappedKeys.push(m.key); });
   /* [디버깅 지원] 매칭 안 된 열은 반영되지 않음 — 상단에 빨간 경고로 명시 */
-  var __miss=map.filter(function(m){ return !m.key&&String(m.header||'').trim()!==''; }).map(function(m){ return m.header; });
+  var __miss=impCtx.listMode?[]:map.filter(function(m){ return !m.key&&String(m.header||'').trim()!==''; }).map(function(m){ return m.header; });
   if(__miss.length){
     h='<div class="plu-imp-hint" style="color:#b91c1c;font-weight:800;margin-bottom:8px;">⚠ 매칭 안 된 열 '+__miss.length+'개 — 이 열들의 데이터는 반영되지 않습니다: '+escapeHtml(__miss.slice(0,10).join(', '))+(__miss.length>10?' …':'')+'<br>열 이름을 필드명과 같게 바꾸거나, 필드 편집에서 해당 필드명을 확인하세요.</div>'+h;
   }
@@ -3747,6 +3798,7 @@ function renderImportModal(){
   $('impBody').querySelectorAll('.imp-sheet-use').forEach(function(cb){ cb.onchange=function(){ impCtx.sheets[parseInt(cb.getAttribute('data-i'),10)].use=cb.checked; renderImportModal(); }; });
   $('impBody').querySelectorAll('.imp-sheet-sub').forEach(function(sl){ sl.onchange=function(){ impCtx.sheets[parseInt(sl.getAttribute('data-i'),10)].targetSub=sl.value; }; });
   $('impCancel').onclick=function(){ $('impOv').classList.remove('show'); };
+  Array.prototype.forEach.call($('impBody').querySelectorAll('input[name="impMode"]'),function(r){ r.onchange=function(){ impCtx.listMode=(r.value==='list'); renderImportModal(); }; });
   if(APP_MODE==='UPC'){
     var __vs=$('impVender');
     if(__vs){
@@ -3765,6 +3817,12 @@ function confirmImportThenRun(){
   if(!use.length){ showToast('가져올 시트를 선택하세요','error'); return; }
   var lines=[], keyF=$('impMatch')?$('impMatch').value:'', st=$('impStore')?$('impStore').value:'';
   use.forEach(function(sh){
+    if(impCtx.listMode){
+      lines.push('■ 시트 "'+sh.name+'" (업체 리스트 파일 · 1행 필드명 무시) → '+big+' / '+sh.targetSub+' · '+Math.max(0,sh.aoa.length-1)+'행');
+      lines.push('   A열 → '+((fieldByKey(big,'ITEM_PLU')||{}).label||'UPC')+' (7자리 이상 숫자만) · B열 → ITEM CODE (특수문자 행 제외)');
+      lines.push('   C열 → ENGLISH_DESC / KOREA_DESC 분리 + CASE/PACK/SIZE/UNIT CODE 추출');
+      return;
+    }
     var map=buildMapping(sh.headers,lay);
     var ok=map.filter(function(m){ return !!m.key; }), miss=map.filter(function(m){ return !m.key&&String(m.header||'').trim()!==''; });
     lines.push('■ 시트 "'+sh.name+'" → '+big+' / '+sh.targetSub+' · 데이터 '+Math.max(0,sh.aoa.length-sh.hIdx-1)+'행');
@@ -3793,7 +3851,8 @@ function runImport(){
     matchKey:($('impMatch')?$('impMatch').value:''),
     wipeEmpty:($('impWipe')?$('impWipe').checked:false),
     routeByPlu:($('impRoute')?$('impRoute').checked:false),
-    vender:(APP_MODE==='UPC'&&$('impVender'))?String($('impVender').value||'').toUpperCase():''
+    vender:(APP_MODE==='UPC'&&$('impVender'))?String($('impVender').value||'').toUpperCase():'',
+    listMode:!!impCtx.listMode
   };
   if(!opts.sheets.length){ showToast('가져올 시트를 선택하세요','error'); return; }
   if(opts.store&&S.stores.indexOf(opts.store)<0) S.stores.push(opts.store); /* 감지된 새 매장 등록 */
@@ -3804,6 +3863,7 @@ function runImport(){
   if(opts.vender){ for(var __ti=0;__ti<S.tabs.length;__ti++){ if(S.tabs[__ti].label===opts.vender){ pluBig=__ti; pluSub=0; S.ui.big=__ti; S.ui.sub=0; break; } } } /* 업체 지정 → 그 카테고리 화면으로 */
   renderBigTabs(); renderSubTabs(); /* 부서 라우팅으로 소분류가 자동 생성됐을 수 있음 */
   saveState(); $('impOv').classList.remove('show'); renderStoreBar(); renderContent();
+  if(res.excl){ var __ex=[]; for(var __ek in res.excl) __ex.push(__ek+' '+res.excl[__ek]+'행'); uiAlert('규칙에 따라 제외된 행: '+__ex.join(' · ')+'\n(업데이트 '+res.upd+' · 추가 '+res.add+')','업체 리스트 파일 제외 행'); }
   showToast('불러오기 완료 — 업데이트 '+res.upd+' · 추가 '+res.add+(res.skipped?' · 기준값 없음 건너뜀 '+res.skipped:'')+(res.moved?' · 소분류 이동 '+res.moved:'')+(res.dept?' · DEPARTMENT 라우팅 '+res.dept:'')+(res.unhid?' · 숨김 해제 '+res.unhid+'필드':'')+(res.fml?' · 엑셀 함수 적용 '+res.fml:'')+(res.storesAdded?' · 매장 추가 '+res.storesAdded:''),'success');
   if(res.fmlFail&&res.fmlFail.length) uiAlert('엑셀 함수를 적용하지 못한 열 '+res.fmlFail.length+'건 (기존 수식 유지):\n'+res.fmlFail.slice(0,20).join('\n')+(res.fmlFail.length>20?'\n…':''),'수식 변환 결과');
   /* [디버깅 지원] 매칭 기준을 지정했는데 기존 행 업데이트가 0건 = PLU 값이 하나도 일치하지 않음 */
@@ -3917,8 +3977,9 @@ function applyImport(opts){
   }
 
   opts.sheets.forEach(function(sh){
-    var map=buildMapping(sh.headers,lay).filter(function(m){ return !!m.key; });
-    if(!map.length) return;
+    var map=opts.listMode?[]:buildMapping(sh.headers,lay).filter(function(m){ return !!m.key; });
+    if(!map.length&&!opts.listMode) return;
+    var __listVend=opts.listMode?(opts.vender||VENDOR_BY_BIG[big]||''):'';
     /* [요구 2026-09] 엑셀에 있는 함수 그대로 적용: 열에 수식이 있으면 그 필드의 수식으로 교체 */
     if(sh.fml){
       var idx2key={}; map.forEach(function(m){ idx2key[m.idx]=m.key; });
@@ -3952,8 +4013,10 @@ function applyImport(opts){
         });
       }
     }
-    for(var ri=sh.hIdx+1;ri<sh.aoa.length;ri++){
+    for(var ri=(opts.listMode?0:sh.hIdx+1);ri<sh.aoa.length;ri++){
       var row=sh.aoa[ri]||[];
+      var __lr=null;
+      if(opts.listMode){ __lr=vendorListRow(row,big); if(!__lr) continue; if(__lr.skip){ stats.excl=stats.excl||{}; stats.excl[__lr.skip]=(stats.excl[__lr.skip]||0)+1; continue; } }
       /* [핵심 규칙 2026-09 개정 · B 확정] 행별 저장 컨텍스트 — LOCATION 열 값이
          전체·ALL 이면 기본(전 매장 적용, 매장별 잔존값 제거),
          99·"99. …" 은 EGMM 매장, 매장명은 그 매장, 빈값은 모달 선택 매장 */
@@ -3968,7 +4031,8 @@ function applyImport(opts){
         }
       }
       var vals={}, any=false;
-      map.forEach(function(m){
+      if(__lr){ vals=__lr.v; any=true; if(__listVend&&fieldByKey(big,'VENDER_VENDER')) vals.VENDER_VENDER=__listVend; }
+      else map.forEach(function(m){
         if(!m.key) return;
         var v=cellStr(row[m.idx]);
         if(v!==''){ vals[m.key]=v; any=true; }
