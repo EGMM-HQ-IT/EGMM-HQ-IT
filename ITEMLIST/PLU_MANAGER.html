@@ -3325,6 +3325,75 @@ function cellStr(v){
    2) 필드명·KEY 대소문자 무시 일치 — 같은 이름이 여러 개면 아직 안 쓰인 필드를 레이아웃 순서대로
    매칭 안 되는 열은 무시(미리보기에 표시) */
 function exactKey(s){ return String(s==null?'':s).replace(/\s+/g,' ').trim(); }
+/* [요구 2026-09] 매칭되는 필드가 없을 때 유사한 열 이름으로 찾기 — 열 이름(대소문자·공백·_ 무시) → 필드 KEY.
+   정확 일치·대소문자 무시·별칭이 모두 실패한 열에만 적용. */
+var HEADER_SIMILAR={
+  ITEM_PLU:['UPC CODE','UPCCODE','BARCODE','BAR CODE','UPC#','UPC NO','UPC NUMBER','PLU#','PLU NO','PLU NUMBER','PLU CODE','ITEM UPC','GTIN','EAN','바코드'],
+  VENDER_ITEM_CODE:['ITEMCODE','ITEM NO','ITEM#','ITEM NUMBER','ITEM CD','VENDER ITEM CODE','VENDOR ITEM CODE','VENDER CODE','VENDOR CODE','VENDOR ITEM','SKU','SKU#','업체코드','업체 코드','상품코드','상품 코드'],
+  ITEM_ENGLISH:['ENGLISH','ENG','ENG DESC','ENGDESC','ENGLISH DESC','ENGLISH NAME','ENG NAME','ENGLISH DESCRIPTION','영문','영문명','영문 상품명'],
+  ITEM_KOREA:['KOREA','KOR','KOR DESC','KORDESC','KOREA DESC','KOREAN','KOREAN NAME','KOR NAME','KOREAN DESC','한글','한글명','한글 상품명','상품명(한글)'],
+  ITEM_POS:['POS','POS DESC','POSDESC','POS NAME','POS DESCRIPTION'],
+  PRICE_COST:['UNIT COST','COST PRICE','원가','매입가','매입단가'],
+  PRICE_SRP:['RETAIL','RETAIL PRICE','SELL PRICE','SELLING PRICE','판매가','소매가'],
+  PRICE_MSRP:['SUGGESTED RETAIL','SUGGESTED PRICE','권장소비자가'],
+  VENDER_VENDER:['VENDOR','VENDER NAME','VENDOR NAME','업체','업체명','거래처','거래처명','공급업체'],
+  ITEM_DEPARTMENT:['DEPT','DEPT NO','DEPARTMENT NO','부서'],
+  UNIT_CODE:['UOM','UNIT','UNIT OF MEASURE','단위'],
+  UNIT_SIZE_3:['UNIT SIZE','ITEM SIZE','용량','규격'],
+  UNIT_SIZE_2:['PACK SIZE','PACK QTY','입수','묶음수'],
+  UNIT_SIZE:['CASE SIZE','CASE QTY','CASE PACK','박스입수'],
+  STORE_LOCATION:['STORE','MART','매장','지점']
+};
+/* 상품명(영문+한글 합본) 열 — ENGLISH_DESC / KOREA_DESC 로 자동 분리하고 용량(CASE/PACK/SIZE/UNIT CODE)도 추출 */
+var HEADER_COMPOSITE=['PRODUCT NAME','PRODUCTNAME','PRODUCT','ITEM NAME','ITEMNAME','NAME','DESCRIPTION','DESC','ITEM DESC','PRODUCT DESC','PRODUCT DESCRIPTION','상품명','품명','제품명','상품 이름','품목명'];
+function simKey(s){ return normKey(s).replace(/[_\-.]+/g,' ').replace(/\s+/g,' ').trim(); }
+var __simIndex=null;
+function simIndex(){
+  if(__simIndex) return __simIndex;
+  var ix={};
+  for(var k in HEADER_SIMILAR){ HEADER_SIMILAR[k].forEach(function(a){ ix[simKey(a)]=k; }); }
+  HEADER_COMPOSITE.forEach(function(a){ ix[simKey(a)]='__COMPOSITE'; });
+  __simIndex=ix; return ix;
+}
+/* ── 상품명 분리 · 용량 추출 (아이템 마스터 정리 규칙 v1 과 동일) ── */
+var __KOR=/[가-힣ㄱ-ㅎㅏ-ㅣ]/;
+function splitDescEK(d){
+  d=String(d==null?'':d).replace(/\s+/g,' ').trim();
+  var m=__KOR.exec(d);
+  if(!m){
+    for(var i=Math.floor(d.length/2);i<d.length-6;i++){ var t=d.slice(i+1).trim(); if(d.charAt(i)===' '&&t.length>=6&&d.indexOf(t)===0) return {eng:d.slice(0,i).trim(),kor:''}; }
+    return {eng:d,kor:''};
+  }
+  var eng=d.slice(0,m.index).trim(), kor=d.slice(m.index).trim();
+  var toks=eng.split(' ');
+  if(toks.length>1&&/^[A-Za-z0-9.&\-]+[)\]]$/.test(toks[toks.length-1])&&(toks.slice(0,-1).indexOf(toks[toks.length-1])>=0||eng.indexOf(toks[toks.length-1])===0)){ kor=toks[toks.length-1]+' '+kor; eng=toks.slice(0,-1).join(' ').trim(); }
+  return {eng:eng,kor:kor};
+}
+var __SIZE_U={OZ:'OZ',FLOZ:'FL OZ','FL OZ':'FL OZ','FL.OZ':'FL OZ',LB:'LB',LBS:'LB',G:'G',GM:'G',GR:'G',GRAM:'G',KG:'KG',ML:'ML',L:'L',LT:'L',LTR:'L',GAL:'GAL',QT:'QT',PT:'PT','그램':'G','킬로':'KG','리터':'L','파운드':'LB','온스':'OZ'};
+var __CNT_U={PC:'PC',PCS:'PC',P:'PC',EA:'EA',CT:'CT',PK:'PK',PACK:'PK',BAG:'BAG',BAGS:'BAG',CAN:'CAN',BTL:'BTL',BOT:'BTL',BOTS:'BTL',BTLS:'BTL',BOTTLE:'BTL',ROLL:'ROLL',ROLLS:'ROLL',SHEET:'SHEET',SHEETS:'SHEET',TB:'TB',TBS:'TB',TABLET:'TB',TABLETS:'TB',TEABAG:'TB',TEABAGS:'TB',CAP:'CAP',CAPS:'CAP',BOX:'BOX',BX:'BOX',CS:'CS',CASE:'CS',
+  '티백':'TB','입':'PC','개입':'PC','개':'PC','마리':'PC','미':'PC','봉':'BAG','팩':'PK','캔':'CAN','병':'BTL','롤':'ROLL','매':'SHEET','정':'TB','캡슐':'CAP','포':'PK','장':'SHEET','박스':'BOX'};
+function __alt(o){ return Object.keys(o).sort(function(a,b){ return b.length-a.length; }).map(function(k){ return k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }).join('|'); }
+var __NUM='(\\d+(?:\\.\\d+)?(?:/\\d+)?)', __SU=__alt(__SIZE_U), __CU=__alt(__CNT_U);
+var RE_SZ_CPS=new RegExp('(?<![0-9.])(\\d+)/(\\d+)/'+__NUM+'\\s*('+__SU+')(?![A-Za-z가-힣])','i');
+var RE_SZ_PS =new RegExp('(?<![0-9.])(\\d+)/'+__NUM+'\\s*('+__SU+')(?![A-Za-z가-힣])','i');
+var RE_SZ_PX =new RegExp('(?<![0-9.])(\\d+)\\s*[xX×*]\\s*'+__NUM+'\\s*('+__SU+')(?![A-Za-z가-힣])','i');
+var RE_SZ_XP =new RegExp(__NUM+'\\s*('+__SU+')\\s*[xX×*/]\\s*(\\d+)(?![A-Za-z0-9.가-힣])','i');
+var RE_SZ    =new RegExp('(?<![0-9.])'+__NUM+'\\s*('+__SU+')(?![A-Za-z가-힣])','i');
+var RE_CNT   =new RegExp('(?<![0-9.])'+__NUM+'\\s*('+__CU+')(?![A-Za-z가-힣])','i');
+function __nn(x){ x=String(x).trim(); if(x.indexOf('/')>=0){ var a=x.split('/'); var v=parseFloat(a[0])/parseFloat(a[1]); return isFinite(v)?String(Math.round(v*10000)/10000):x; } if(/^\d+\.\d+$/.test(x)) x=x.replace(/0+$/,'').replace(/\.$/,''); return x; }
+function __u(u,t){ return t[u.toUpperCase()]||t[u]||''; }
+function parseSizeText(text){ /* → {cs,pk,size,unit} */
+  text=String(text==null?'':text); var m;
+  if((m=RE_SZ_CPS.exec(text))) return {cs:m[1],pk:m[2],size:__nn(m[3]),unit:__u(m[4],__SIZE_U)};
+  if((m=RE_SZ_PS.exec(text)))  return {cs:'',pk:m[1],size:__nn(m[2]),unit:__u(m[3],__SIZE_U)};
+  if((m=RE_SZ_PX.exec(text)))  return {cs:'',pk:m[1],size:__nn(m[2]),unit:__u(m[3],__SIZE_U)};
+  if((m=RE_SZ_XP.exec(text)))  return {cs:'',pk:m[3],size:__nn(m[1]),unit:__u(m[2],__SIZE_U)};
+  var r={cs:'',pk:'',size:'',unit:''};
+  if((m=RE_SZ.exec(text))){ r.size=__nn(m[1]); r.unit=__u(m[2],__SIZE_U); }
+  var c=RE_CNT.exec(text);
+  if(c){ if(r.size) r.pk=__nn(c[1]); else { r.size=__nn(c[1]); r.unit=__u(c[2],__CNT_U); } }
+  return r;
+}
 function buildMapping(headers,layout){
   var byL={}, byX={};
   (layout||[]).forEach(function(f){
@@ -3350,7 +3419,14 @@ function buildMapping(headers,layout){
     var cx=byX[exactKey(al)]||byL[normKey(al)]||[];
     for(var j=0;j<cx.length;j++){ if(!used[cx[j]]){ m.key=cx[j]; used[m.key]=1; break; } }
   });
-  return res.map(function(m){ return { idx:m.idx, header:m.header, key:m.key }; });
+  var byK={}; (layout||[]).forEach(function(f){ byK[normKey(f.key)]=f.key; });
+  res.forEach(function(m){ /* 4) 유사한 열 이름 (HEADER_SIMILAR) · 상품명 합본 열(HEADER_COMPOSITE) → ENGLISH_DESC 로 두고 자동 분리 표시 */
+    if(m.key||!m.n) return;
+    var sk=simIndex()[simKey(m.header)]; if(!sk) return;
+    if(sk==='__COMPOSITE'){ var ek=byK['ITEM_ENGLISH']; if(ek&&!used[ek]){ m.key=ek; used[ek]=1; m.split=true; } return; }
+    var fk=byK[sk]; if(fk&&!used[fk]){ m.key=fk; used[fk]=1; m.similar=true; }
+  });
+  return res.map(function(m){ return { idx:m.idx, header:m.header, key:m.key, split:!!m.split, similar:!!m.similar }; });
 }
 
 var impCtx=null;
@@ -3610,6 +3686,8 @@ function renderImportModal(){
     if(m.key){
       var f=fieldByKey(big,m.key);
       var __fl=f?((f.group&&__lblN[normKey(f.label)]>1)?(f.group+' · '+f.label):f.label):m.key;
+      if(m.split){ var __kf=fieldByKey(big,'ITEM_KOREA'), __sf3=fieldByKey(big,'UNIT_SIZE_3'), __uf=fieldByKey(big,'UNIT_CODE'); __fl+=' + '+(__kf?__kf.label:'KOREA_DESC')+' (영문/한글 자동 분리)'+((__sf3||__uf)?' + '+(__sf3?__sf3.label:'SIZE')+'/'+(__uf?__uf.label:'UNIT CODE')+' (용량 추출)':''); }
+      else if(m.similar) __fl+=' (유사 이름)';
       h+='<tr><td>'+escapeHtml(m.header)+gtx+'</td><td class="imp-ok">✓ '+escapeHtml(__fl)+'</td></tr>';
     }else{
       h+='<tr><td>'+escapeHtml(m.header)+gtx+'</td><td><span class="imp-miss">✗ 매칭 없음 — 무시됨 (현재 필드에 없음)</span></td></tr>';
@@ -3690,7 +3768,7 @@ function confirmImportThenRun(){
     var map=buildMapping(sh.headers,lay);
     var ok=map.filter(function(m){ return !!m.key; }), miss=map.filter(function(m){ return !m.key&&String(m.header||'').trim()!==''; });
     lines.push('■ 시트 "'+sh.name+'" → '+big+' / '+sh.targetSub+' · 데이터 '+Math.max(0,sh.aoa.length-sh.hIdx-1)+'행');
-    ok.forEach(function(m){ var f=fieldByKey(big,m.key); lines.push('   엑셀 "'+m.header+'"  →  필드 "'+(f?f.label:m.key)+'"'+((f&&f.group)?' ('+f.group+')':'')); });
+    ok.forEach(function(m){ var f=fieldByKey(big,m.key); lines.push('   엑셀 "'+m.header+'"  →  필드 "'+(f?f.label:m.key)+'"'+((f&&f.group)?' ('+f.group+')':'')+(m.split?' — 영문/한글 자동 분리 + 용량(CASE/PACK/SIZE/UNIT CODE) 추출':(m.similar?' — 유사 이름 매칭':''))); });
     if(miss.length) lines.push('   무시(필드 없음): '+miss.map(function(m){ return m.header; }).join(', '));
   });
   lines.push('');
@@ -3852,6 +3930,8 @@ function applyImport(opts){
         if(fF.formula!==tr.expr){ fF.formula=tr.expr; stats.fml=(stats.fml||0)+1; }
       });
     }
+    var __splitIdx=map.filter(function(m){ return m.split; }), __has={}; map.forEach(function(m){ __has[m.key]=1; });
+    var __kKey=(fieldByKey(big,'ITEM_KOREA')||{}).key||null;
     /* [MODULE 22] DEPARTMENT 열 탐지 — 필드 매칭과 무관하게 헤더명으로 */
     var deptCi=-1; (sh.headers||[]).forEach(function(h,i){ if(deptCi<0&&/DEPART/i.test(String(h==null?'':h))) deptCi=i; });
     /* [MODULE 07 연계] STORE/LOCATION 열: 값으로 매장 리스트 자동 추가 (행별 저장 컨텍스트) */
@@ -3895,6 +3975,17 @@ function applyImport(opts){
         else if(opts.wipeEmpty){ vals[m.key]=''; } /* [무조건 덮어쓰기] 빈 셀도 기존 값 삭제 */
       });
       if(!any) continue;
+      /* [요구 2026-09] 상품명 합본 열 → ENGLISH_DESC / KOREA_DESC 분리 + 용량 추출 (파일에 해당 열이 따로 있으면 그 열 우선) */
+      if(__splitIdx.length){
+        __splitIdx.forEach(function(m){
+          var raw=cellStr(row[m.idx]); if(raw==='') return;
+          var sp=splitDescEK(raw); vals[m.key]=sp.eng||raw;
+          if(sp.kor&&__kKey&&!__has[__kKey]) vals[__kKey]=sp.kor;
+          if(!__has['UNIT_SIZE_3']&&!__has['UNIT_CODE']){ var sz=parseSizeText(sp.eng); if(!sz.size) sz=parseSizeText(sp.kor);
+            if(sz.size){ if(fieldByKey(big,'UNIT_SIZE_3')) vals.UNIT_SIZE_3=sz.size; if(sz.unit&&fieldByKey(big,'UNIT_CODE')) vals.UNIT_CODE=sz.unit;
+              if(sz.pk&&fieldByKey(big,'UNIT_SIZE_2')&&!__has['UNIT_SIZE_2']) vals.UNIT_SIZE_2=sz.pk; if(sz.cs&&fieldByKey(big,'UNIT_SIZE')&&!__has['UNIT_SIZE']) vals.UNIT_SIZE=sz.cs; } }
+        });
+      }
       /* [요구 2026-09 ⑤ · UPC 모드] 체크 필드(USE): 1 = 사용중 · 0 = 사용중지 (TRUE/Y/YES → 1, FALSE/N/NO → 0) */
       if(APP_MODE==='UPC'){
         for(var __ck in vals){ var __cf=fieldByKey(big,__ck); if(!__cf||__cf.type!=='check') continue;
@@ -3942,6 +4033,7 @@ function applyImport(opts){
           var __vv=vals[k]; var __sf=selSrcSelect(f); if(__sf) __vv=optResolve(__sf,__vv); /* [영구 규칙] 목록 값 정규화 */
           setCell(r0,f,__vv,rowStore); /* 모든 필드 매장별 저장 (기본은 자동 시드) — 수식 필드 값은 재계산이 확정 */
         }
+        if(venderBig){ var __vf=fieldByKey(rowBig,'VENDER_VENDER'); if(__vf) setCell(r0,__vf,venderBig,''); } /* 업체 지정: VENDER 는 기본값으로 확정 */
         /* 매칭된 기존 행도 목적지 소분류로 이동 */
         if(hit.sub!==dest){
           var arr=rowsFor(rowBig,hit.sub), ix=arr.indexOf(r0);
@@ -3955,6 +4047,7 @@ function applyImport(opts){
           var __vv2=vals[k2]; var __sf2=selSrcSelect(f2); if(__sf2) __vv2=optResolve(__sf2,__vv2); /* [영구 규칙] 목록 값 정규화 */
           setCell(nr,f2,__vv2,rowStore);
         }
+        if(venderBig){ var __vf2=fieldByKey(rowBig,'VENDER_VENDER'); if(__vf2) setCell(nr,__vf2,venderBig,''); }
         rowsFor(rowBig,dest).push(nr);
         if(mF&&vals[mF.key]!=null&&rIdx){ var mv2=matchNorm(vals[mF.key]); if(mv2&&!rIdx[mv2]) rIdx[mv2]={sub:dest,row:nr}; }
         stats.add++;
@@ -5308,7 +5401,8 @@ window.__PLU={
   fsConnect:fsConnect, fsWriteNow:fsWriteNow, notifySaved:notifySaved,
   _setFsHandle:function(h){ fsHandle=h; fsStatus='ok'; renderSaveChip(); },
   _fsStatus:function(){ return fsStatus; }, htmlFolderHint:htmlFolderHint,
-  fbLoadVenders:fbLoadVenders, _setVenders:function(l){ __venderList=l; } /* 테스트용: 업체 목록 주입 */
+  fbLoadVenders:fbLoadVenders, _setVenders:function(l){ __venderList=l; }, /* 테스트용: 업체 목록 주입 */
+  splitDescEK:splitDescEK, parseSizeText:parseSizeText
 };
 
 /* ═══════════════════════════════════════════════════════════════════════════
