@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   VENDER.html — 업체(벤더) 관리 · EGMM > SYSTEM
-  Firestore(egmm-hq-it / DB egmm) VENDER/{축약어} = { code, name(업체명), nameKo, order, createdAt, updatedAt }
+  Firestore(egmm-hq-it / DB egmm) VENDER/{축약어} = { code, name(업체명), nameKo, items(영업 품목 종류 · 쉼표 구분), order, createdAt, updatedAt }
   축약어 = UPC MANAGER 의 VENDER 필드 값 · 불러오기에서 업체 지정 시 대분류(카테고리) 이름
 -->
 <html lang="ko">
@@ -35,7 +35,7 @@
   .panel h2 .ico{ width:28px; height:28px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:15px; background:#d9f5ec; }
   .panel h2 .cnt{ margin-left:auto; font-size:11px; font-weight:800; color:var(--text-faint); }
 
-  .addgrid{ display:grid; grid-template-columns:1fr 1fr 1.2fr auto; gap:8px; align-items:end; }
+  .addgrid{ display:grid; grid-template-columns:1.2fr 1fr .9fr 1.4fr auto; gap:8px; align-items:end; }
   .field label{ display:block; font-size:12px; font-weight:800; color:var(--text-dim); margin-bottom:5px; }
   .field input{ width:100%; border:1.5px solid var(--border); border-radius:10px; padding:11px 13px; font:inherit; font-size:14px; font-weight:700; background:var(--bg); }
   .field input:focus{ outline:none; border-color:var(--accent-warm); background:#fff; }
@@ -51,12 +51,13 @@
   .btn.sm{ padding:8px 13px; font-size:12px; }
 
   .dlist{ display:flex; flex-direction:column; gap:7px; }
-  .drow{ display:grid; grid-template-columns:170px 1fr 1fr auto; gap:10px; align-items:center;
+  .drow{ display:grid; grid-template-columns:130px 1fr 1fr 1.3fr auto; gap:10px; align-items:center;
     border:1.5px solid var(--border); border-radius:12px; padding:11px 14px; background:var(--bg); }
   .drow.edit{ border-color:var(--accent-warm); background:var(--accent-soft); }
   .drow .dc{ font-size:14px; font-weight:800; color:var(--accent-warm); letter-spacing:.02em; word-break:break-all; }
   .drow .dn{ font-size:15px; font-weight:800; }
   .drow .dk{ font-size:13px; font-weight:700; color:var(--text-dim); }
+  .drow .di{ font-size:12.5px; font-weight:700; color:var(--accent-warm); word-break:keep-all; }
   .drow .acts{ display:flex; gap:6px; }
   .empty{ text-align:center; color:var(--text-faint); font-size:13px; font-weight:700; padding:26px 6px; border:2px dashed var(--border); border-radius:12px; }
 
@@ -79,7 +80,7 @@
     .addgrid{ grid-template-columns:1fr 1fr; }
     .addgrid .btn{ grid-column:1/-1; }
     .drow{ grid-template-columns:1fr auto; }
-    .drow .dk{ grid-column:1/-1; }
+    .drow .dk, .drow .di{ grid-column:1/-1; }
   }
 </style>
 </head>
@@ -100,10 +101,11 @@
       <div class="field"><label>업체명</label><input type="text" id="dName" placeholder="예: SEOUL TRADING (WA)" autocomplete="off"></div>
       <div class="field"><label>한글명 (선택)</label><input type="text" id="dKo" placeholder="예: 서울트레이딩" autocomplete="off"></div>
       <div class="field"><label>축약어 (VENDER 코드)</label><input type="text" id="dCode" placeholder="예: STI-WA" autocomplete="off"></div>
+      <div class="field"><label>영업 품목 종류</label><input type="text" id="dItems" placeholder="예: 라면, 과자, 음료, 냉동식품" autocomplete="off"></div>
       <button class="btn" id="dSaveBtn" type="button">＋ 추가</button>
     </div>
     <div class="hint">업체는 <b>축약어</b>로 관리됩니다 — 축약어는 UPC MANAGER 의 <b>VENDER</b> 필드 값이자 불러오기 시 지정하는 업체(카테고리) 이름입니다. 예: 서울트레이딩 WA → <b>STI-WA</b>.
-      영문 대문자·숫자·하이픈(-)만 사용, 중복 불가.</div>
+      영문 대문자·숫자·하이픈(-)만 사용, 중복 불가. 영업 품목 종류는 쉼표(,)로 여러 개 입력.</div>
     <div style="margin-top:10px; display:none;" id="editActs">
       <button class="btn ghost sm" id="dCancelBtn" type="button">수정 취소</button>
     </div>
@@ -181,6 +183,7 @@
         +'<span class="dc">'+esc(c)+'</span>'
         +'<span class="dn">'+esc(d.name||'')+'</span>'
         +'<span class="dk">'+esc(d.nameKo||'')+'</span>'
+        +'<span class="di">'+esc(d.items||'')+'</span>'
         +'<span class="acts">'
         +'<button class="btn ghost sm" data-edit="'+esc(c)+'" type="button">수정</button>'
         +'<button class="btn danger sm" data-del="'+esc(c)+'" type="button">삭제</button>'
@@ -203,7 +206,7 @@
     editingCode=null;
     $('addTitle').textContent='업체 추가';
     $('dSaveBtn').textContent='＋ 추가';
-    $('dName').value=''; $('dKo').value=''; $('dCode').value='';
+    $('dName').value=''; $('dKo').value=''; $('dCode').value=''; $('dItems').value='';
     delete $('dCode').dataset.touched;
     $('editActs').style.display='none';
     renderList();
@@ -213,7 +216,7 @@
     editingCode=code;
     $('addTitle').textContent='업체 수정: '+code;
     $('dSaveBtn').textContent='💾 저장';
-    $('dName').value=d.name||''; $('dKo').value=d.nameKo||'';
+    $('dName').value=d.name||''; $('dKo').value=d.nameKo||''; $('dItems').value=d.items||'';
     $('dCode').value=code; $('dCode').dataset.touched='1';
     $('editActs').style.display='';
     renderList();
@@ -225,6 +228,7 @@
     if(!fb){ toast('연결 준비 중 — 잠시 후 다시','error'); return; }
     var name=$('dName').value.trim();
     var ko=$('dKo').value.trim();
+    var items=$('dItems').value.split(',').map(function(x){ return x.trim(); }).filter(Boolean).join(', '); /* 영업 품목 종류 — 쉼표 구분 정리 */
     var code=window.EgmmFB.sanitizeCode($('dCode').value);
     if(!name){ toast('업체명을 입력하세요','error'); $('dName').focus(); return; }
     if(!code){ toast('축약어를 입력하세요','error'); $('dCode').focus(); return; }
@@ -234,7 +238,7 @@
     if(dup[code]){ warnPopup('⚠️ 코드 중복','코드 "'+code+'" 는 이미 ['+dup[code]+'] 에서 사용 중입니다.\n다른 코드를 입력하세요.'); return; }
 
     var base = editingCode ? (depts[editingCode]||{}) : {};
-    var data={ code:code, name:name, nameKo:ko, order:(base.order!=null?base.order:Object.keys(depts).length),
+    var data={ code:code, name:name, nameKo:ko, items:items, order:(base.order!=null?base.order:Object.keys(depts).length),
       createdAt: base.createdAt||Date.now(), updatedAt: Date.now() };
 
     function write(){
