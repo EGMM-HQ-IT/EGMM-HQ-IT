@@ -1188,6 +1188,15 @@ var DEFAULT_STORES=['TACOMA','FEDERALWAY','BELLEVUE','BALLARD','REDMOND','LYNNWO
 var VENDOR_BY_BIG={};
 /* [UPC MANAGER 연계 2026-09] 로컬 전용 모드 — true 면 Firebase 자동 접속·동기화 전부 끔 (로컬 저장만) */
 var FB_LOCAL_ONLY=false;
+/* [UPC MANAGER 연계 2026-09] 앱 모드 — 'PLU' | 'UPC'. UPC 모드 전용 기능:
+   ④ 같은 UPC 값 행의 UPC 셀을 같은 바탕색으로 표시 ⑤ USE 열 불러오기 값 정규화(1=사용중 · 0=사용중지) */
+var APP_MODE='PLU';
+/* [UPC MANAGER 연계 2026-09] 필드 KEY → 표시 이름 강제 (UPC: ITEM_PLU→'UPC', ITEM_PLU_TYPE→'UPC TYPE') · 매 로드 적용 */
+var KEY_LABELS={};
+/* [UPC MANAGER 연계 2026-09] 불러오기 열 이름 별칭 — 파일 열 이름이 필드명과 다를 때 대응 (UPC: 'PLU'→'UPC', 'PLU TYPE'→'UPC TYPE') */
+var HEADER_ALIAS={};
+/* [UPC MANAGER 연계 2026-09] STORE(LOCATION) 필드를 리스트에 표시 (PLU 는 숨김 유지) */
+var SHOW_STORE_FIELD=false;
 
 /* 필드 구조: {key,label,group,w(px),type:'text'|'check'|'select',fmt:'text'|'price'|'percent',
    align,store,hidden,options?:선택지,formula?:수식(MODULE 16),autoinc?:행추가시 최대값+1,
@@ -1515,6 +1524,13 @@ function migrate(st){
     st.layouts['델리']=applyXl91Layout(masterLayoutOf(st));
     st.dirtySinceSync=true;
   }
+  /* [UPC MANAGER 연계 2026-09 ⑥⑦] KEY 별 표시 이름 강제(UPC·UPC TYPE, 매 로드) · STORE(LOCATION) 필드 표시(1회) */
+  (function(){
+    var __m=masterLayoutOf(st), __chg=false;
+    __m.forEach(function(f){ var nl=KEY_LABELS[normKey(f.key)]; if(nl&&f.label!==nl){ f.label=nl; __chg=true; } });
+    if(SHOW_STORE_FIELD&&!st.flags.storeVis1){ st.flags.storeVis1=1; __m.forEach(function(f){ if(isStoreField(f)&&f.hidden){ f.hidden=false; __chg=true; } }); }
+    if(__chg){ st.layouts['델리']=__m; st.dirtySinceSync=true; }
+  })();
   unifyLayouts(st); unifyGColors(st); /* [공유 필드 셋팅] 매 로드마다 전 대분류를 하나의 레이아웃/색상으로 통일 */
   if(st.flags&&(st.flags.__posRecalc||st.flags.__posV3Recalc)){ /* [POS 이관] 전 카테고리 재계산 — 기존 POS 값 새 규칙으로 덮어쓰기 */
     delete st.flags.__posRecalc; delete st.flags.__posV3Recalc;
@@ -2630,7 +2646,17 @@ function renderContent(){
      위/아래는 높이만 차지하는 빈 행(spacer)으로 채워 스크롤 길이·세로 스크롤바는 전체 기준을 유지.
      행 HTML 은 __rowHtml 이 만들고, 스크롤할 때 구간이 바뀌면 tbody 만 다시 채운다. */
   var colN=1+(__gs?1:0)+FP.length;
-  __virt={ rows:shown, FP:FP, gs:__gs, useFld:useFld, st0:st0, colN:colN, start:-1, end:-1, rowH:(__virt&&__virt.rowH)||33, wrap:null, tbody:null };
+  /* [요구 2026-09 ④ · UPC 모드] 같은 UPC 값이 2행 이상이면 그 UPC 셀들을 같은 바탕색으로 — 값별 색 번호(팔레트 순환) */
+  var __dup=null, __pf=null;
+  if(APP_MODE==='UPC'){
+    __pf=fieldByKey(curBig(),'ITEM_PLU')||fieldByKey(curBig(),'PLU');
+    if(__pf){
+      var __cnt={}; for(var __di=0;__di<shown.length;__di++){ var __pv=matchNorm(getCell(shown[__di],__pf)); if(__pv) __cnt[__pv]=(__cnt[__pv]||0)+1; }
+      var __ci=0; __dup={}; for(var __k in __cnt){ if(__cnt[__k]>1) __dup[__k]=(__ci++)%DUP_COLORS.length; }
+      if(!__ci) __dup=null;
+    }
+  }
+  __virt={ rows:shown, FP:FP, gs:__gs, useFld:useFld, st0:st0, colN:colN, start:-1, end:-1, rowH:(__virt&&__virt.rowH)||33, wrap:null, tbody:null, dup:__dup, dupKey:__dup?__pf.key:null };
   h+='</tbody></table></div>';
 
   el.style.display='block'; el.style.textAlign='left'; el.style.padding='18px';
@@ -2650,6 +2676,7 @@ function renderContent(){
 
 /* ── 가상 스크롤 본체 ── */
 var __virt=null, __virtRaf=0;
+var DUP_COLORS=['#FFE6A7','#CDE8FF','#D6F5D6','#FFD6E0','#E6D9FF','#FFE0C2','#C8F1F0','#F3F0B8','#E2E2E2','#FFCFCF','#D2F0C0','#D9E4FF']; /* 중복 UPC 바탕색 팔레트 */
 var VIRT_MIN=120, VIRT_BUF=30;           /* 이 행 수 이하면 전부 렌더 · 보이는 구간 위아래 여유 행 수 */
 function __rowHtml(r){
   var V=__virt, FP=V.FP, st0=V.st0;
@@ -2670,6 +2697,7 @@ function __rowHtml(r){
       else if(P.fmt==='price') d=fmtPrice(val);
       else if(P.fmt==='percent') d=fmtPercent(val);
       else d=String(val==null?'':val);
+      if(V.dup&&k===V.dupKey){ var __dn=V.dup[matchNorm(val)]; if(__dn!=null){ out+=P.open+(hasSv?' plu-c-storeval':'')+' plu-c-dup" style="background:'+DUP_COLORS[__dn]+';color:#c83a3a;'+(P.f.align?'text-align:'+P.f.align+';':'')+'" data-fi="'+ci+'">'+escapeHtml(d)+'</td>'; continue; } }
       out+=P.open+(hasSv?' plu-c-storeval':'')+P.mid+escapeHtml(d)+'</td>';
     }
   }
@@ -3407,6 +3435,12 @@ function buildMapping(headers,layout){
     var cands=byL[m.n]||[];
     for(var j=0;j<cands.length;j++){ if(!used[cands[j]]){ m.key=cands[j]; used[m.key]=1; break; } }
   });
+  res.forEach(function(m){ /* 3) 별칭 (UPC MANAGER: 'PLU' 열 → UPC 필드 등) */
+    if(m.key||!m.n) return;
+    var al=HEADER_ALIAS[m.n]; if(!al) return;
+    var cx=byX[exactKey(al)]||byL[normKey(al)]||[];
+    for(var j=0;j<cx.length;j++){ if(!used[cx[j]]){ m.key=cx[j]; used[m.key]=1; break; } }
+  });
   return res.map(function(m){ return { idx:m.idx, header:m.header, key:m.key }; });
 }
 
@@ -3430,7 +3464,7 @@ function isPartialSheet(aoa){
     if(v==='') continue;
     dataRows++;
     if(/^\d{3,}$/.test(v.trim())) pluLike++;
-    else if(i2===0 && /plu/i.test(v)) pluLike++; /* 헤더 "PLU" 허용 */
+    else if(i2===0 && /plu|upc/i.test(v)) pluLike++; /* 헤더 "PLU"/"UPC" 허용 */
   }
   return dataRows>0 && pluLike>=Math.max(1,Math.floor(dataRows*0.8));
 }
@@ -3693,7 +3727,27 @@ function renderImportModal(){
   $('impBody').querySelectorAll('.imp-sheet-use').forEach(function(cb){ cb.onchange=function(){ impCtx.sheets[parseInt(cb.getAttribute('data-i'),10)].use=cb.checked; renderImportModal(); }; });
   $('impBody').querySelectorAll('.imp-sheet-sub').forEach(function(sl){ sl.onchange=function(){ impCtx.sheets[parseInt(sl.getAttribute('data-i'),10)].targetSub=sl.value; }; });
   $('impCancel').onclick=function(){ $('impOv').classList.remove('show'); };
-  $('impGo').onclick=runImport;
+  /* [요구 2026-09 ③] 실행 전 확인 팝업 — "이 엑셀 열을 이 리스트 필드에 업데이트합니다" 를 열별로 보여주고 확정 */
+  $('impGo').onclick=function(){ confirmImportThenRun(); };
+}
+function confirmImportThenRun(){
+  var big=curBig(), lay=curLayout();
+  var use=impCtx.sheets.filter(function(s){ return s.use; });
+  if(!use.length){ showToast('가져올 시트를 선택하세요','error'); return; }
+  var lines=[], keyF=$('impMatch')?$('impMatch').value:'', st=$('impStore')?$('impStore').value:'';
+  use.forEach(function(sh){
+    var map=buildMapping(sh.headers,lay);
+    var ok=map.filter(function(m){ return !!m.key; }), miss=map.filter(function(m){ return !m.key&&String(m.header||'').trim()!==''; });
+    lines.push('■ 시트 "'+sh.name+'" → '+big+' / '+sh.targetSub+' · 데이터 '+Math.max(0,sh.aoa.length-sh.hIdx-1)+'행');
+    ok.forEach(function(m){ var f=fieldByKey(big,m.key); lines.push('   엑셀 "'+m.header+'"  →  필드 "'+(f?f.label:m.key)+'"'+((f&&f.group)?' ('+f.group+')':'')); });
+    if(miss.length) lines.push('   무시(필드 없음): '+miss.map(function(m){ return m.header; }).join(', '));
+  });
+  lines.push('');
+  lines.push(keyF?('기존 행 매칭: "'+(fieldByKey(big,keyF)||{}).label+'" 값이 같은 행은 업데이트, 없으면 새 행 추가'):'⚠ 매칭 기준 없음 — 기존 행을 찾지 않고 전부 새 행으로 추가됩니다');
+  lines.push('매장: '+(st||'기본(전체)'));
+  lines.push('');
+  lines.push('위 필드에 업데이트합니다. 진행할까요?');
+  uiConfirm(lines.join('\n'),'불러오기 확인').then(function(ok){ if(ok) runImport(); });
 }
 
 function runImport(){
@@ -3875,6 +3929,13 @@ function applyImport(opts){
         else if(opts.wipeEmpty){ vals[m.key]=''; } /* [무조건 덮어쓰기] 빈 셀도 기존 값 삭제 */
       });
       if(!any) continue;
+      /* [요구 2026-09 ⑤ · UPC 모드] 체크 필드(USE): 1 = 사용중 · 0 = 사용중지 (TRUE/Y/YES → 1, FALSE/N/NO → 0) */
+      if(APP_MODE==='UPC'){
+        for(var __ck in vals){ var __cf=fieldByKey(big,__ck); if(!__cf||__cf.type!=='check') continue;
+          var __cv=String(vals[__ck]).trim().toUpperCase();
+          if(__cv==='1'||__cv==='TRUE'||__cv==='Y'||__cv==='YES') vals[__ck]='1';
+          else if(__cv==='0'||__cv==='FALSE'||__cv==='N'||__cv==='NO') vals[__ck]='0'; }
+      }
       /* [UPC MANAGER 연계] 대분류 기본 VENDER — 파일에 VENDER 값이 없으면 자동 기입 (예: STI 영역 → STI-WA) */
       if(VENDOR_BY_BIG[big] && !vals.VENDER_VENDER && fieldByKey(big,'VENDER_VENDER')) vals.VENDER_VENDER=VENDOR_BY_BIG[big];
 
