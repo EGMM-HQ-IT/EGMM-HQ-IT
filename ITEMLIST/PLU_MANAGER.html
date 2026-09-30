@@ -1203,6 +1203,36 @@ var ROW_DEFAULTS={};
 /* [확정 2026-09-30 · UPC MANAGER] 중간 카테고리 = VENDER 필드 값 — 불러오기 시 행의 VENDER 값 이름의 소분류로 저장(없으면 생성),
    기존 데이터도 1회 이관. PLU MANAGER 는 false */
 var SUB_BY_VENDER=false;
+/* [확정 2026-09-30 · UPC] 중간 카테고리 = VENDER 값 강제 동기화 — 대분류 안의 모든 행을 기본(마스터) VENDER 값 이름의 소분류로
+   이동(없으면 생성), 비게 된 소분류 제거(최소 1개 유지). 로드·불러오기·셀 편집·상품 입력 뒤마다 호출. 반환: 이동 행 수 */
+function syncSubsByVender(st,big){
+  if(!SUB_BY_VENDER) return 0;
+  var tab=null; for(var i=0;i<st.tabs.length;i++){ if(st.tabs[i].label===big){ tab=st.tabs[i]; break; } }
+  if(!tab) return 0;
+  var lay=st.layouts[big]||[], vf=null; for(var j=0;j<lay.length;j++){ if(normKey(lay[j].key)==='VENDER_VENDER'){ vf=lay[j]; break; } }
+  if(!vf) return 0;
+  var dm=st.data[big]||(st.data[big]={}), moved=0;
+  Object.keys(dm).forEach(function(sb){
+    var arr=dm[sb]||[];
+    for(var k=arr.length-1;k>=0;k--){
+      var r=arr[k]; if(!r||!r.v) continue;
+      var vv=String(r.v[vf.key]==null?'':r.v[vf.key]).trim();
+      if(!vv||vv===sb) continue;
+      if(tab.subs.indexOf(vv)<0) tab.subs.push(vv);
+      if(!dm[vv]) dm[vv]=[];
+      dm[vv].push(r); arr.splice(k,1); moved++;
+    }
+  });
+  tab.subs=tab.subs.filter(function(sb){ if((dm[sb]||[]).length) return true; if(tab.subs.length<=1) return true; delete dm[sb]; return false; });
+  if(!tab.subs.length){ tab.subs=[big]; dm[big]=dm[big]||[]; }
+  return moved;
+}
+function syncSubsByVenderLive(big){ /* 화면용: 동기화 후 소분류 탭·인덱스 보정 */
+  if(!SUB_BY_VENDER) return 0;
+  var curName=curSub(); var n=syncSubsByVender(S,big);
+  if(n){ var subs=curTab().subs||[]; var si=subs.indexOf(curName); pluSub=si>=0?si:0; S.ui.sub=pluSub; renderSubTabs(); }
+  return n;
+}
 function applyRowDefaults(big,row){ /* 비어 있는 필드만 기본값 */
   var ch=false;
   for(var k in ROW_DEFAULTS){ var f=fieldByKey(big,k); if(!f) continue; var cur=(row.v&&row.v[f.key]!=null)?String(row.v[f.key]).trim():''; if(cur===''){ if(!row.v) row.v={}; row.v[f.key]=ROW_DEFAULTS[k]; ch=true; } }
@@ -1564,6 +1594,7 @@ function migrate(st){
     }catch(e){}
     S=__S0d!==null?__S0d:st; st.dirtySinceSync=true;
   }
+  if(SUB_BY_VENDER){ st.tabs.forEach(function(t){ if(syncSubsByVender(st,t.label)) st.dirtySinceSync=true; }); } /* 매 로드: 소분류 = VENDER 값 보장 */
   unifyLayouts(st); unifyGColors(st); /* [공유 필드 셋팅] 매 로드마다 전 대분류를 하나의 레이아웃/색상으로 통일 */
   if(st.flags&&(st.flags.__posRecalc||st.flags.__posV3Recalc)){ /* [POS 이관] 전 카테고리 재계산 — 기존 POS 값 새 규칙으로 덮어쓰기 */
     delete st.flags.__posRecalc; delete st.flags.__posV3Recalc;
@@ -2634,7 +2665,9 @@ function renderContent(){
   if(APP_MODE==='UPC'){
     __pf=fieldByKey(curBig(),'ITEM_PLU')||fieldByKey(curBig(),'PLU');
     if(__pf){
-      var __cnt={}; for(var __di=0;__di<shown.length;__di++){ var __pv=matchNorm(getCell(shown[__di],__pf)); if(__pv) __cnt[__pv]=(__cnt[__pv]||0)+1; }
+      /* [수정 2026-09-30] 중복 판정은 현재 화면이 아니라 전체 데이터(모든 대분류·소분류) 기준 — 다른 업체 소분류에 같은 UPC 가 있어도 표시 */
+      var __cnt={};
+      for(var __b in S.data){ var __ss=S.data[__b]; for(var __s2 in __ss){ var __ar=__ss[__s2]||[]; for(var __di=0;__di<__ar.length;__di++){ var __r0=__ar[__di]; var __pv=matchNorm((__r0&&__r0.v&&__r0.v[__pf.key]!=null)?__r0.v[__pf.key]:''); if(__pv) __cnt[__pv]=(__cnt[__pv]||0)+1; } } }
       var __ci=0; __dup={}; for(var __k in __cnt){ if(__cnt[__k]>1) __dup[__k]=(__ci++)%DUP_COLORS.length; }
       if(!__ci) __dup=null;
     }
@@ -2812,7 +2845,8 @@ function startCellEdit(td,id,fs){
     function scommit(){
       if(sdone) return; sdone=true;
       var nv=sel.value;
-      if(nv!==raw){ setCell(r,f,nv); refreshCalcCells(td,r,fs); saveState(); }
+      if(nv!==raw){ setCell(r,f,nv); refreshCalcCells(td,r,fs); saveState();
+        if(SUB_BY_VENDER&&normKey(f.key)==='VENDER_VENDER'&&!gsActive()){ if(syncSubsByVenderLive(curBig())){ saveState(); renderContent(); showToast('VENDER '+nv+' → "'+nv+'" 중간 카테고리로 이동됨','success'); return; } } }
       td.classList.remove('editing');
       td.textContent=dispCell(r,f);
     }
@@ -2831,6 +2865,8 @@ function startCellEdit(td,id,fs){
     if(done) return false; done=true;
     var nv=inp.value;
     if(nv!==raw){ setCell(r,f,nv); refreshCalcCells(td,r,fs); saveState();
+      /* [UPC] VENDER 수정 → 그 이름의 중간 카테고리로 이동 */
+      if(SUB_BY_VENDER&&normKey(f.key)==='VENDER_VENDER'&&!gsActive()){ if(syncSubsByVenderLive(curBig())){ saveState(); renderContent(); showToast('VENDER '+nv+' → "'+String(nv).trim()+'" 중간 카테고리로 이동됨','success'); return true; } }
       /* [MODULE 05] 청과: PLU 직접 입력 확정 → 번호 범위 소분류로 자동 이동 */
       if(isPluField(f)&&!gsActive()){
         var mvSub=routeRowByPluInput(curBig(),r,nv);
@@ -3936,6 +3972,7 @@ function runImport(){
   /* 수식 필드 재계산 — 엑셀 함수 적용 시 전 대분류, 아니면 손댄 대분류(DEPARTMENT 라우팅 포함) */
   if(res.fml){ S.tabs.forEach(function(t){ calcAll(t.label); }); }
   else { for(var __bg2 in (res.bigs||{})) calcAll(__bg2); }
+  if(SUB_BY_VENDER){ for(var __bg3 in (res.bigs||{})) syncSubsByVender(S,__bg3); } /* 소분류 = VENDER 값 보장 */
   if(opts.vender){ var __sbs=(curTab().subs||[]), __si=__sbs.indexOf(opts.vender); if(__si>=0){ pluSub=__si; S.ui.sub=__si; } } /* 업체 지정 → 그 소분류 화면으로 */
   renderBigTabs(); renderSubTabs(); /* 부서 라우팅으로 소분류가 자동 생성됐을 수 있음 */
   saveState(); $('impOv').classList.remove('show'); renderStoreBar(); renderContent();
@@ -5295,6 +5332,7 @@ function qeSaveAll(){
     for(var k in it.vals){ var f=fieldByKey(big,k); if(!f||f.formula) continue; setCell(row,f,it.vals[k],stCtx); }
     calcRow(big,row,stCtx); if(stCtx) calcRow(big,row,'');
   });
+  if(SUB_BY_VENDER) syncSubsByVender(S,big); /* [UPC] 소분류 = VENDER 값 */
   sortAllByPlu(big); /* [MODULE 20] PLU 번호 순차 정렬 */
   S.qe.list=S.qe.list.filter(function(it){ return it.big!==big; });
   saveState(); renderContent();
