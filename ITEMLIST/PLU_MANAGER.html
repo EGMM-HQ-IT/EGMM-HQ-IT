@@ -414,6 +414,13 @@ try{ document.documentElement.setAttribute('data-theme', localStorage.getItem('p
   .plu-table tbody td.plu-c-calc { background:#f5f5ef; color:#666; cursor:default; }
   /* 겹침 순서 수정: 입력/확인 모달(목록 편집 등)은 필드 편집 모달(2500) 위에 */
   .plu-modal-ov { z-index:3200; }
+  /* 입력 · 관리 가이드 */
+  .plu-modal.plu-guide { max-width:640px; width:min(640px,94vw); text-align:left; }
+  .plu-guide-list { list-style:none; counter-reset:g; margin:6px 0 14px; padding:0; max-height:62vh; overflow:auto; }
+  .plu-guide-list li { counter-increment:g; display:grid; grid-template-columns:30px 130px 1fr; gap:10px; align-items:start; padding:10px 4px; border-bottom:1px solid var(--border); font-size:13px; line-height:1.55; }
+  .plu-guide-list li::before { content:counter(g); width:24px; height:24px; border-radius:50%; background:var(--accent); color:#fff; font-weight:800; font-size:12px; display:flex; align-items:center; justify-content:center; margin-top:1px; }
+  .plu-guide-list li b { font-weight:800; color:var(--text); }
+  .plu-guide-list li span { color:var(--text-dim); }
   .toast { z-index:3400; }
   /* 숨김 필드 표시 */
   .plu-fe-tbl tr.fe-hidden-row td { opacity:.45; }
@@ -2411,8 +2418,42 @@ var PLU_MENU=[
   { id:'print',   label:'리스트 출력',   run:function(){ openPrintModal(); } },                      /* [MODULE 18] */
   { id:'delall',  label:'전체삭제',      run:function(){ delAllRows(); } },
   { id:'dept',    label:'DEPARTMENT 설정', run:function(){ openDeptModal(); } },                     /* [MODULE 22] */
-  { id:'fieldfx', label:'필드 기능 추가', run:function(){ openFieldFxModal(); } }                     /* [MODULE 23] */
+  { id:'fieldfx', label:'필드 기능 추가', run:function(){ openFieldFxModal(); } },                    /* [MODULE 23] */
+  { id:'guide',   label:'입력 · 관리 가이드', run:function(){ openGuide(); } }                         /* [2026-09-30] 서브메뉴 맨 아래 */
 ];
+/* [2026-09-30] 입력 및 관리 가이드 — 번호 목록 팝업 (PLU / UPC 모드별 내용) */
+var GUIDE_PLU=[
+  ['카테고리','상위(대분류) 탭 → 중간 카테고리를 고른 뒤 작업합니다. 청과는 PLU 번호로 중간 카테고리 자동 배치 (1000 야채 · 2000 과일 · 3000 로컬 · 80000 박스 · 90000 유기농).'],
+  ['행 입력','행 추가 → 셀을 클릭해 입력. PLU는 자동 증가. 사용(USE) 체크 = 현재 매장에서 사용중, 미체크 행은 회색 취소선.'],
+  ['엑셀 불러오기','1행 = 필드명, 2행부터 데이터 (묶음 행 없음). PLU 열 필수 — PLU가 같은 행은 업데이트, 없으면 새 행, PLU가 빈 행은 건너뜀. 실행 전 확인 팝업에서 열 → 필드 대응을 확인하세요.'],
+  ['엑셀 내보내기','내보낼 필드를 고르고(프리셋 저장 가능) 1행 필드명 + 데이터로 출력. 목록 값은 번호로 나갑니다. 그대로 수정해 다시 불러올 수 있습니다.'],
+  ['매장','상단 매장 버튼으로 전환. 기본(전체)에서 수정 = 전 매장 적용, 매장 선택 후 수정 = 그 매장만. LOCATION 99 = EGMM 매장.'],
+  ['필드 편집','필드명 · 너비 · 목록 · 수식 · 숨김은 필드 편집에서 — 전 카테고리 공통 적용.'],
+  ['저장','모든 변경은 즉시 자동 저장되고 Firebase(PLU-LIST)에 자동 동기화됩니다. 상단 칩에서 상태 확인.']
+];
+var GUIDE_UPC=[
+  ['구조','대분류 = 영역(STI …), 중간 카테고리 = 업체 축약어(VENDER). 업체명·축약어·영업 품목은 EGMM > SYSTEM > VENDER 에서 관리.'],
+  ['기본값','LOCATION = 99. WA STORE, USE = 1 — 비어 있으면 자동으로 채워집니다.'],
+  ['업체 리스트 파일 불러오기','필드명은 무시하고 열 위치로 읽습니다. A열 = UPC(7자리 이상 숫자만), B열 = ITEM CODE(특수문자 행 제외), C열 = 상품명(영문/한글 분리 + 용량 → CASE/PACK/SIZE/UNIT CODE). 업체를 지정하면 VENDER와 중간 카테고리가 그 축약어로 들어갑니다. 자동 감지되며 라디오로 전환 가능.'],
+  ['필드명 파일 불러오기','1행 = 필드명, 2행부터 데이터. UPC 열 필수. 이름이 조금 달라도 유사 이름으로 자동 매칭, PRODUCT NAME 열은 자동 분리.'],
+  ['업데이트 규칙','UPC가 같은 행은 업데이트, 없으면 새 행. UPC와 ITEM CODE가 모두 같은 행은 무시. UPC가 빈 행은 건너뜀. 실행 전 확인 팝업을 확인하세요.'],
+  ['표시','같은 UPC 행은 UPC 칸이 같은 색. USE 미체크 행은 회색 취소선. 검색은 Enter, 번호는 쉼표로 여러 개.'],
+  ['저장','모든 변경은 즉시 자동 저장되고 Firebase(UPC-LIST)에 자동 동기화됩니다. 상단 칩에서 상태 확인.']
+];
+function openGuide(){
+  var ov=$('gdOv');
+  if(!ov){
+    ov=document.createElement('div'); ov.className='plu-modal-ov'; ov.id='gdOv';
+    ov.innerHTML='<div class="plu-modal plu-guide"><h3>'+(APP_MODE==='UPC'?'UPC MANAGER':'PLU MANAGER')+' · 입력 및 관리 가이드</h3><ol class="plu-guide-list" id="gdList"></ol><button class="plu-modal-cancel" id="gdClose" type="button">닫기</button></div>';
+    document.body.appendChild(ov);
+    $('gdClose').onclick=function(){ ov.classList.remove('show'); };
+    ov.addEventListener('click',function(e){ if(e.target===ov) ov.classList.remove('show'); });
+  }
+  var G=(APP_MODE==='UPC')?GUIDE_UPC:GUIDE_PLU, h='';
+  G.forEach(function(g){ h+='<li><b>'+escapeHtml(g[0])+'</b><span>'+escapeHtml(g[1])+'</span></li>'; });
+  $('gdList').innerHTML=h;
+  ov.classList.add('show');
+}
 window.__pluMenuItems=function(){ return PLU_MENU.map(function(m){ return { id:m.id, label:m.label }; }); };
 window.__pluMenuRun=function(id){ var m=PLU_MENU.filter(function(x){ return x.id===id; })[0]; if(!m) return false; toggleMenuPop(false); m.run(); return true; };
 function renderTools(){
@@ -3864,7 +3905,7 @@ function confirmImportThenRun(){
     if(miss.length) lines.push('   무시(필드 없음): '+miss.map(function(m){ return m.header; }).join(', '));
   });
   lines.push('');
-  lines.push('기존 행 매칭: "'+((fieldByKey(big,keyF)||{}).label||'PLU')+'" 값이 같은 행은 업데이트, 없으면 새 행 추가 (빈 값 행은 건너뜀)');
+  lines.push('기존 행 매칭: "'+((fieldByKey(big,keyF)||{}).label||'PLU')+'" 값이 같은 행은 업데이트, 없으면 새 행 추가 (빈 값 행은 건너뜀)'+(APP_MODE==='UPC'?' · UPC와 ITEM CODE가 모두 같은 행은 무시':''));
   if(APP_MODE==='UPC'){
     var __vc=$('impVender')?$('impVender').value:'';
     if(__vc){ var __vo=(__venderList||[]).filter(function(v){ return v.code===__vc; })[0]; lines.push('업체 지정: '+__vc+(__vo&&__vo.name?' ('+__vo.name+')':'')+' → '+big+' / 중간 카테고리 "'+__vc+'" 에 저장 · VENDER = '+__vc+' (위 시트별 소분류 선택은 무시)'); }
@@ -3899,7 +3940,7 @@ function runImport(){
   renderBigTabs(); renderSubTabs(); /* 부서 라우팅으로 소분류가 자동 생성됐을 수 있음 */
   saveState(); $('impOv').classList.remove('show'); renderStoreBar(); renderContent();
   if(res.excl){ var __ex=[]; for(var __ek in res.excl) __ex.push(__ek+' '+res.excl[__ek]+'행'); uiAlert('규칙에 따라 제외된 행: '+__ex.join(' · ')+'\n(업데이트 '+res.upd+' · 추가 '+res.add+')','업체 리스트 파일 제외 행'); }
-  showToast('불러오기 완료 — 업데이트 '+res.upd+' · 추가 '+res.add+(res.skipped?' · 기준값 없음 건너뜀 '+res.skipped:'')+(res.moved?' · 소분류 이동 '+res.moved:'')+(res.dept?' · DEPARTMENT 라우팅 '+res.dept:'')+(res.unhid?' · 숨김 해제 '+res.unhid+'필드':'')+(res.fml?' · 엑셀 함수 적용 '+res.fml:'')+(res.storesAdded?' · 매장 추가 '+res.storesAdded:''),'success');
+  showToast('불러오기 완료 — 업데이트 '+res.upd+' · 추가 '+res.add+(res.same?' · UPC+ITEM CODE 동일 무시 '+res.same:'')+(res.skipped?' · 기준값 없음 건너뜀 '+res.skipped:'')+(res.moved?' · 소분류 이동 '+res.moved:'')+(res.dept?' · DEPARTMENT 라우팅 '+res.dept:'')+(res.unhid?' · 숨김 해제 '+res.unhid+'필드':'')+(res.fml?' · 엑셀 함수 적용 '+res.fml:'')+(res.storesAdded?' · 매장 추가 '+res.storesAdded:''),'success');
   if(res.fmlFail&&res.fmlFail.length) uiAlert('엑셀 함수를 적용하지 못한 열 '+res.fmlFail.length+'건 (기존 수식 유지):\n'+res.fmlFail.slice(0,20).join('\n')+(res.fmlFail.length>20?'\n…':''),'수식 변환 결과');
   /* [디버깅 지원] 매칭 기준을 지정했는데 기존 행 업데이트가 0건 = PLU 값이 하나도 일치하지 않음 */
   if(opts.matchKey&&res.upd===0&&res.add>0){
@@ -4130,6 +4171,11 @@ function applyImport(opts){
         if(__vv){ ensureSub(rowBig,__vv); dest=__vv; rowSubs=(tabOf(rowBig).subs)||rowSubs; }
       }
 
+      /* [요구 2026-09-30 · UPC 모드] 기존 행과 UPC · ITEM CODE 가 모두 같으면 그 행은 아예 무시(변경 없음) */
+      if(APP_MODE==='UPC'&&hit&&vals.VENDER_ITEM_CODE!=null){
+        var __icF=fieldByKey(rowBig,'VENDER_ITEM_CODE');
+        if(__icF&&normKey(getCell(hit.row,__icF,''))===normKey(vals.VENDER_ITEM_CODE)&&normKey(getCell(hit.row,__icF,''))!==''){ stats.same=(stats.same||0)+1; continue; }
+      }
       if(hit){
         var r0=hit.row;
         for(var k in vals){
