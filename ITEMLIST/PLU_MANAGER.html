@@ -1183,6 +1183,11 @@ var DEFAULT_TABS=[
   {label:'하우스웨어', doc:'HOUSEWARE', subs:['주방용품','전자제품','기타']}
 ];
 var DEFAULT_STORES=['TACOMA','FEDERALWAY','BELLEVUE','BALLARD','REDMOND','LYNNWOOD','G-MART','MELLOW WAY','DISTRICT-H','M2M','UNIVERSITY'];
+/* [UPC MANAGER 연계 2026-09] 대분류별 기본 VENDER — 엑셀 불러오기로 이 대분류에 들어오는 행의 VENDER 가 비어 있으면 자동 기입
+   (PLU MANAGER 는 비어 있음 · UPC MANAGER 는 {'STI':'STI-WA'}) */
+var VENDOR_BY_BIG={};
+/* [UPC MANAGER 연계 2026-09] 로컬 전용 모드 — true 면 Firebase 자동 접속·동기화 전부 끔 (로컬 저장만) */
+var FB_LOCAL_ONLY=false;
 
 /* 필드 구조: {key,label,group,w(px),type:'text'|'check'|'select',fmt:'text'|'price'|'percent',
    align,store,hidden,options?:선택지,formula?:수식(MODULE 16),autoinc?:행추가시 최대값+1,
@@ -3870,6 +3875,8 @@ function applyImport(opts){
         else if(opts.wipeEmpty){ vals[m.key]=''; } /* [무조건 덮어쓰기] 빈 셀도 기존 값 삭제 */
       });
       if(!any) continue;
+      /* [UPC MANAGER 연계] 대분류 기본 VENDER — 파일에 VENDER 값이 없으면 자동 기입 (예: STI 영역 → STI-WA) */
+      if(VENDOR_BY_BIG[big] && !vals.VENDER_VENDER && fieldByKey(big,'VENDER_VENDER')) vals.VENDER_VENDER=VENDOR_BY_BIG[big];
 
       /* [MODULE 22] 행별 대분류 결정 — DEPARTMENT 값이 설정된 대분류와 일치하면 그쪽으로 */
       var rowBig=big, deptMatched=false;
@@ -5126,8 +5133,28 @@ function toggleTheme(){
   applyTheme(t);
 }
 
+/* [UPC MANAGER 연계 2026-09] 내장 초기 데이터(window.__SEED_GZ = gzip+base64 JSON {big,sub,rows:[{필드KEY:값}]})
+   — 로컬 저장이 비어 있을 때(상품 0건) 1회 적재. PLU MANAGER 에는 내장 데이터 없음 */
+function applySeedData(st){
+  try{
+    if(!window.__SEED_GZ||typeof pako==='undefined') return false;
+    if(fbRowsTotal(st)>0) return false;
+    var seed=JSON.parse(new TextDecoder().decode(pako.ungzip(__b64ToU8(window.__SEED_GZ))));
+    if(!seed||!Array.isArray(seed.rows)||!seed.rows.length) return false;
+    var big=String(seed.big||st.tabs[0].label), sub=String(seed.sub||'');
+    var tab=null; for(var i=0;i<st.tabs.length;i++){ if(st.tabs[i].label===big){ tab=st.tabs[i]; break; } }
+    if(!tab){ tab={label:big,subs:[]}; st.tabs.push(tab); st.layouts[big]=masterLayoutOf(st); }
+    if(!sub) sub=(tab.subs[0]||big);
+    if(tab.subs.indexOf(sub)<0) tab.subs.push(sub);
+    if(!st.data[big]) st.data[big]={}; if(!st.data[big][sub]) st.data[big][sub]=[];
+    seed.rows.forEach(function(v){ st.data[big][sub].push({id:newId(),v:v||{},sv:{}}); });
+    st.dirtySinceSync=true;
+    return true;
+  }catch(e){ return false; }
+}
 function init(){
   S=migrate(loadState()||freshState()); /* fresh 도 migrate 경유 — 사양(필드·수식·flags) 일원화 */
+  if(applySeedData(S)){ S.tabs.forEach(function(t){ calcAll(t.label); }); saveState(); } /* 내장 초기 데이터 1회 적재 */
   pluBig=Math.min(Math.max(0,S.ui.big|0),S.tabs.length-1);
   pluSub=Math.min(Math.max(0,S.ui.sub|0),(S.tabs[pluBig].subs||[]).length-1); if(pluSub<0) pluSub=0;
   if(S.curStore&&S.stores.indexOf(S.curStore)<0) S.curStore='';
@@ -5356,6 +5383,7 @@ function fbBuildPlan(st){
 
 /* ── 설정 (config · DB ID) ── */
 function fbCfgCur(){
+  if(FB_LOCAL_ONLY) return null; /* 로컬 전용 모드 */
   var cfg=(S&&S.fbCfg&&S.fbCfg.apiKey&&S.fbCfg.projectId)?S.fbCfg:__FB_CFG;
   if(!cfg) return null;
   var db=(S&&S.fbDbId!=null)?String(S.fbDbId).trim():__FB_DBID_DEFAULT;
@@ -5894,6 +5922,7 @@ async function fbAutoStart(){
 /* 저장 칩 연동 */
 function fbSyncChipInfo(){
   var st=__fbState;
+  if(st==='off'&&FB_LOCAL_ONLY) return { cls:'', text:'로컬 전용 (Firebase 꺼짐)', title:'FB_LOCAL_ONLY=true — 로컬 저장만 사용' };
   if(st==='off') return { cls:'', text:'FB: 설정 없음 (클릭)', title:'메뉴 > Firebase 설정' };
   if(st==='run') return { cls:'need', text:'FB 전송 중…', title:'Firebase 에 기록하는 중입니다' };
   if(st==='wait') return { cls:'need', text:'FB 자동 전송 예약', title:'수정 후 몇 초 안에 자동 전송됩니다. 클릭: 지금 즉시' };
