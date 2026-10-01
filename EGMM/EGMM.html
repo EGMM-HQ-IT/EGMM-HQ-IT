@@ -3566,7 +3566,7 @@
   var __fcodeBtn=$('egmmFuncCodeBtn'); if(__fcodeBtn) __fcodeBtn.onclick = function(){ openInFrame('../MANAGER/FUNCTION-CODE.html', this); };
   var __venderBtn=$('egmmVenderBtn'); if(__venderBtn) __venderBtn.onclick = function(){ openInFrame('../MANAGER/VENDER.html', this); };
   // MART · ITEM ANALYZE (2026-09-30) — UPC MANAGER 상품 기준 매장별 판매 분석
-  var __iaMart=$('egmmItemAnalyzeMartBtn'); if(__iaMart) __iaMart.onclick = function(){ openInFrame('../ITEMLIST/ITEM_ANALYZE.html', this); };
+  var __iaMart=$('egmmItemAnalyzeMartBtn'); if(__iaMart) __iaMart.onclick = function(){ openInFrame('../ITEMLIST/ITEM-ANALYZE.html', this); };
   // 공용 대형 팝업 (도구 모음 등에서 사용)
   (function(){
     var big=document.createElement('div');
@@ -3599,10 +3599,7 @@
   $('egmmHanaBtn').onclick = showHana;
   var __toolsBtn=$('egmmToolsBtn'); if(__toolsBtn) __toolsBtn.onclick = function(){ if(window.__egBigPop){ window.__egBigPop('../egmm-tools.html'); } };
   // ITEM ANALYZE (index에서 이식) — EGMM 로그인으로 이미 인증됨 → 게이트 세션 부여 후 열기
-  var __iaBtn=$('egmmItemAnalyzeBtn'); if(__iaBtn) __iaBtn.onclick = function(){
-    try{ sessionStorage.setItem('analyzeGate','1'); }catch(e){}
-    openInFrame('../item-management-analyze.html', this);
-  };
+  var __iaBtn=$('egmmItemAnalyzeBtn'); if(__iaBtn) __iaBtn.onclick = function(){ openInFrame('../ITEMLIST/ITEM-ANALYZE.html', this); }; /* 2026-09-30: 새 ITEM ANALYZE 페이지로 연결 */
   // MANAGER · THE SHAWN 클라우드 (index에서 이식) — 이메일 로그인 → shawn.html
   (function(){
     var ADMIN_EMAIL='dreamsoundco@gmail.com';
