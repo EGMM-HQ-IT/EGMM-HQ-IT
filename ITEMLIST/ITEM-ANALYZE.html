@@ -11,7 +11,7 @@
       재업로드는 쌓는 방식 — 같은 (UPC,날짜)만 새 값으로 덮고 나머지는 유지
   · UPC 비교: 숫자만 남기고 앞의 0 제거 (중간 0 유지) · 상품명 검색은 빈칸 전부 무시
   · 매장별 그래프: 날짜별 벤더 누적 막대(STI-WA 녹 · JFC 노 · WIC 주황) · 5일씩 ◀ ▶ 이동
-  · 업체별 판매 비율: 도넛 2개 — 판매된 아이템 기준 = 전체 판매 수량 중 업체별 %(같은 상품 여러 번 포함) · 등록된 아이템 기준 = 팔린 UPC 종류 수 중 업체별 %(30일 팔려도 1개) · 전체/매장별 보기
+  · 업체별 판매 비율: 도넛 2개 — 판매된 아이템 기준 = 전체 판매 수량 중 업체별 %(같은 상품 여러 번 포함) · 등록된 아이템 기준 = 업체별 등록 상품(UPC 중복 제외) 중 판매된 상품(30일 팔려도 1개) % · 전체/매장별 보기
   · 화면: 창 너비에 맞춰 가변(고정 폭 없음) · 글씨 최소 10px · DAY/NIGHT 모드(localStorage pluLocalTheme — EGMM·PLU/UPC 매니저와 공유, EGMM 프레임 안에서는 EGMM 버튼이 함께 전환)
 -->
 <html lang="ko">
@@ -195,7 +195,7 @@
   <div class="panel">
     <h2>매장별 판매
       <span class="vlg" id="vlg"></span>
-      <span class="right"><span class="seg" id="cMode"><button type="button" data-cmode="qty" class="on">판매된 아이템 기준</button><button type="button" data-cmode="sold">등록된 아이템 기준</button></span><button class="btn sm" id="btnUpload" type="button">⬆ 매장별 판매 데이터 업로드</button></span></h2>
+      <span class="right"><span class="seg" id="cMode"><button type="button" data-cmode="qty" class="on">판매된 아이템 기준</button><button type="button" data-cmode="reg">등록된 아이템 기준</button></span><button class="btn sm" id="btnUpload" type="button">⬆ 매장별 판매 데이터 업로드</button></span></h2>
     <div class="charts" id="charts"><div class="empty">매장 목록 불러오는 중…</div></div>
   </div>
 
@@ -228,9 +228,9 @@
     <li><b>열 규칙</b><span>A열 = UPC (맨 앞 0 무시, 7자리 이상 숫자만 인정) · C열 = 날짜 · D열 = 그날 판매 금액. A열이 비어 있는 행은 바로 위 UPC 의 다른 날짜 판매로 읽음. 소계·계·총계·Page 줄, 0/마이너스 금액은 건너뜀.</span></li>
     <li><b>판매가 · 수량</b><span>한 UPC 의 날짜별 금액 중 <b>가장 낮은 금액 = 판매가(단가)</b>. 날짜별 수량 = 그날 금액 ÷ 단가 (4.99 → 1개, 9.98 → 2개, 14.97 → 3개, 나누어떨어지지 않으면 반올림).</span></li>
     <li><b>저장 (쌓기)</b><span>매장별로 Firebase 에 압축 저장. 같은 UPC·날짜는 새 값으로 덮고 나머지 날짜는 유지 — 월마다 올리면 계속 쌓임. 업로드 전 확인 팝업에서 기간·상품수·판매수를 확인.</span></li>
-    <li><b>매장별 판매 차트</b><span>날짜별 업체 누적 막대 (STI-WA 녹색 · JFC 노란색 · WIC 오렌지색). 5일씩 표시, ◀ ▶ 로 이동. 보기 2가지 — 판매된 아이템 기준(그날 판매 수량 비율, 같은 상품 여러 번 포함) · 등록된 아이템 기준(그날 팔린 UPC 종류 수 비율, 30번 팔려도 1품목). UPC MANAGER 미등록 UPC 는 제외.</span></li>
+    <li><b>매장별 판매 차트</b><span>날짜별 업체 누적 막대 (STI-WA 녹색 · JFC 노란색 · WIC 오렌지색). 5일씩 표시, ◀ ▶ 로 이동. 보기 2가지 — 판매된 아이템 기준(그날 판매 수량 중 업체별 비율, 같은 상품 여러 번 포함) · 등록된 아이템 기준(업체별 등록 상품 중 그날 팔린 상품 비율 — 조각 크기 = 등록 수, 진한 부분 = 팔린 상품, 위 숫자 = 전체 등록 대비 %). UPC MANAGER 미등록 UPC 는 제외.</span></li>
     <li><b>상품 검색</b><span>UPC 또는 상품명. UPC 는 앞 0 무시, 상품명은 빈칸 무시. 결과는 판매가와 날짜 × 매장 수량표, 5개까지 표시 후 스크롤.</span></li>
-    <li><b>업체별 판매 비율</b><span>날짜와 상관없이 전체 데이터를 합쳐서 계산. 두 도넛을 나란히 표시 — <b>판매된 아이템 기준</b> = 전체 판매 수량 중 업체별 비율 (같은 상품 여러 번 포함 — 10,000개 중 STI 5,000개면 50%), <b>등록된 아이템 기준</b> = 팔린 UPC 종류 수 중 업체별 비율 (한 UPC 가 30일 팔려도 1품목). UPC MANAGER 미등록 UPC 는 제외. 전체 / 매장별 보기.</span></li>
+    <li><b>업체별 판매 비율</b><span>날짜와 상관없이 전체 데이터를 합쳐서 계산. 두 도넛을 나란히 표시 — <b>판매된 아이템 기준</b> = 전체 판매 수량 중 업체별 비율 (같은 상품 여러 번 포함 — 100개 중 STI 50개면 50%). <b>등록된 아이템 기준</b> = 업체별 등록 상품(UPC 중복은 1개) 중 판매된 상품(30일 여러 개 팔려도 1개) 비율 — 조각 크기 = 등록 수, 진한 부분 = 판매된 상품, 가운데 = 전체 등록 대비 판매 %. UPC MANAGER 미등록 UPC 는 제외. 전체 / 매장별 보기.</span></li>
     <li><b>상품 · 업체 기준</b><span>상품과 업체(VENDER) 는 UPC MANAGER 등록 데이터 기준. 상품 목록은 변경 시 자동 갱신, ↻ 새로고침으로 즉시 다시 불러옴.</span></li>
   </ol>
   <div class="guide-h">📐 데이터 산출 예시 — 실제로 이렇게 계산됩니다</div>
@@ -255,12 +255,19 @@
   <div class="guide-step"><span class="tt">⑤ 매장별 판매 차트 (날짜별 업체 누적 막대)</span>
     날짜마다 팔린 수량을 UPC MANAGER 의 VENDER 로 나눠 쌓음. 예) 9/3 에 STI-WA 상품 30개 · JFC 20개 · WIC 10개 팔림 → 막대 높이 60, 안쪽 비율 <b>STI-WA 50% · JFC 33% · WIC 17%</b>. UPC MANAGER 에 없는 UPC 는 세지 않음.</div>
   <div class="guide-step"><span class="tt">⑥ 업체별 판매 비율 — 도넛 2개</span>
-    <table class="guide-tb"><tr><th>업체</th><th>판매 수량 (같은 상품 포함)</th><th>판매된 아이템 기준</th><th>판매된 UPC (종류)</th><th>등록된 아이템 기준</th></tr>
-    <tr><td>STI-WA</td><td>5,000</td><td class="em">5,000 ÷ 10,000 = 50%</td><td>400</td><td class="em">400 ÷ 600 = 67%</td></tr>
-    <tr><td>JFC</td><td>3,000</td><td class="em">3,000 ÷ 10,000 = 30%</td><td>150</td><td class="em">150 ÷ 600 = 25%</td></tr>
-    <tr><td>WIC</td><td>2,000</td><td class="em">2,000 ÷ 10,000 = 20%</td><td>50</td><td class="em">50 ÷ 600 = 8%</td></tr>
-    <tr><td>합계</td><td>10,000</td><td>100%</td><td>600</td><td>100%</td></tr></table>
-    <b>판매된 아이템 기준</b> = 팔린 개수를 전부 더한 판매 수량 — 같은 상품이 30일 동안 90개 팔리면 90개. <b>등록된 아이템 기준</b> = "팔린 적이 있는 UPC 가 몇 종류인가" — 8801007021348 이 30일 내내 팔려도 1품목. 두 도넛 모두 합이 100%. '매장별 각각 보기'는 매장마다 같은 계산.</div>
+    <b>판매된 아이템 기준</b> — 30일 동안 팔린 전체 수량(같은 상품 여러 번 포함) 중 업체별 판매 수량 %
+    <table class="guide-tb"><tr><th>업체</th><th>판매 수량</th><th>판매된 아이템 기준</th></tr>
+    <tr><td>STI-WA</td><td>50</td><td class="em">50 ÷ 100 = 50%</td></tr>
+    <tr><td>JFC</td><td>30</td><td class="em">30 ÷ 100 = 30%</td></tr>
+    <tr><td>WIC</td><td>20</td><td class="em">20 ÷ 100 = 20%</td></tr>
+    <tr><td>전체</td><td>100</td><td>100%</td></tr></table>
+    <b>등록된 아이템 기준</b> — ① 업체별 등록 상품 수 (UPC 중복은 1개만) ② 팔린 상품 수 (30일 동안 여러 개 팔려도 1개) → 업체마다 등록 상품 중 몇 % 가 팔렸나
+    <table class="guide-tb"><tr><th>업체</th><th>등록 상품</th><th>판매된 상품 (종류)</th><th>등록된 아이템 기준</th></tr>
+    <tr><td>STI-WA</td><td>1,000</td><td>400</td><td class="em">400 ÷ 1,000 = 40%</td></tr>
+    <tr><td>JFC</td><td>500</td><td>150</td><td class="em">150 ÷ 500 = 30%</td></tr>
+    <tr><td>WIC</td><td>200</td><td>50</td><td class="em">50 ÷ 200 = 25%</td></tr>
+    <tr><td>전체</td><td>1,700</td><td>600</td><td>600 ÷ 1,700 = 35.3% (도넛 가운데)</td></tr></table>
+    도넛의 조각 크기 = 업체별 등록 상품 수, 조각 안 진한 부분 = 그 중 판매된 상품, 연한 부분 = 안 팔린 상품. '매장별 각각 보기'는 그 매장 업로드 데이터로 같은 계산.</div>
   <div class="guide-step"><span class="tt">⑦ 상품 검색 결과</span>
     검색한 UPC 의 <b>판매가</b>(매장별 단가 중 가장 낮은 값)와 <b>날짜 × 매장 수량표</b>. 날짜는 최근순, 맨 아래 합계. 검색 "8801007021348" · "08801007021348" · "신라면5입" 모두 같은 상품.</div>
 </div></div>
@@ -316,6 +323,8 @@
     list.forEach(function(p){ var k=normUpc(p.upc); if(!k) return; p.key=k; p.n=normName(p.eng+' '+p.kor); if(!products[k]) products[k]=[]; products[k].push(p); });
     $('chipProd').textContent='상품 '+fmtN(list.length)+'개'; $('chipProd').className='chip ok';
   }
+  /* 업체별 등록 상품 수 — UPC 기준 중복은 1개로 (같은 UPC 가 여러 행이어도 1개) */
+  function registeredByVendor(){ var m={}, seen={}; prodList.forEach(function(p){ if(!p.key||seen[p.key]) return; seen[p.key]=1; var v=p.vender||''; if(!v) return; m[v]=(m[v]||0)+1; }); return m; }
   function vendorOf(key){ var ps=products[key]; if(!ps||!ps.length) return ''; var v=ps[0].vender; for(var i=1;i<ps.length&&!v;i++) v=ps[i].vender; return v||''; }
 
   /* ── 매장 ── */
@@ -451,6 +460,7 @@
 
   /* ── 색 (캔버스는 현재 테마의 CSS 변수를 읽어 사용) ── */
   function themeCol(){ var cs=getComputedStyle(document.documentElement); function g(n){ return cs.getPropertyValue(n).trim(); } return {text:g('--text'),dim:g('--text-dim'),faint:g('--text-faint'),line:g('--border'),stroke:g('--bg-elev-2')}; }
+  function pale(hex){ var n=parseInt(hex.slice(1),16), r=(n>>16)&255, g=(n>>8)&255, b=n&255, night=document.documentElement.getAttribute('data-theme')==='night', t=night?[22,26,35]:[255,255,255], k=night?.62:.72; return 'rgb('+Math.round(r+(t[0]-r)*k)+','+Math.round(g+(t[1]-g)*k)+','+Math.round(b+(t[2]-b)*k)+')'; }
   var COLORS=['#2E4A6E','#8C3A6B','#3F7F8C','#A64B3A','#6B7A2E','#5D4B8C','#4E6B5C','#8C6B4B','#3A6BA6'];
   var VENDOR_COLORS={'STI-WA':'#2F5D46','JFC':'#E3B82E','WIC':'#E07B2A'};
   function colorFor(v,i){ return VENDOR_COLORS[v]||COLORS[i%COLORS.length]; }
@@ -460,7 +470,7 @@
 
   /* ── 매장별 그래프: 날짜별 벤더 누적 막대 · 5일씩 ◀ ▶ ── */
   var pageOf={}; /* store → 끝 인덱스(최근쪽) */
-  var cMode='qty'; /* qty=판매된 아이템 기준(그날 판매 수량 비율, 같은 상품 여러 번 포함) · sold=등록된 아이템 기준(그날 팔린 UPC 종류 수 비율) */
+  var cMode='qty'; /* qty=판매된 아이템 기준(그날 판매 수량 비율, 같은 상품 여러 번 포함) · reg=등록된 아이템 기준(업체별 등록 상품 중 그날 팔린 UPC 종류 비율: 조각 = 등록 수, 진한 부분 = 판매) */
   function vendorSplitDay(dm){ var by={}, total=0; for(var u in dm){ var q=dm[u].q; if(!q) continue; var v=vendorOf(u); if(!v) continue; by[v]=(by[v]||0)+q; total+=q; } return {by:by,total:total}; }
   function vendorSoldDay(dm){ var by={}, total=0; for(var u in dm){ if(!dm[u].q) continue; var v=vendorOf(u); if(!v) continue; by[v]=(by[v]||0)+1; total++; } return {by:by,total:total}; }
   function renderCharts(){
@@ -487,7 +497,9 @@
     if(!show.length){ ctx.fillStyle=C.faint; ctx.font='700 13px Pretendard,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('판매 데이터 없음',W/2,Hc/2); return; }
     var n=5, gap=Math.max(5,Math.round(W*0.022)), w=(right-left-gap*(n+1))/n;
     show.forEach(function(d,i){
-      var X=left+gap+i*(w+gap), dm=sales[code][d], sp=(cMode==='sold')?vendorSoldDay(dm):vendorSplitDay(dm);
+      var X=left+gap+i*(w+gap), dm=sales[code][d], sp, reg=null;
+      if(cMode==='reg'){ reg=registeredByVendor(); var sd=vendorSoldDay(dm); sp={by:{},total:0,sold:sd.by,soldTotal:0}; for(var rv in reg){ sp.by[rv]=reg[rv]; sp.total+=reg[rv]; sp.soldTotal+=Math.min(reg[rv],sd.by[rv]||0); } if(!sd.total) sp.total=0; }
+      else sp=vendorSplitDay(dm);
       ctx.textAlign='center';
       if(!sp.total){ ctx.fillStyle=C.faint; ctx.font='700 10px Pretendard,sans-serif'; ctx.textBaseline='alphabetic'; ctx.fillText(d.slice(5),X+w/2,base+16); return; }
       /* 조각 높이: 비율대로 나누되 % 숫자가 들어가도록 최소 16px 보장(부족분은 가장 큰 조각에서 뺌) */
@@ -496,11 +508,13 @@
       if(deficit){ var bi=0; hs.forEach(function(h,k){ if(h>hs[bi]) bi=k; }); hs[bi]=Math.max(MIN,hs[bi]-deficit); }
       var y=base;
       keys.forEach(function(v,k){
-        var q=sp.by[v], h=hs[k], pct=Math.round(q/sp.total*100); y-=h;
-        ctx.fillStyle=colorFor(v,k); ctx.fillRect(X,y,w,h); ctx.strokeStyle=C.stroke; ctx.lineWidth=1.5; ctx.strokeRect(X,y,w,h);
-        ctx.fillStyle=textOn(v); ctx.font='800 '+(h>=22?12:10)+'px Pretendard,sans-serif'; ctx.textBaseline='middle'; ctx.fillText(pct+'%',X+w/2,y+h/2);
+        var q=sp.by[v], h=hs[k], col=colorFor(v,k), pct, onPale=false; y-=h;
+        if(reg){ var sN=Math.min(q,sp.sold[v]||0), fr=q?sN/q:0; pct=Math.round(fr*100); ctx.fillStyle=pale(col); ctx.fillRect(X,y,w,h); var fh=Math.round(h*fr); if(fh>0){ ctx.fillStyle=col; ctx.fillRect(X,y+h-fh,w,fh); } onPale=fr<0.5; }
+        else { pct=Math.round(q/sp.total*100); ctx.fillStyle=col; ctx.fillRect(X,y,w,h); }
+        ctx.strokeStyle=C.stroke; ctx.lineWidth=1.5; ctx.strokeRect(X,y,w,h);
+        ctx.fillStyle=onPale?C.text:textOn(v); ctx.font='800 '+(h>=22?12:10)+'px Pretendard,sans-serif'; ctx.textBaseline='middle'; ctx.fillText(pct+'%',X+w/2,y+h/2);
       });
-      var top=(cMode==='sold')?fmtN(sp.total)+'품목':fmtN(sp.total)+'개';
+      var top=reg?(Math.round(sp.soldTotal/sp.total*100)+'%'):(fmtN(sp.total)+'개');
       ctx.fillStyle=C.text; ctx.font='800 10.5px Pretendard,sans-serif'; ctx.textBaseline='alphabetic'; ctx.fillText(top,X+w/2,base-H-6);
       ctx.fillStyle=C.dim; ctx.font='800 10.5px Pretendard,sans-serif'; ctx.fillText(d.slice(5),X+w/2,base+16);
     });
@@ -541,40 +555,47 @@
   /* ── 업체별 판매 비율: 판매된 UPC 개수 기준 (30일 팔려도 1개) ── */
   var rMode='all';
   function soldUpcsByVendor(storeFilter){ var seen={}, by={}; for(var s in sales){ if(storeFilter&&s!==storeFilter) continue; for(var d in sales[s]){ var dm=sales[s][d]; for(var u in dm){ if(!dm[u].q||seen[u]) continue; seen[u]=1; var v=vendorOf(u); if(!v) continue; by[v]=(by[v]||0)+1; } } } return by; }
-  /* 도넛: list=[{v,q,lbl}] q=조각 크기, lbl=조각 라벨 */
+  /* 도넛: list=[{v,q,lbl,s?}] q=조각 크기, lbl=조각 라벨, s=조각 안에서 진하게 칠할 양(등록 기준: 판매된 수, 나머지는 연한 색) */
   function drawDonut(cv,list,total,center,sub,size){
     var dpr=window.devicePixelRatio||1, C=themeCol(); cv.width=Math.round(size*dpr); cv.height=Math.round(size*dpr); cv.style.width=size+'px'; cv.style.height=size+'px';
     var ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,size,size); if(!total) return;
     var cx=size/2, cy=size/2, R=size/2-4, r=R*0.6, a=-Math.PI/2, big=size>=200, fs=big?12:10;
     function wedge(a0,a1,fill){ ctx.beginPath(); ctx.moveTo(cx+Math.cos(a0)*r,cy+Math.sin(a0)*r); ctx.arc(cx,cy,R,a0,a1); ctx.arc(cx,cy,r,a1,a0,true); ctx.closePath(); ctx.fillStyle=fill; ctx.fill(); }
     list.forEach(function(it,i){ var ang=it.q/total*Math.PI*2, col=colorFor(it.v,i);
-      wedge(a,a+ang,col);
+      if(it.s!=null){ var sa=ang*(it.q?Math.min(1,it.s/it.q):0); wedge(a,a+ang,pale(col)); if(sa>0) wedge(a,a+sa,col); }
+      else wedge(a,a+ang,col);
       ctx.beginPath(); ctx.moveTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r); ctx.arc(cx,cy,R,a,a+ang); ctx.arc(cx,cy,r,a+ang,a,true); ctx.closePath(); ctx.strokeStyle=C.stroke; ctx.lineWidth=2; ctx.stroke();
-      if(ang>0.3){ var m=a+ang/2, tx=cx+Math.cos(m)*(R+r)/2, ty=cy+Math.sin(m)*(R+r)/2; ctx.fillStyle=textOn(it.v); ctx.font='800 '+fs+'px Pretendard,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(it.lbl,tx,ty); }
+      if(ang>0.3){ var m=a+ang/2, tx=cx+Math.cos(m)*(R+r)/2, ty=cy+Math.sin(m)*(R+r)/2; var onPale=(it.s!=null&&it.q&&it.s/it.q<0.5); ctx.fillStyle=onPale?C.text:textOn(it.v); ctx.font='800 '+fs+'px Pretendard,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(it.lbl,tx,ty); }
       a+=ang; });
     ctx.fillStyle=C.text; ctx.font='800 '+(big?16:13)+'px Pretendard,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(center,cx,cy-(big?7:6));
     ctx.fillStyle=C.faint; ctx.font='700 '+(big?10.5:10)+'px Pretendard,sans-serif'; ctx.fillText(sub,cx,cy+(big?11:9));
   }
   function mkCanvas(){ return document.createElement('canvas'); }
-  /* 등록된 아이템 기준: 팔린 UPC 종류 수 → 업체별 비율 (합 100%, 한 UPC 가 30일 팔려도 1품목) */
-  function soldCol(storeFilter,big){
-    var by=soldUpcsByVendor(storeFilter), list=sortVendors(Object.keys(by)).map(function(v){ return {v:v,q:by[v]}; }).sort(function(a,b){ return b.q-a.q; }), total=0; list.forEach(function(x){ total+=x.q; }); list.forEach(function(x){ x.lbl=Math.round(x.q/total*1000)/10+'%'; });
-    var cv=mkCanvas(); drawDonut(cv,list,total,fmtN(total),'UPC 종류',big?220:150);
-    var lg=total?list.map(function(it,i){ return '<div class="lg"><span class="sw" style="background:'+colorFor(it.v,i)+'"></span><span>'+esc(it.v)+'</span><span class="qty">'+fmtN(it.q)+'품목</span><span class="pct">'+it.lbl+'</span></div>'; }).join('')+'<div class="lg sum"><span class="sw" style="background:transparent"></span><span>판매된 UPC 종류</span><span class="qty">'+fmtN(total)+'품목</span><span class="pct">100%</span></div>':'<div class="empty">판매 데이터가 없습니다</div>';
-    return {title:'등록된 아이템 기준',sub:'팔린 UPC 종류 수 중 업체별 비율 (30일 팔려도 1품목)',cv:cv,lg:lg};
-  }
-  /* 판매된 아이템 기준: 전체 판매 수량(같은 상품 여러 번 포함) = 100%, 업체별 판매 수량 비율 — 예) 10,000개 중 STI 5,000 → 50% */
-  function soldQtyByVendor(storeFilter){ var by={}; for(var s in sales){ if(storeFilter&&s!==storeFilter) continue; for(var d in sales[s]){ var dm=sales[s][d]; for(var u in dm){ var q=dm[u].q; if(!q) continue; var v=vendorOf(u); if(!v) continue; by[v]=(by[v]||0)+q; } } } return by; }
+  /* ── 등록된 아이템 기준 ──
+     1) 업체별 등록 상품 수 = UPC MANAGER 등록 UPC 수 (중복 UPC 는 1개)
+     2) 판매된 상품 수 = 업로드된 판매 리스트에서 팔린 UPC 종류 수 (30일 동안 여러 개 팔려도 1개)
+     → 업체마다 "등록된 상품 중 몇 % 가 팔렸나". 도넛 조각 크기 = 등록 수, 진한 부분 = 판매된 수, 가운데 = 전체 등록 대비 판매 % */
   function regCol(storeFilter,big){
+    var reg=registeredByVendor(), sold=soldUpcsByVendor(storeFilter), keys=sortVendors(Object.keys(reg)), total=0, tsold=0;
+    var list=keys.map(function(v){ var r=reg[v]||0, sN=Math.min(r,sold[v]||0); total+=r; tsold+=sN; return {v:v,q:r,s:sN,pct:r?Math.round(sN/r*1000)/10:0}; }); list.forEach(function(x){ x.lbl=x.pct+'%'; });
+    var tp=total?Math.round(tsold/total*1000)/10:0;
+    var cv=mkCanvas(); drawDonut(cv,list,total,tp+'%','등록 대비 판매',big?220:150);
+    var lg=total?list.map(function(it,i){ return '<div class="lg"><span class="sw" style="background:'+colorFor(it.v,i)+'"></span><span>'+esc(it.v)+'</span><span class="qty">판매 '+fmtN(it.s)+' / 등록 '+fmtN(it.q)+'</span><span class="pct">'+it.lbl+'</span></div>'; }).join('')+'<div class="lg sum"><span class="sw" style="background:transparent"></span><span>전체</span><span class="qty">판매 '+fmtN(tsold)+' / 등록 '+fmtN(total)+'</span><span class="pct">'+tp+'%</span></div>':'<div class="empty">UPC MANAGER 에 등록된 상품이 없습니다</div>';
+    return {title:'등록된 아이템 기준',sub:'업체별 등록 상품 중 판매된 상품 비율 (UPC 중복 제외 · 30일 여러 개 팔려도 1개)',cv:cv,lg:lg};
+  }
+  /* ── 판매된 아이템 기준 ──
+     30일 동안 팔린 전체 수량(같은 상품 여러 번 포함) 중 업체별로 몇 개 팔렸는지 % — 예) 100개 중 STI 50 · JFC 30 · WIC 20 → 50% / 30% / 20% */
+  function soldQtyByVendor(storeFilter){ var by={}; for(var s in sales){ if(storeFilter&&s!==storeFilter) continue; for(var d in sales[s]){ var dm=sales[s][d]; for(var u in dm){ var q=dm[u].q; if(!q) continue; var v=vendorOf(u); if(!v) continue; by[v]=(by[v]||0)+q; } } } return by; }
+  function soldCol(storeFilter,big){
     var by=soldQtyByVendor(storeFilter), list=sortVendors(Object.keys(by)).map(function(v){ return {v:v,q:by[v]}; }).sort(function(a,b){ return b.q-a.q; }), total=0;
     list.forEach(function(x){ total+=x.q; }); list.forEach(function(x){ x.lbl=Math.round(x.q/total*1000)/10+'%'; });
-    var cv=mkCanvas(); drawDonut(cv,list,total,fmtN(total),'판매 수량',big?220:150);
-    var lg=total?list.map(function(it,i){ return '<div class="lg"><span class="sw" style="background:'+colorFor(it.v,i)+'"></span><span>'+esc(it.v)+'</span><span class="qty">'+fmtN(it.q)+'개</span><span class="pct">'+it.lbl+'</span></div>'; }).join('')+'<div class="lg sum"><span class="sw" style="background:transparent"></span><span>전체 판매 수량</span><span class="qty">'+fmtN(total)+'개</span><span class="pct">100%</span></div>':'<div class="empty">판매 데이터가 없습니다</div>';
-    return {title:'판매된 아이템 기준',sub:'전체 판매 수량 중 업체별 비율 (같은 상품 여러 번 포함)',cv:cv,lg:lg};
+    var cv=mkCanvas(); drawDonut(cv,list,total,fmtN(total),'총 판매 수량',big?220:150);
+    var lg=total?list.map(function(it,i){ return '<div class="lg"><span class="sw" style="background:'+colorFor(it.v,i)+'"></span><span>'+esc(it.v)+'</span><span class="qty">'+fmtN(it.q)+'개 판매</span><span class="pct">'+it.lbl+'</span></div>'; }).join('')+'<div class="lg sum"><span class="sw" style="background:transparent"></span><span>전체 판매 수량</span><span class="qty">'+fmtN(total)+'개</span><span class="pct">100%</span></div>':'<div class="empty">판매 데이터가 없습니다</div>';
+    return {title:'판매된 아이템 기준',sub:'전체 판매 수량 중 업체별 판매 수량 비율 (같은 상품 여러 번 포함)',cv:cv,lg:lg};
   }
   function ratioPair(storeFilter,big){
     var wrap=document.createElement('div'); wrap.className='ratio';
-    [regCol(storeFilter,big),soldCol(storeFilter,big)].forEach(function(c){ var col=document.createElement('div'); col.className='rcol card'; col.innerHTML='<div class="rt">'+c.title+'<small>'+c.sub+'</small></div>'; col.appendChild(c.cv); var lg=document.createElement('div'); lg.className='legend'; lg.innerHTML=c.lg; col.appendChild(lg); wrap.appendChild(col); });
+    [soldCol(storeFilter,big),regCol(storeFilter,big)].forEach(function(c){ var col=document.createElement('div'); col.className='rcol card'; col.innerHTML='<div class="rt">'+c.title+'<small>'+c.sub+'</small></div>'; col.appendChild(c.cv); var lg=document.createElement('div'); lg.className='legend'; lg.innerHTML=c.lg; col.appendChild(lg); wrap.appendChild(col); });
     return wrap;
   }
   function renderRatio(){
