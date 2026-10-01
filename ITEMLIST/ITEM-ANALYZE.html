@@ -135,7 +135,7 @@
 <div class="toast" id="toast"></div>
 <div class="wrap">
   <div class="topbar">
-    <h1>📊 ITEM ANALYZE<small>품목 분석 · UPC MANAGER 상품 기준 · 매장별 판매 데이터</small></h1>
+    <h1>📊 ITEM ANALYZE</h1>
     <div class="chips">
       <span class="chip" id="chipProd">상품 불러오는 중…</span>
       <span class="chip" id="chipSales">판매 데이터 —</span>
@@ -145,16 +145,16 @@
 
   <!-- ① 상단: 매장별 차트 (기본형 — 일별 판매 개수) -->
   <div class="panel">
-    <h2><span class="ico">📈</span> 매장별 판매 <span class="sub">일별 판매 개수 (기본형)</span>
+    <h2><span class="ico">📈</span> 매장별 판매
       <span class="right"><button class="btn sm" id="btnUpload" type="button">⬆ 매장별 판매 데이터 업로드</button></span></h2>
     <div class="charts" id="charts"><div class="empty">매장 목록 불러오는 중…</div></div>
   </div>
 
   <!-- ② 검색 -->
   <div class="panel">
-    <h2><span class="ico">🔍</span> 상품 검색 <span class="sub">UPC 또는 상품명 (앞 0 무시 · 상품명 빈칸 무시) → 매장별 · 날짜별 판매 수량 · 5개까지 표시, 나머지는 스크롤</span></h2>
+    <h2><span class="ico">🔍</span> 상품 검색</h2>
     <div class="srch">
-      <input type="text" id="q" placeholder="UPC 또는 상품명 입력 후 Enter" autocomplete="off">
+      <input type="text" id="q" placeholder="UPC 또는 상품명" autocomplete="off">
       <button class="btn" id="btnSearch" type="button">검색</button>
       <button class="btn ghost" id="btnClear" type="button">지우기</button>
     </div>
@@ -163,7 +163,7 @@
 
   <!-- ③ 하단: 업체별 판매 비율 -->
   <div class="panel">
-    <h2><span class="ico">◔</span> 업체별 판매 비율 <span class="sub">판매 수량을 UPC로 상품에 연결 → VENDER 별 합계 (100%)</span></h2>
+    <h2><span class="ico">◔</span> 업체별 판매 비율</h2>
     <div class="ctrl">
       <span class="seg" id="rMode"><button type="button" data-mode="all" class="on">전체 매장 보기</button><button type="button" data-mode="each">매장별 각각 보기</button><button type="button" data-mode="one">선택한 매장만 보기</button></span>
       <label id="rStoreLb" style="display:none;">매장</label><select id="rStore" style="display:none;"></select>
@@ -180,9 +180,8 @@
 
 <!-- 업로드 팝업 -->
 <div class="modal-bg" id="upOv"><div class="modal wide">
-  <h3 style="display:flex;align-items:center;gap:10px;">⬆ 매장별 판매 데이터 업로드 <span style="font-size:11.5px;font-weight:700;color:var(--text-faint);">날짜를 고르고 엑셀을 드래그 — A열 = UPC · C열 = 판매수량만 저장 (압축 전송)</span><button class="btn ghost sm" id="upClose" type="button" style="margin-left:auto;">닫기</button></h3>
+  <h3 style="display:flex;align-items:center;gap:10px;">⬆ 매장별 판매 데이터 업로드<button class="btn ghost sm" id="upClose" type="button" style="margin-left:auto;">닫기</button></h3>
   <div class="stores" id="stores"><div class="empty">매장 목록 불러오는 중…</div></div>
-  <div class="hint">같은 매장·같은 날짜에 다시 올리면 덮어씁니다. 1행이 제목이면 자동으로 건너뜁니다. UPC는 숫자만 남기고 앞의 0을 뺀 값으로 저장·비교합니다 (중간 0 유지). 저장은 A·C열만 gzip 압축해 최소 용량으로 전송합니다.</div>
 </div></div>
 
 <div class="modal-bg" id="modalBg"><div class="modal">
@@ -270,7 +269,7 @@
       h+='<div class="st" data-store="'+esc(st.code)+'">'
         +'<div class="nm">'+esc(st.name)+(st.nameKo?'<small>'+esc(st.nameKo)+'</small>':'')+'<span class="cnt">'+(ds.length?ds.length+'일':'')+'</span></div>'
         +'<input type="date" class="dtIn" value="'+todayStr()+'">'
-        +'<div class="drop"><b>엑셀 드래그 또는 클릭</b>A열 UPC · C열 판매수량</div>'
+        +'<div class="drop"><b>엑셀 드래그 또는 클릭</b></div>'
         +'<input type="file" class="fIn" accept=".xlsx,.xls,.csv" style="display:none">'
         +'<div class="dates">'+ds.map(function(s){ return '<div class="dt"><span class="d">'+esc(s.date)+'</span><span class="n">'+fmtN(s.count)+'품목 · '+fmtN(s.total)+'개'+(s.bytes?' · '+Math.round(s.bytes/1024*10)/10+'KB':'')+'</span><button type="button" data-del="'+esc(s.id)+'" title="삭제">✕</button></div>'; }).join('')+'</div>'
         +'</div>';
@@ -344,7 +343,6 @@
     if(!hits.length){ $('results').innerHTML='<div class="empty">일치하는 상품이 없습니다</div>'; return; }
     var seen={}, h='';
     hits.forEach(function(p){ if(seen[p.key]) return; seen[p.key]=1; h+=productBlock(p); });
-    if(hits.length>=30) h+='<div class="hint">검색 결과가 많아 30개까지만 표시합니다 — 더 구체적으로 입력하세요.</div>';
     $('results').innerHTML=h;
   }
   function productBlock(p){
