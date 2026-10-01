@@ -375,11 +375,10 @@
   /* 날짜 1건의 업체별 합계 → [{v,q,unreg}] (총합 기준 비율용) */
   function vendorSplit(doc){
     var by={}, unreg=0, total=0;
-    for(var k in doc.rows){ var q=Number(doc.rows[k])||0; if(!q) continue; var v=vendorOf(k); if(!v) unreg+=q; else by[v]=(by[v]||0)+q; total+=q; }
+    for(var k in doc.rows){ var q=Number(doc.rows[k])||0; if(!q) continue; var v=vendorOf(k); if(!v){ unreg+=q; continue; } by[v]=(by[v]||0)+q; total+=q; } /* 미등록 UPC 는 차트에서 제외 */
     var order=['STI-WA','JFC','WIC'], list=[];
     order.forEach(function(v){ if(by[v]){ list.push({v:v,q:by[v]}); delete by[v]; } });
     Object.keys(by).sort().forEach(function(v){ list.push({v:v,q:by[v]}); });
-    if(unreg) list.push({v:'미등록',q:unreg,unreg:true});
     return {list:list,total:total};
   }
   function renderCharts(){
@@ -428,10 +427,9 @@
     var by={}, total=0, unreg=0;
     sales.forEach(function(s){
       if(d&&s.date!==d) return; if(st&&s.store!==st) return;
-      for(var k in s.rows){ var q=Number(s.rows[k])||0; if(!q) continue; var v=vendorOf(k); if(!v){ unreg+=q; } else { by[v]=(by[v]||0)+q; } total+=q; }
+      for(var k in s.rows){ var q=Number(s.rows[k])||0; if(!q) continue; var v=vendorOf(k); if(!v){ unreg+=q; continue; } by[v]=(by[v]||0)+q; total+=q; } /* 미등록 UPC 는 비율에서 제외 */
     });
     var list=Object.keys(by).map(function(v){ return {v:v,q:by[v]}; }).sort(function(a,b){ return b.q-a.q; });
-    if(unreg) list.push({v:'미등록 (UPC MANAGER 에 없음)',q:unreg,unreg:true});
     return {list:list,total:total};
   }
   /* 도넛 1개 그리기 + 범례 HTML */
