@@ -113,20 +113,22 @@
   @media (max-width:820px){ .ratio{ grid-template-columns:1fr; } }
   .rcol{ padding:14px; display:grid; grid-template-columns:220px 1fr; gap:14px; align-items:center; }
   .rcol .rt{ grid-column:1 / -1; font-size:14px; font-weight:800; }
-  .rcol .rt small{ font-size:11.5px; color:var(--text-faint); font-weight:700; margin-left:8px; }
+  .rcol .rt small{ font-size:11.5px; color:var(--text-faint); font-weight:700; margin-left:8px; white-space:nowrap; }
+  .rcol .rt{ display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 0; }
   .rcol canvas{ display:block; }
   .legend{ display:flex; flex-direction:column; gap:5px; min-width:0; }
-  .lg{ display:grid; grid-template-columns:14px 1fr auto auto; gap:8px; align-items:center; font-size:12.5px; font-weight:700; padding:6px 9px; border-radius:8px; background:var(--bg-elev); border:1px solid var(--border); }
+  .lg{ display:grid; grid-template-columns:14px 1fr auto auto; gap:8px; align-items:center; font-size:12.5px; font-weight:700; padding:6px 9px; border-radius:8px; background:var(--bg-elev); border:1px solid var(--border); white-space:nowrap; }
   .lg .sw{ width:12px; height:12px; border-radius:3px; }
   .lg .pct{ font-weight:800; min-width:52px; text-align:right; }
-  .lg .qty{ color:var(--text-faint); min-width:80px; text-align:right; }
+  .lg .qty{ color:var(--text-faint); min-width:70px; text-align:right; }
   .lg.sum{ background:var(--bg-elev-2); }
   @media (max-width:560px){ .rcol{ grid-template-columns:1fr; justify-items:center; } }
-  .ratio-multi{ display:grid; grid-template-columns:repeat(auto-fill,minmax(520px,1fr)); gap:12px; }
-  .rbox{ padding:12px; }
-  .rbox .nm{ font-size:14px; font-weight:800; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid var(--border); }
-  .rbox .ratio{ gap:8px; }
-  .rbox .rcol{ padding:8px; border:none; background:transparent; grid-template-columns:150px 1fr; gap:10px; }
+  .ratio-multi{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+  @media (max-width:900px){ .ratio-multi{ grid-template-columns:1fr; } }
+  .rbox{ padding:12px 14px 14px; }
+  .rbox .nm{ font-size:14px; font-weight:800; margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid var(--border); }
+  .rbox .ratio{ grid-template-columns:1fr; gap:10px; }   /* 매장 안: 판매된 기준 / 등록된 기준 세로로 */
+  .rbox .rcol{ padding:10px 12px; background:var(--bg-elev); grid-template-columns:150px 1fr; gap:12px; }
   .rbox .rcol .rt{ font-size:13px; }
   .rbox .lg{ font-size:12px; padding:5px 8px; }
 
@@ -198,6 +200,12 @@
   </div>
 
   <div class="panel">
+    <h2>업체별 판매 비율
+      <span class="right"><span class="seg" id="rMode"><button type="button" data-mode="all" class="on">전체 매장 보기</button><button type="button" data-mode="each">매장별 각각 보기</button></span></span></h2>
+    <div id="ratioArea"></div>
+  </div>
+
+  <div class="panel">
     <h2>상품 검색</h2>
     <div class="srch">
       <input type="text" id="q" placeholder="UPC 또는 상품명" autocomplete="off">
@@ -205,12 +213,6 @@
       <button class="btn ghost" id="btnClear" type="button">지우기</button>
     </div>
     <div class="results" id="results"></div>
-  </div>
-
-  <div class="panel">
-    <h2>업체별 판매 비율
-      <span class="right"><span class="seg" id="rMode"><button type="button" data-mode="all" class="on">전체 매장 보기</button><button type="button" data-mode="each">매장별 각각 보기</button></span></span></h2>
-    <div id="ratioArea"></div>
   </div>
 </div>
 
