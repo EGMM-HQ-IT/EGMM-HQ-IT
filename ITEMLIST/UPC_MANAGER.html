@@ -371,6 +371,10 @@ try{ document.documentElement.setAttribute('data-theme', localStorage.getItem('p
   .plu-imp-map { width:100%; border-collapse:collapse; font-size:13px; margin-bottom:10px; }
   .plu-imp-map th { text-align:left; font-size:11px; color:#3b5b8c; background:#e8f0fb; padding:7px; border-bottom:1.5px solid var(--border); }
   .plu-imp-map td { padding:5px 7px; border-bottom:1px solid #efefea; }
+  .plu-imp-map2 { display:grid; grid-template-columns:1fr 1fr; gap:0 14px; margin-bottom:10px; }
+  .plu-imp-map2 .plu-imp-map { font-size:11.5px; margin-bottom:0; }
+  .plu-imp-map2 .plu-imp-map td { padding:3px 6px; }
+  .plu-imp-map2 .plu-imp-map th { font-size:10.5px; padding:5px 6px; }
   .imp-ok { color:#1e7a46; font-weight:700; }
   .imp-miss { color:#b04141; font-weight:700; }
 
@@ -3896,29 +3900,29 @@ function renderImportModal(){
   if(impCtx.listMode){
     var __pkL=(fieldByKey(big,'ITEM_PLU')||{}).label||'UPC';
     h+='<div class="icp-lbl" style="margin-top:12px;">열 → 필드</div>';
-    h+='<table class="plu-imp-map"><thead><tr><th>엑셀 열</th><th>들어갈 필드</th></tr></thead><tbody>'
+    h+='<div class="plu-imp-map2"><table class="plu-imp-map"><thead><tr><th>엑셀 열</th><th>들어갈 필드</th></tr></thead><tbody>'
       +'<tr><td>A열</td><td class="imp-ok">'+escapeHtml(__pkL)+' <span style="color:#9a9aa0;font-weight:600">(6자리 이하 제외)</span></td></tr>'
       +'<tr><td>B열</td><td class="imp-ok">ITEM CODE</td></tr>'
       +'<tr><td>C열</td><td class="imp-ok">상품명 <span style="color:#9a9aa0;font-weight:600">(영문/한글 · 용량 자동 분리)</span></td></tr>'
-      +'</tbody></table>';
+      +'</tbody></table></div>';
     map=[];
   }
   if(!impCtx.listMode){
   h+='<div class="icp-lbl" style="margin-top:12px;">열 → 필드</div>';
-  h+='<table class="plu-imp-map"><thead><tr><th>엑셀 열</th><th>들어갈 필드</th></tr></thead><tbody>';
+  var __rows=[];
   map.forEach(function(m){
     if(m.header===''){ return; }
-    var gtx='';
     if(m.key){
       var f=fieldByKey(big,m.key);
       var __fl=f?((f.group&&__lblN[normKey(f.label)]>1)?(f.group+' · '+f.label):f.label):m.key;
       if(m.split){ __fl='상품명 (영문/한글 · 용량 자동 분리)'; }
-      h+='<tr><td>'+escapeHtml(m.header)+gtx+'</td><td class="imp-ok">'+escapeHtml(__fl)+'</td></tr>';
+      __rows.push('<tr><td>'+escapeHtml(m.header)+'</td><td class="imp-ok">'+escapeHtml(__fl)+'</td></tr>');
     }else{
-      h+='<tr><td>'+escapeHtml(m.header)+gtx+'</td><td><span class="imp-miss">무시</span></td></tr>';
+      __rows.push('<tr><td>'+escapeHtml(m.header)+'</td><td><span class="imp-miss">무시</span></td></tr>');
     }
   });
-  h+='</tbody></table>';
+  var __half=Math.ceil(__rows.length/2), __tb=function(rs){ return '<table class="plu-imp-map"><thead><tr><th>엑셀 열</th><th>들어갈 필드</th></tr></thead><tbody>'+rs.join('')+'</tbody></table>'; };
+  h+='<div class="plu-imp-map2">'+__tb(__rows.slice(0,__half))+(__rows.length>1?__tb(__rows.slice(__half)):'')+'</div>';
   }
 
   /* [요구 5] STORE/LOCATION 열 값에서 매장 자동 감지 → 리스트 기본 선택 */
@@ -3958,7 +3962,6 @@ function renderImportModal(){
   }
   /* [요구 2026-09 ①] 매칭 기준은 PLU/UPC 고정 — 값이 같은 행 업데이트, 없으면 새 행 추가, PLU/UPC 빈 행은 건너뜀 */
   var __pkF=fieldByKey(big,'ITEM_PLU')||fieldByKey(big,'PLU');
-  h+='<div class="icp-lbl" style="margin-top:10px;color:#9a9aa0;">'+(APP_MODE==='UPC'?'같은 업체에서 UPC · ITEM CODE 가 같으면 업데이트, 아니면 새 행':escapeHtml(__pkF?__pkF.label:'PLU')+' 가 같으면 업데이트, 없으면 새 행')+'</div>';
   h+='<select class="icp-sel" id="impMatch" style="display:none;"><option value="'+escapeHtml(__pkF?__pkF.key:'ITEM_PLU')+'" selected>'+escapeHtml(__pkF?__pkF.label:'PLU')+'</option></select>';
 
   if(big==='청과'){
@@ -3966,6 +3969,12 @@ function renderImportModal(){
   }
   /* [요구 2026-09] 무조건 덮어쓰기: 파일의 빈 셀까지 기존 값을 지우고 덮어씀 (기본 OFF = 빈 셀은 기존 값 유지) */
   h+='<div class="icp-opt"><label style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;"><input type="checkbox" id="impWipe"> 빈 셀도 덮어쓰기</label></div>';
+  if(APP_MODE==='UPC'){
+    /* [요구 2026-10-01] 중복 허용 체크 — 켜면 이미 있는 UPC / ITEM CODE 라도 새 행으로 저장, 끄면 이미 있는 값의 새 행은 건너뜀 (기존 행 업데이트는 그대로) */
+    var __dU=(impCtx.allowDupUpc!==false), __dC=(impCtx.allowDupCode!==false);
+    h+='<div class="icp-opt" style="gap:14px;"><label style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;"><input type="checkbox" id="impDupUpc"'+(__dU?' checked':'')+'> 중복 UPC 허용</label>'
+      +'<label style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;"><input type="checkbox" id="impDupCode"'+(__dC?' checked':'')+'> 중복 ITEM CODE 허용</label></div>';
+  }
 
   h+='<div class="plu-imp-foot"><button class="plu-tool-btn" id="impCancel" type="button">취소</button><button class="plu-tool-btn plu-imp-go" id="impGo" type="button">불러오기</button></div>';
 
@@ -3974,6 +3983,8 @@ function renderImportModal(){
   $('impBody').querySelectorAll('.imp-sheet-sub').forEach(function(sl){ sl.onchange=function(){ impCtx.sheets[parseInt(sl.getAttribute('data-i'),10)].targetSub=sl.value; }; });
   $('impCancel').onclick=function(){ $('impOv').classList.remove('show'); };
   Array.prototype.forEach.call($('impBody').querySelectorAll('input[name="impMode"]'),function(r){ r.onchange=function(){ impCtx.listMode=(r.value==='list'); renderImportModal(); }; });
+  if($('impDupUpc')) $('impDupUpc').onchange=function(){ impCtx.allowDupUpc=$('impDupUpc').checked; };
+  if($('impDupCode')) $('impDupCode').onchange=function(){ impCtx.allowDupCode=$('impDupCode').checked; };
   if(APP_MODE==='UPC'){
     var __vs=$('impVender');
     if(__vs){
@@ -4004,7 +4015,7 @@ function confirmImportThenRun(){
     if(miss.length) lines.push('무시: '+miss.map(function(m){ return m.header; }).join(', '));
   });
   lines.push('');
-  lines.push(APP_MODE==='UPC'?'같은 업체에서 UPC · ITEM CODE 가 같으면 업데이트, 아니면 새 행 · UPC 6자리 이하 제외':('"'+((fieldByKey(big,keyF)||{}).label||'PLU')+'" 가 같으면 업데이트, 없으면 새 행'));
+  lines.push(APP_MODE==='UPC'?('같은 업체에서 UPC · ITEM CODE 가 같으면 업데이트, 아니면 새 행 · UPC 6자리 이하 제외'+(($('impDupUpc')&&!$('impDupUpc').checked)?' · 중복 UPC 건너뜀':'')+(($('impDupCode')&&!$('impDupCode').checked)?' · 중복 ITEM CODE 건너뜀':'')):('"'+((fieldByKey(big,keyF)||{}).label||'PLU')+'" 가 같으면 업데이트, 없으면 새 행'));
   if(APP_MODE==='UPC'){
     var __vc=$('impVender')?$('impVender').value:'';
     if(__vc){ var __vo=(__venderList||[]).filter(function(v){ return v.code===__vc; })[0]; lines.push('업체: '+__vc+(__vo&&__vo.name?' ('+__vo.name+')':'')); }
@@ -4027,7 +4038,9 @@ function runImport(){
     wipeEmpty:($('impWipe')?$('impWipe').checked:false),
     routeByPlu:($('impRoute')?$('impRoute').checked:false),
     vender:(APP_MODE==='UPC'&&$('impVender'))?String($('impVender').value||'').toUpperCase():'',
-    listMode:!!impCtx.listMode
+    listMode:!!impCtx.listMode,
+    allowDupUpc:($('impDupUpc')?$('impDupUpc').checked:true),
+    allowDupCode:($('impDupCode')?$('impDupCode').checked:true)
   };
   if(!opts.sheets.length){ showToast('가져올 시트를 선택하세요','error'); return; }
   if(opts.store&&S.stores.indexOf(opts.store)<0) S.stores.push(opts.store); /* 감지된 새 매장 등록 */
@@ -4040,7 +4053,7 @@ function runImport(){
   renderBigTabs(); renderSubTabs(); /* 부서 라우팅으로 소분류가 자동 생성됐을 수 있음 */
   saveState(); $('impOv').classList.remove('show'); renderStoreBar(); renderContent();
   if(res.excl){ var __ex=[]; for(var __ek in res.excl) __ex.push(__ek+' '+res.excl[__ek]+'행'); uiAlert('규칙에 따라 제외된 행: '+__ex.join(' · ')+'\n(업데이트 '+res.upd+' · 추가 '+res.add+')','업체 리스트 파일 제외 행'); }
-  showToast('불러오기 완료 — 업데이트 '+res.upd+' · 추가 '+res.add+(res.shortUpc?' · UPC 6자리 이하 제외 '+res.shortUpc:'')+(res.trashed?' · TRASH 일치 무시 '+res.trashed:'')+(res.skipped?' · 기준값 없음 건너뜀 '+res.skipped:'')+(res.moved?' · 소분류 이동 '+res.moved:'')+(res.dept?' · DEPARTMENT 라우팅 '+res.dept:'')+(res.unhid?' · 숨김 해제 '+res.unhid+'필드':'')+(res.fml?' · 엑셀 함수 적용 '+res.fml:'')+(res.storesAdded?' · 매장 추가 '+res.storesAdded:''),'success');
+  showToast('불러오기 완료 — 업데이트 '+res.upd+' · 추가 '+res.add+(res.shortUpc?' · UPC 6자리 이하 제외 '+res.shortUpc:'')+(res.dupUpc?' · 중복 UPC 건너뜀 '+res.dupUpc:'')+(res.dupCode?' · 중복 ITEM CODE 건너뜀 '+res.dupCode:'')+(res.trashed?' · TRASH 일치 무시 '+res.trashed:'')+(res.skipped?' · 기준값 없음 건너뜀 '+res.skipped:'')+(res.moved?' · 소분류 이동 '+res.moved:'')+(res.dept?' · DEPARTMENT 라우팅 '+res.dept:'')+(res.unhid?' · 숨김 해제 '+res.unhid+'필드':'')+(res.fml?' · 엑셀 함수 적용 '+res.fml:'')+(res.storesAdded?' · 매장 추가 '+res.storesAdded:''),'success');
   if(res.fmlFail&&res.fmlFail.length) uiAlert('엑셀 함수를 적용하지 못한 열 '+res.fmlFail.length+'건 (기존 수식 유지):\n'+res.fmlFail.slice(0,20).join('\n')+(res.fmlFail.length>20?'\n…':''),'수식 변환 결과');
   /* [디버깅 지원] 매칭 기준을 지정했는데 기존 행 업데이트가 0건 = PLU 값이 하나도 일치하지 않음 */
   if(opts.matchKey&&res.upd===0&&res.add>0){
@@ -4135,6 +4148,9 @@ function applyImport(opts){
   var stats={upd:0,add:0,moved:0,bigs:{}};
   stats.bigs[big]=1;
   var __trashIx=trashIndex(); /* [TRASH] UPC+ITEM CODE 일치 행 무시 */
+  /* [중복 허용 2026-10-01] 체크 해제 시 이미 있는 UPC / ITEM CODE 의 새 행은 건너뜀 (대분류 전체 기준) */
+  var __chkDup=(opts.allowDupUpc===false||opts.allowDupCode===false), __upcSet={}, __codeSet={};
+  if(__chkDup&&mF){ subs.forEach(function(sb){ rowsFor(big,sb).forEach(function(r){ var u=matchNorm(r.v?r.v[mF.key]:''); if(u) __upcSet[u]=1; if(__icF0){ var c=normKey(getCell(r,__icF0,'')); if(c) __codeSet[c]=1; } }); }); }
   /* [MODULE 22 · DEPT] DEPARTMENT 열 라우팅 — 번호→대분류(설정 메뉴), 청과는 PLU 범위→소분류 */
   function tabOf(bg){ for(var i=0;i<S.tabs.length;i++){ if(S.tabs[i].label===bg) return S.tabs[i]; } return null; }
   function deptBigOf(n){ for(var i=0;i<S.tabs.length;i++){ var L=S.tabs[i].label; if(S.deptMap&&S.deptMap[L]!=null&&parseInt(S.deptMap[L],10)===n) return L; } return null; }
@@ -4304,6 +4320,12 @@ function applyImport(opts){
         }
         stats.upd++;
       }else{
+        if(__chkDup&&mF){
+          var __nu=matchNorm(vals[mF.key]), __nc=normKey(vals.VENDER_ITEM_CODE==null?'':vals.VENDER_ITEM_CODE);
+          if(opts.allowDupUpc===false&&__nu&&__upcSet[__nu]){ stats.dupUpc=(stats.dupUpc||0)+1; continue; }
+          if(opts.allowDupCode===false&&__nc&&__codeSet[__nc]){ stats.dupCode=(stats.dupCode||0)+1; continue; }
+          if(__nu) __upcSet[__nu]=1; if(__nc) __codeSet[__nc]=1;
+        }
         var nr={id:newId(),v:{},sv:{}};
         for(var k2 in vals){
           var f2=fieldByKey(rowBig,k2); if(!f2) continue;
