@@ -1186,6 +1186,8 @@ var DEFAULT_STORES=['TACOMA','FEDERALWAY','BELLEVUE','BALLARD','REDMOND','LYNNWO
 var VENDOR_BY_BIG={};
 /* [UPC MANAGER 연계 2026-09] 로컬 전용 모드 — true 면 Firebase 자동 접속·동기화 전부 끔 (로컬 저장만) */
 var FB_LOCAL_ONLY=false;
+var SYNC_LATEST_WINS=false; /* [UPC 2026-10] 동기화: 가장 최근 수정본이 항상 우선(충돌 팝업 없음) + 실시간 반영 + 동기화 로그 */
+var TRASH_ENABLED=false;    /* [UPC 2026-10] 삭제 행 → TRASH(UPC·ITEM CODE·VENDER) 보관 · 불러오기 시 TRASH 와 UPC+ITEM CODE 일치 행 무시 */
 /* [UPC MANAGER 연계 2026-09] 앱 모드 — 'PLU' | 'UPC'. UPC 모드 전용 기능:
    ④ 같은 UPC 값 행의 UPC 셀을 같은 바탕색으로 표시 ⑤ USE 열 불러오기 값 정규화(1=사용중 · 0=사용중지) */
 var APP_MODE='PLU';
@@ -1532,6 +1534,9 @@ function migrate(st){
   if(!st.flags) st.flags={};
   if(st.dirtySinceSync==null) st.dirtySinceSync=fbRowsTotal(st)>0; /* [MODULE 26] 이전 파일 데이터는 미전송으로 간주 */
   if(st.fbLastSync===undefined) st.fbLastSync=null;
+  if(!Array.isArray(st.trash)) st.trash=[];       /* [TRASH] {upc,code,vender,at} */
+  if(!Array.isArray(st.syncLog)) st.syncLog=[];   /* [SYNC LOG] {at,dir,n,by,note} — 로컬 사본 */
+  if(st.dirtyAt===undefined) st.dirtyAt=null;
   if(!st.flags.store99v1){ st.flags.store99v1=1; try{ collectStoresFromData(st); }catch(e){} } /* LOCATION 99 행 → EGMM 매장 자동 등록 */
   /* [요구 2026-09] item_type 값 매핑 기본값 — 넘어오는 1 → 10(Weight Item), 2 → 0(Normal Item) */
   if(!st.flags.vmapV1){
@@ -2450,8 +2455,11 @@ var PLU_MENU=[
   { id:'delall',  label:'전체삭제',      run:function(){ delAllRows(); } },
   { id:'dept',    label:'DEPARTMENT 설정', run:function(){ openDeptModal(); } },                     /* [MODULE 22] */
   { id:'fieldfx', label:'필드 기능 추가', run:function(){ openFieldFxModal(); } },                    /* [MODULE 23] */
+  { id:'trash',   label:'TRASH',         run:function(){ openTrash(); }, only:'TRASH' },                 /* [UPC 2026-10] */
+  { id:'synclog', label:'동기화 로그',   run:function(){ openSyncLog(); }, only:'SYNC' },               /* [UPC 2026-10] */
   { id:'guide',   label:'입력 · 관리 가이드', run:function(){ openGuide(); } }                         /* [2026-09-30] 서브메뉴 맨 아래 */
 ];
+PLU_MENU=PLU_MENU.filter(function(m){ return !m.only||(m.only==='TRASH'&&TRASH_ENABLED)||(m.only==='SYNC'&&SYNC_LATEST_WINS); });
 /* [2026-09-30] 입력 및 관리 가이드 — 번호 목록 팝업 (PLU / UPC 모드별 내용) */
 var GUIDE_PLU=[
   ['카테고리','상위(대분류) 탭 → 중간 카테고리를 고른 뒤 작업합니다. 청과는 PLU 번호로 중간 카테고리 자동 배치 (1000 야채 · 2000 과일 · 3000 로컬 · 80000 박스 · 90000 유기농).'],
@@ -2471,7 +2479,9 @@ var GUIDE_UPC=[
   ['매칭 결과 확인','실행 전 팝업에 열마다 "이 열 → 이 필드" 가 표시됩니다. ✓ = 연결됨(유사 이름이면 표시), ✗ = 매칭 없음 → 그 열은 무시. 같은 필드가 이미 다른 열에 연결되면 뒤의 열은 무시됩니다 (예: PLU 열과 Barcode 열이 함께 있으면 PLU 만 UPC 로). UPC 열이 하나도 없으면 오류로 중단. 매칭 안 되는 열은 엑셀 1행 이름을 앱 필드명과 똑같이 고치면 됩니다.'],
   ['업데이트 규칙','UPC가 같은 행은 업데이트, 없으면 새 행. UPC와 ITEM CODE가 모두 같은 행은 무시. UPC가 빈 행은 건너뜀. 실행 전 확인 팝업을 확인하세요.'],
   ['표시','같은 UPC 행은 UPC 칸이 같은 색. USE 미체크 행은 회색 취소선. 검색은 Enter, 번호는 쉼표로 여러 개.'],
-  ['저장','모든 변경은 즉시 자동 저장되고 Firebase(UPC-LIST)에 자동 동기화됩니다. 상단 칩에서 상태 확인.']
+  ['저장','모든 변경은 즉시 자동 저장되고 Firebase(UPC-LIST)에 자동 동기화됩니다. 상단 칩에서 상태 확인.'],
+  ['동기화 규칙','여러 컴퓨터에서 쓸 때 가장 최근에 수정된 쪽이 항상 기준입니다(충돌 선택 없음). 다른 컴퓨터가 저장하면 이 화면에도 바로 반영되고, 메뉴 > 동기화 로그에 날짜·시간·방향(전송/반영)·컴퓨터가 기록됩니다.'],
+  ['TRASH','리스트에서 삭제한 행은 UPC · ITEM CODE · VENDER 3개만 TRASH 에 보관됩니다(메뉴 > TRASH). 엑셀 불러오기 때 TRASH 와 UPC·ITEM CODE 가 모두 같은 행은 무조건 무시되어 쓰레기가 다시 쌓이지 않습니다. TRASH 에서 제거하면 다시 등록 가능.']
 ];
 function openGuide(){
   var ov=$('gdOv');
@@ -2959,9 +2969,42 @@ async function delAllRows(){
   /* [요구] 2회 확인 */
   if(!(await uiConfirm('카테고리 상품 리스트를 전체 삭제할까요?\n대상 카테고리: '+scope+'\n전체 '+all.length+'행'+(inUse?' (사용중 체크 '+inUse+'행 포함 — 함께 삭제됩니다)':''),'전체삭제 (1/2)'))) return;
   if(!(await uiConfirm('정말 삭제합니다 — 되돌릴 수 없습니다.\n'+scope+' 의 '+all.length+'행 전체'+(inUse?' (사용중 '+inUse+'행 포함)':'')+'를 삭제할까요?','전체삭제 최종 확인 (2/2)'))) return;
+  var __tr=trashAddRows(curBig(),all.slice());
   all.length=0; /* 전체 비움 — 예외 없음 */
   selRows={}; saveState(); renderContent();
-  showToast('전체삭제 완료 — '+scope+' 전체 삭제됨','success');
+  showToast('전체삭제 완료 — '+scope+' 전체 삭제됨'+(__tr?' · TRASH 보관 '+__tr:''),'success');
+}
+/* ═══ [TRASH · UPC 2026-10] 삭제한 행 보관 — UPC · ITEM CODE · VENDER 3개 필드만 ═══ */
+function trashKeyOf(upc,code){ return normKey(String(upc||'').replace(/\D/g,'').replace(/^0+/,''))+'|'+normKey(code); }
+function trashAddRows(big,rows){
+  if(!TRASH_ENABLED||!rows||!rows.length) return 0;
+  var pf=fieldByKey(big,'ITEM_PLU')||fieldByKey(big,'PLU'), cf=fieldByKey(big,'VENDER_ITEM_CODE'), vf=fieldByKey(big,'VENDER_VENDER');
+  if(!pf) return 0;
+  var seen={}; (S.trash||[]).forEach(function(t){ seen[trashKeyOf(t.upc,t.code)]=1; });
+  var n=0, at=new Date().toISOString();
+  rows.forEach(function(r){
+    var upc=String(getCell(r,pf,'')||'').trim(); if(!upc) return;
+    var code=cf?String(getCell(r,cf,'')||'').trim():'', vend=vf?String(getCell(r,vf,'')||'').trim():'';
+    var k=trashKeyOf(upc,code); if(seen[k]) return; seen[k]=1;
+    S.trash.push({ upc:upc, code:code, vender:vend, at:at }); n++;
+  });
+  return n;
+}
+/* 불러오기용: TRASH 의 UPC+ITEM CODE 가 모두 같은 행은 무시 */
+function trashIndex(){ var ix={}; if(TRASH_ENABLED){ (S.trash||[]).forEach(function(t){ if(t.code) ix[trashKeyOf(t.upc,t.code)]=1; }); } return ix; }
+function openTrash(){
+  var list=(S.trash||[]).slice().reverse();
+  var h='<b style="font-size:15px">TRASH — 삭제한 상품 보관 ('+list.length+'건)</b>'
+    +'<div style="margin:6px 0 10px;color:var(--ink-dim,#777)">리스트에서 삭제한 행의 UPC · ITEM CODE · VENDER 만 보관합니다. 엑셀 불러오기 때 UPC 와 ITEM CODE 가 모두 같은 행은 자동으로 무시됩니다. (다른 컴퓨터와 함께 동기화)</div>'
+    +'<div style="max-height:56vh;overflow:auto;border:1px solid var(--line,#ddd);border-radius:8px">'
+    +'<table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="position:sticky;top:0;background:var(--panel-2,#f4f4f4)"><th style="text-align:left;padding:6px 8px">UPC</th><th style="text-align:left;padding:6px 8px">ITEM CODE</th><th style="text-align:left;padding:6px 8px">VENDER</th><th style="text-align:left;padding:6px 8px">삭제 시각</th><th></th></tr></thead><tbody>'
+    +(list.length?list.map(function(t){ return '<tr><td style="padding:5px 8px;border-top:1px solid var(--line,#eee)">'+escapeHtml(t.upc)+'</td><td style="padding:5px 8px;border-top:1px solid var(--line,#eee)">'+escapeHtml(t.code)+'</td><td style="padding:5px 8px;border-top:1px solid var(--line,#eee)">'+escapeHtml(t.vender)+'</td><td style="padding:5px 8px;border-top:1px solid var(--line,#eee);white-space:nowrap">'+escapeHtml(String(t.at||'').slice(0,19).replace('T',' '))+'</td><td style="padding:5px 8px;border-top:1px solid var(--line,#eee)"><button class="plu-tool-btn" data-tk="'+escapeHtml(trashKeyOf(t.upc,t.code))+'" style="padding:2px 8px">제거</button></td></tr>'; }).join(''):'<tr><td colspan="5" style="padding:18px;text-align:center;color:var(--ink-dim,#777)">비어 있음</td></tr>')
+    +'</tbody></table></div>'
+    +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button id="trashEmpty" class="plu-tool-btn">TRASH 비우기</button><button id="trashClose" class="plu-tool-btn plu-imp-go">닫기</button></div>';
+  var ov=__fbOverlay('trashOv',h);
+  $('trashClose').onclick=function(){ __fbClose('trashOv'); };
+  $('trashEmpty').onclick=async function(){ if(!(await uiConfirm('TRASH 를 전부 비울까요? (비우면 불러오기 때 다시 등록될 수 있습니다)'))) return; S.trash=[]; saveState(); __fbClose('trashOv'); showToast('TRASH 비움','success'); };
+  Array.prototype.forEach.call(ov.querySelectorAll('button[data-tk]'),function(b){ b.onclick=function(){ var k=b.getAttribute('data-tk'); S.trash=(S.trash||[]).filter(function(t){ return trashKeyOf(t.upc,t.code)!==k; }); saveState(); openTrash(); }; });
 }
 async function delSelected(){
   var ids=Object.keys(selRows); if(!ids.length){ showToast('삭제할 행을 선택하세요','error'); return; }
@@ -2975,13 +3018,15 @@ async function delSelected(){
     return;
   }
   if(!(await uiConfirm(delCnt+'개 행을 삭제할까요?'+(prot?'\n(사용중 체크 '+prot+'행은 보호되어 삭제되지 않습니다)':'')))) return;
+  var __tr=0;
   if(gsActive()){ /* [전역 검색] 각 행을 원래 카테고리에서 제거 */
-    for(var gid in delIds){ var m=__gsMap[gid]; if(!m) continue; var arr=((S.data[m.big]||{})[m.sub])||[]; var ix=-1; for(var j=0;j<arr.length;j++){ if(arr[j].id===gid){ ix=j; break; } } if(ix>=0) arr.splice(ix,1); }
+    for(var gid in delIds){ var m=__gsMap[gid]; if(!m) continue; var arr=((S.data[m.big]||{})[m.sub])||[]; var ix=-1; for(var j=0;j<arr.length;j++){ if(arr[j].id===gid){ ix=j; break; } } if(ix>=0){ __tr+=trashAddRows(m.big,[arr[ix]]); arr.splice(ix,1); } }
   } else {
+    __tr+=trashAddRows(curBig(),rows.filter(function(r){ return !!delIds[r.id]; }));
     for(var i=rows.length-1;i>=0;i--){ if(delIds[rows[i].id]) rows.splice(i,1); }
   }
   selRows={}; saveState(); renderContent();
-  showToast('삭제됨 '+delCnt+'행'+(prot?' · 사용중 보호 '+prot+'행':''),'success');
+  showToast('삭제됨 '+delCnt+'행'+(prot?' · 사용중 보호 '+prot+'행':'')+(__tr?' · TRASH 보관 '+__tr:''),'success');
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -3979,7 +4024,7 @@ function runImport(){
   renderBigTabs(); renderSubTabs(); /* 부서 라우팅으로 소분류가 자동 생성됐을 수 있음 */
   saveState(); $('impOv').classList.remove('show'); renderStoreBar(); renderContent();
   if(res.excl){ var __ex=[]; for(var __ek in res.excl) __ex.push(__ek+' '+res.excl[__ek]+'행'); uiAlert('규칙에 따라 제외된 행: '+__ex.join(' · ')+'\n(업데이트 '+res.upd+' · 추가 '+res.add+')','업체 리스트 파일 제외 행'); }
-  showToast('불러오기 완료 — 업데이트 '+res.upd+' · 추가 '+res.add+(res.same?' · UPC+ITEM CODE 동일 무시 '+res.same:'')+(res.skipped?' · 기준값 없음 건너뜀 '+res.skipped:'')+(res.moved?' · 소분류 이동 '+res.moved:'')+(res.dept?' · DEPARTMENT 라우팅 '+res.dept:'')+(res.unhid?' · 숨김 해제 '+res.unhid+'필드':'')+(res.fml?' · 엑셀 함수 적용 '+res.fml:'')+(res.storesAdded?' · 매장 추가 '+res.storesAdded:''),'success');
+  showToast('불러오기 완료 — 업데이트 '+res.upd+' · 추가 '+res.add+(res.same?' · UPC+ITEM CODE 동일 무시 '+res.same:'')+(res.trashed?' · TRASH 일치 무시 '+res.trashed:'')+(res.skipped?' · 기준값 없음 건너뜀 '+res.skipped:'')+(res.moved?' · 소분류 이동 '+res.moved:'')+(res.dept?' · DEPARTMENT 라우팅 '+res.dept:'')+(res.unhid?' · 숨김 해제 '+res.unhid+'필드':'')+(res.fml?' · 엑셀 함수 적용 '+res.fml:'')+(res.storesAdded?' · 매장 추가 '+res.storesAdded:''),'success');
   if(res.fmlFail&&res.fmlFail.length) uiAlert('엑셀 함수를 적용하지 못한 열 '+res.fmlFail.length+'건 (기존 수식 유지):\n'+res.fmlFail.slice(0,20).join('\n')+(res.fmlFail.length>20?'\n…':''),'수식 변환 결과');
   /* [디버깅 지원] 매칭 기준을 지정했는데 기존 행 업데이트가 0건 = PLU 값이 하나도 일치하지 않음 */
   if(opts.matchKey&&res.upd===0&&res.add>0){
@@ -4070,6 +4115,7 @@ function applyImport(opts){
   var pluF=fieldByKey(big,'ITEM_PLU')||fieldByKey(big,'PLU'); /* 델리 사양 레이아웃(ITEM_PLU) 지원 */
   var stats={upd:0,add:0,moved:0,bigs:{}};
   stats.bigs[big]=1;
+  var __trashIx=trashIndex(); /* [TRASH] UPC+ITEM CODE 일치 행 무시 */
   /* [MODULE 22 · DEPT] DEPARTMENT 열 라우팅 — 번호→대분류(설정 메뉴), 청과는 PLU 범위→소분류 */
   function tabOf(bg){ for(var i=0;i<S.tabs.length;i++){ if(S.tabs[i].label===bg) return S.tabs[i]; } return null; }
   function deptBigOf(n){ for(var i=0;i<S.tabs.length;i++){ var L=S.tabs[i].label; if(S.deptMap&&S.deptMap[L]!=null&&parseInt(S.deptMap[L],10)===n) return L; } return null; }
@@ -4210,6 +4256,8 @@ function applyImport(opts){
         if(__vv){ ensureSub(rowBig,__vv); dest=__vv; rowSubs=(tabOf(rowBig).subs)||rowSubs; }
       }
 
+      /* [TRASH · 2026-10] 삭제 보관함에 UPC+ITEM CODE 가 모두 있는 행은 무조건 무시 (쓰레기 재등록 방지) */
+      if(TRASH_ENABLED&&mF&&vals.VENDER_ITEM_CODE!=null&&normKey(vals.VENDER_ITEM_CODE)!==''&&__trashIx[trashKeyOf(vals[mF.key],vals.VENDER_ITEM_CODE)]){ stats.trashed=(stats.trashed||0)+1; continue; }
       /* [요구 2026-09-30 · UPC 모드] 기존 행과 UPC · ITEM CODE 가 모두 같으면 그 행은 아예 무시(변경 없음) */
       if(APP_MODE==='UPC'&&hit&&vals.VENDER_ITEM_CODE!=null){
         var __icF=fieldByKey(rowBig,'VENDER_ITEM_CODE');
@@ -5871,6 +5919,7 @@ var FB_CHUNK=600000; /* base64 문자 — 문서 1MB 제한 대비 여유 */
 function fbConfigChunks(st){
   var clone=fbClean(st); clone.data={};
   delete clone.ui; delete clone.dirtySinceSync; delete clone.fbLastSync; /* [MODULE 26] 탭 이동·동기화 플래그는 CONFIG 변경으로 치지 않음 */
+  delete clone.syncLog; delete clone.dirtyAt; /* [2026-10] 동기화 로그·수정 시각은 로컬 전용 (핑퐁 방지) */
   (clone.tabs||[]).forEach(function(t){ clone.data[t.label]={}; (t.subs||[]).forEach(function(sb){ clone.data[t.label][sb]=[]; }); });
   var json=JSON.stringify(clone), fmt='JS', payload=json;
   if(typeof pako!=='undefined'){ fmt='GZ'; payload=__u8ToB64(pako.gzip(new TextEncoder().encode(json))); }
@@ -6044,8 +6093,55 @@ var __fbMuting=false;   /* 동기화 자신이 하는 저장(플래그·복원 �
 var __fbState='off';    /* off|wait|run|ok|err|conflict|names|hold */
 var __fbErrMsg='', __fbNamesAsked='', __fbConflict=null;
 
+/* ═══ [SYNC LOG · UPC 2026-10] 동기화 날짜·시간 기록 — 로컬(S.syncLog) + Firebase FB_ROOT/_SYNCLOG (두 컴퓨터 공용, 최근 300건) ═══ */
+function fbDeviceId(){ try{ var k='pluDeviceId', v=localStorage.getItem(k); if(!v){ v='PC-'+Math.random().toString(36).slice(2,6).toUpperCase(); localStorage.setItem(k,v); } return v; }catch(e){ return 'PC'; } }
+function fbLogSync(dir,n,note){
+  if(!SYNC_LATEST_WINS||!S) return;
+  var e={ at:new Date().toISOString(), dir:dir, n:n||0, by:fbDeviceId(), note:note||'' };
+  S.syncLog.push(e); if(S.syncLog.length>300) S.syncLog=S.syncLog.slice(-300);
+  __fbMuting=true; saveState(); __fbMuting=false;
+  if(__fbConn){ try{ var M=__fbConn.M, db=__fbConn.db, ref=M.fs.doc(db,FB_ROOT,'_SYNCLOG');
+    M.fs.getDoc(ref).then(function(sn){ var arr=(sn.exists()&&sn.data()&&Array.isArray(sn.data().list))?sn.data().list:[]; arr.push(e); if(arr.length>300) arr=arr.slice(-300); return M.fs.setDoc(ref,{ list:arr, updatedAt:e.at }); }).catch(function(){}); }catch(e2){} }
+}
+function openSyncLog(){
+  var render=function(list,src){
+    list=(list||[]).slice().reverse();
+    var h='<b style="font-size:15px">동기화 로그 ('+src+' · 최근 '+list.length+'건)</b>'
+      +'<div style="margin:6px 0 10px;color:var(--ink-dim,#777)">이 컴퓨터 = <b>'+escapeHtml(fbDeviceId())+'</b> · 전송 = 이 컴퓨터 → Firebase · 반영 = Firebase 최신본 → 이 컴퓨터. 가장 최근에 수정된 쪽이 항상 기준이 됩니다.</div>'
+      +'<div style="max-height:56vh;overflow:auto;border:1px solid var(--line,#ddd);border-radius:8px"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="position:sticky;top:0;background:var(--panel-2,#f4f4f4)"><th style="text-align:left;padding:6px 8px">날짜 · 시간</th><th style="text-align:left;padding:6px 8px">방향</th><th style="text-align:left;padding:6px 8px">컴퓨터</th><th style="text-align:right;padding:6px 8px">문서</th><th style="text-align:left;padding:6px 8px">비고</th></tr></thead><tbody>'
+      +(list.length?list.map(function(e){ var d=new Date(e.at); var ds=isNaN(d)?String(e.at):(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0'));
+          return '<tr><td style="padding:5px 8px;border-top:1px solid var(--line,#eee);white-space:nowrap">'+escapeHtml(ds)+'</td><td style="padding:5px 8px;border-top:1px solid var(--line,#eee)">'+(e.dir==='push'?'⬆ 전송':'⬇ 반영')+'</td><td style="padding:5px 8px;border-top:1px solid var(--line,#eee)">'+escapeHtml(e.by||'')+'</td><td style="padding:5px 8px;border-top:1px solid var(--line,#eee);text-align:right">'+escapeHtml(String(e.n||0))+'</td><td style="padding:5px 8px;border-top:1px solid var(--line,#eee)">'+escapeHtml(e.note||'')+'</td></tr>'; }).join(''):'<tr><td colspan="5" style="padding:18px;text-align:center;color:var(--ink-dim,#777)">기록 없음</td></tr>')
+      +'</tbody></table></div><div style="display:flex;justify-content:flex-end;margin-top:12px"><button id="syncLogClose" class="plu-tool-btn plu-imp-go">닫기</button></div>';
+    __fbOverlay('syncLogOv',h); $('syncLogClose').onclick=function(){ __fbClose('syncLogOv'); };
+  };
+  render(S.syncLog,'이 컴퓨터');
+  fbConnect().then(function(conn){ return conn.M.fs.getDoc(conn.M.fs.doc(conn.db,FB_ROOT,'_SYNCLOG')); })
+    .then(function(sn){ if(sn.exists()&&sn.data()&&Array.isArray(sn.data().list)&&$('syncLogOv')) render(sn.data().list,'Firebase · 모든 컴퓨터'); }).catch(function(){});
+}
+/* [최신본 우선] 원격 savedAt 과 이 컴퓨터 마지막 수정 시각 비교 — 원격이 더 최근이면 true (원격 반영) */
+function fbRemoteNewer(remoteSavedAt){
+  if(!S.dirtySinceSync) return true;
+  var r=Date.parse(remoteSavedAt||'')||0, l=Date.parse(S.dirtyAt||'')||0;
+  return r>=l;
+}
+var __fbWatchOff=null, __fbWatchBusy=false;
+/* [실시간 반영] _META 구독 — 다른 컴퓨터가 기록하면 바로 최신본 적용 (Google Drive · OneDrive 처럼) */
+function fbWatchStart(conn){
+  if(!SYNC_LATEST_WINS||__fbWatchOff) return;
+  var M=conn.M, db=conn.db;
+  try{ __fbWatchOff=M.fs.onSnapshot(M.fs.doc(db,FB_ROOT,'_META'),function(sn){
+    if(!S||__fbSyncRunning||__fbWatchBusy) return;
+    var meta=(sn.exists()&&sn.data()&&sn.data().ver==='v3')?sn.data():null;
+    if(!meta||!meta.savedAt||meta.savedAt===S.fbLastSync) return;
+    if(!fbRemoteNewer(meta.savedAt)){ __fbMuting=true; S.fbLastSync=meta.savedAt; saveState(); __fbMuting=false; __fbLast=null; fbSyncQueue(300); return; } /* 이 컴퓨터가 더 최근 → 덮어쓰기 전송 */
+    __fbWatchBusy=true;
+    fbPullApply(conn).then(function(r){ fbLogSync('pull',r.got,'다른 컴퓨터 수정 실시간 반영'); showToast('다른 컴퓨터의 최신본 반영 — 상품 '+r.got+'건','success'); })
+      .catch(function(e){ __fbState='err'; __fbErrMsg=String((e&&e.message)||e); renderSaveChip(); })
+      .finally(function(){ __fbWatchBusy=false; });
+  },function(){}); }catch(e){}
+}
 function fbRowsTotal(st){ var n=0,d=(st&&st.data)||{}; for(var b in d){ var ss=d[b]; for(var s2 in ss){ if(Array.isArray(ss[s2])) n+=ss[s2].length; } } return n; }
-function fbSyncTouch(){ if(__fbMuting||!S) return; S.dirtySinceSync=true; if(__fbState!=='conflict') fbSyncQueue(); else renderSaveChip(); }
+function fbSyncTouch(){ if(__fbMuting||!S) return; S.dirtySinceSync=true; S.dirtyAt=new Date().toISOString(); if(__fbState!=='conflict') fbSyncQueue(); else renderSaveChip(); }
 function fbSyncQueue(ms){
   if(__fbState==='conflict'){ renderSaveChip(); return; }
   clearTimeout(__fbSyncTimer);
@@ -6102,8 +6198,14 @@ async function fbSyncRun(){
     var ms=await M.fs.getDoc(M.fs.doc(db,FB_ROOT,'_META'));
     var meta=(ms.exists()&&ms.data()&&ms.data().ver==='v3')?ms.data():null;
     if(meta&&meta.savedAt&&S.fbLastSync!==meta.savedAt){
-      /* 다른 컴퓨터가 그 사이에 기록 — 미전송 수정이 있으므로 자동 결정 불가 */
-      __fbConflict={remote:meta.savedAt}; __fbState='conflict'; fbConflictPopup(); return;
+      if(SYNC_LATEST_WINS){
+        /* [최신본 우선] 원격이 더 최근이면 원격 반영(이 컴퓨터의 더 오래된 수정은 버림), 아니면 계보 승계 후 전체 덮어쓰기 */
+        if(fbRemoteNewer(meta.savedAt)){ var rr=await fbPullApply(conn); fbLogSync('pull',rr.got,'원격이 더 최근 → 반영'); showToast('Firebase 최신본 반영 — 상품 '+rr.got+'건','success'); return; }
+        __fbMuting=true; S.fbLastSync=meta.savedAt; saveState(); __fbMuting=false; __fbLast=null;
+      } else {
+        /* 다른 컴퓨터가 그 사이에 기록 — 미전송 수정이 있으므로 자동 결정 불가 */
+        __fbConflict={remote:meta.savedAt}; __fbState='conflict'; fbConflictPopup(); return;
+      }
     }
     var plan=fbBuildPlan(S);
     if(plan.needNames.length){
@@ -6139,6 +6241,7 @@ async function fbSyncRun(){
     __fbLast=m;
     __fbMuting=true; S.fbLastSync=newMeta.savedAt; S.dirtySinceSync=false; saveState(); __fbMuting=false;
     __fbState='ok'; __fbErrMsg='';
+    fbLogSync('push',writes.length+dels.length,'수정 '+writes.length+' · 삭제 '+dels.length);
   }catch(e){
     __fbState='err'; __fbErrMsg=String((e&&(e.code||e.message))||e);
     clearTimeout(__fbRetryTimer);
@@ -6235,10 +6338,15 @@ async function fbAutoStart(){
       if(S.dirtySinceSync) fbSyncQueue(300); else __fbState='ok';
     } else if(!S.dirtySinceSync){
       var r2=await fbPullApply(conn);
+      fbLogSync('pull',r2.got,'시작 시 최신본 반영');
       showToast('Firebase 최신본 자동 반영 — 상품 '+r2.got+'건','success');
+    } else if(SYNC_LATEST_WINS){
+      if(fbRemoteNewer(meta.savedAt)){ var r3=await fbPullApply(conn); fbLogSync('pull',r3.got,'시작 시 원격이 더 최근 → 반영'); showToast('Firebase 최신본 반영 — 상품 '+r3.got+'건','success'); }
+      else { __fbMuting=true; S.fbLastSync=meta.savedAt; saveState(); __fbMuting=false; __fbLast=null; fbSyncQueue(300); }
     } else {
       __fbConflict={remote:meta.savedAt}; __fbState='conflict'; fbConflictPopup();
     }
+    fbWatchStart(conn);
   }catch(e){ __fbState='err'; __fbErrMsg=String((e&&(e.code||e.message))||e); }
   renderSaveChip();
 }
