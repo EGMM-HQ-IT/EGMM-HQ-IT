@@ -11,7 +11,7 @@
       재업로드는 쌓는 방식 — 같은 (UPC,날짜)만 새 값으로 덮고 나머지는 유지
   · UPC 비교: 숫자만 남기고 앞의 0 제거 (중간 0 유지) · 상품명 검색은 빈칸 전부 무시
   · 매장별 그래프: 날짜별 벤더 누적 막대(STI-WA 녹 · JFC 노 · WIC 주황) · 5일씩 ◀ ▶ 이동
-  · 업체별 판매 비율: 판매된 UPC 개수 기준(30일 팔려도 1개) — 도넛 2개: 판매된 아이템 기준 % / 등록된 아이템 기준 %(등록 수 대비 판매된 수) · 전체/매장별 보기
+  · 업체별 판매 비율: 도넛 2개 — 판매된 아이템 기준 = 전체 판매 수량 중 업체별 %(같은 상품 여러 번 포함) · 등록된 아이템 기준 = 팔린 UPC 종류 수 중 업체별 %(30일 팔려도 1개) · 전체/매장별 보기
   · 화면: 창 너비에 맞춰 가변(고정 폭 없음) · 글씨 최소 10px · DAY/NIGHT 모드(localStorage pluLocalTheme — EGMM·PLU/UPC 매니저와 공유, EGMM 프레임 안에서는 EGMM 버튼이 함께 전환)
 -->
 <html lang="ko">
@@ -195,7 +195,7 @@
   <div class="panel">
     <h2>매장별 판매
       <span class="vlg" id="vlg"></span>
-      <span class="right"><span class="seg" id="cMode"><button type="button" data-cmode="sold">판매된 아이템 기준</button><button type="button" data-cmode="qty" class="on">등록된 아이템 기준</button></span><button class="btn sm" id="btnUpload" type="button">⬆ 매장별 판매 데이터 업로드</button></span></h2>
+      <span class="right"><span class="seg" id="cMode"><button type="button" data-cmode="qty" class="on">판매된 아이템 기준</button><button type="button" data-cmode="sold">등록된 아이템 기준</button></span><button class="btn sm" id="btnUpload" type="button">⬆ 매장별 판매 데이터 업로드</button></span></h2>
     <div class="charts" id="charts"><div class="empty">매장 목록 불러오는 중…</div></div>
   </div>
 
@@ -228,9 +228,9 @@
     <li><b>열 규칙</b><span>A열 = UPC (맨 앞 0 무시, 7자리 이상 숫자만 인정) · C열 = 날짜 · D열 = 그날 판매 금액. A열이 비어 있는 행은 바로 위 UPC 의 다른 날짜 판매로 읽음. 소계·계·총계·Page 줄, 0/마이너스 금액은 건너뜀.</span></li>
     <li><b>판매가 · 수량</b><span>한 UPC 의 날짜별 금액 중 <b>가장 낮은 금액 = 판매가(단가)</b>. 날짜별 수량 = 그날 금액 ÷ 단가 (4.99 → 1개, 9.98 → 2개, 14.97 → 3개, 나누어떨어지지 않으면 반올림).</span></li>
     <li><b>저장 (쌓기)</b><span>매장별로 Firebase 에 압축 저장. 같은 UPC·날짜는 새 값으로 덮고 나머지 날짜는 유지 — 월마다 올리면 계속 쌓임. 업로드 전 확인 팝업에서 기간·상품수·판매수를 확인.</span></li>
-    <li><b>매장별 판매 차트</b><span>날짜별 업체 누적 막대 (STI-WA 녹색 · JFC 노란색 · WIC 오렌지색). 5일씩 표시, ◀ ▶ 로 이동. 보기 2가지 — 판매된 아이템 기준(그날 팔린 UPC 종류 수 비율, 30번 팔려도 1품목) · 등록된 아이템 기준(그날 판매 수량 비율, 같은 상품 여러 번 포함). UPC MANAGER 미등록 UPC 는 제외.</span></li>
+    <li><b>매장별 판매 차트</b><span>날짜별 업체 누적 막대 (STI-WA 녹색 · JFC 노란색 · WIC 오렌지색). 5일씩 표시, ◀ ▶ 로 이동. 보기 2가지 — 판매된 아이템 기준(그날 판매 수량 비율, 같은 상품 여러 번 포함) · 등록된 아이템 기준(그날 팔린 UPC 종류 수 비율, 30번 팔려도 1품목). UPC MANAGER 미등록 UPC 는 제외.</span></li>
     <li><b>상품 검색</b><span>UPC 또는 상품명. UPC 는 앞 0 무시, 상품명은 빈칸 무시. 결과는 판매가와 날짜 × 매장 수량표, 5개까지 표시 후 스크롤.</span></li>
-    <li><b>업체별 판매 비율</b><span>날짜와 상관없이 전체 데이터를 합쳐서 계산. 두 도넛을 나란히 표시 — <b>판매된 아이템 기준</b> = 팔린 UPC 종류 수 중 업체별 비율 (한 UPC 가 30일 팔려도 1품목), <b>등록된 아이템 기준</b> = 전체 판매 수량 중 업체별 비율 (같은 상품 여러 번 포함 — 10,000개 중 STI 5,000개면 50%). UPC MANAGER 미등록 UPC 는 제외. 전체 / 매장별 보기.</span></li>
+    <li><b>업체별 판매 비율</b><span>날짜와 상관없이 전체 데이터를 합쳐서 계산. 두 도넛을 나란히 표시 — <b>판매된 아이템 기준</b> = 전체 판매 수량 중 업체별 비율 (같은 상품 여러 번 포함 — 10,000개 중 STI 5,000개면 50%), <b>등록된 아이템 기준</b> = 팔린 UPC 종류 수 중 업체별 비율 (한 UPC 가 30일 팔려도 1품목). UPC MANAGER 미등록 UPC 는 제외. 전체 / 매장별 보기.</span></li>
     <li><b>상품 · 업체 기준</b><span>상품과 업체(VENDER) 는 UPC MANAGER 등록 데이터 기준. 상품 목록은 변경 시 자동 갱신, ↻ 새로고침으로 즉시 다시 불러옴.</span></li>
   </ol>
   <div class="guide-h">📐 데이터 산출 예시 — 실제로 이렇게 계산됩니다</div>
@@ -255,12 +255,12 @@
   <div class="guide-step"><span class="tt">⑤ 매장별 판매 차트 (날짜별 업체 누적 막대)</span>
     날짜마다 팔린 수량을 UPC MANAGER 의 VENDER 로 나눠 쌓음. 예) 9/3 에 STI-WA 상품 30개 · JFC 20개 · WIC 10개 팔림 → 막대 높이 60, 안쪽 비율 <b>STI-WA 50% · JFC 33% · WIC 17%</b>. UPC MANAGER 에 없는 UPC 는 세지 않음.</div>
   <div class="guide-step"><span class="tt">⑥ 업체별 판매 비율 — 도넛 2개</span>
-    <table class="guide-tb"><tr><th>업체</th><th>판매된 UPC (종류)</th><th>판매된 아이템 기준</th><th>판매 수량 (같은 상품 포함)</th><th>등록된 아이템 기준</th></tr>
-    <tr><td>STI-WA</td><td>400</td><td class="em">400 ÷ 600 = 67%</td><td>5,000</td><td class="em">5,000 ÷ 10,000 = 50%</td></tr>
-    <tr><td>JFC</td><td>150</td><td class="em">150 ÷ 600 = 25%</td><td>3,000</td><td class="em">3,000 ÷ 10,000 = 30%</td></tr>
-    <tr><td>WIC</td><td>50</td><td class="em">50 ÷ 600 = 8%</td><td>2,000</td><td class="em">2,000 ÷ 10,000 = 20%</td></tr>
-    <tr><td>합계</td><td>600</td><td>100%</td><td>10,000</td><td>100%</td></tr></table>
-    <b>판매된 아이템 기준</b> = "팔린 적이 있는 UPC 가 몇 종류인가" — 8801007021348 이 30일 내내 팔려도 1품목. <b>등록된 아이템 기준</b> = 팔린 개수를 전부 더한 판매 수량 — 같은 상품이 30일 동안 90개 팔리면 90개. 두 도넛 모두 합이 100%. '매장별 각각 보기'는 매장마다 같은 계산.</div>
+    <table class="guide-tb"><tr><th>업체</th><th>판매 수량 (같은 상품 포함)</th><th>판매된 아이템 기준</th><th>판매된 UPC (종류)</th><th>등록된 아이템 기준</th></tr>
+    <tr><td>STI-WA</td><td>5,000</td><td class="em">5,000 ÷ 10,000 = 50%</td><td>400</td><td class="em">400 ÷ 600 = 67%</td></tr>
+    <tr><td>JFC</td><td>3,000</td><td class="em">3,000 ÷ 10,000 = 30%</td><td>150</td><td class="em">150 ÷ 600 = 25%</td></tr>
+    <tr><td>WIC</td><td>2,000</td><td class="em">2,000 ÷ 10,000 = 20%</td><td>50</td><td class="em">50 ÷ 600 = 8%</td></tr>
+    <tr><td>합계</td><td>10,000</td><td>100%</td><td>600</td><td>100%</td></tr></table>
+    <b>판매된 아이템 기준</b> = 팔린 개수를 전부 더한 판매 수량 — 같은 상품이 30일 동안 90개 팔리면 90개. <b>등록된 아이템 기준</b> = "팔린 적이 있는 UPC 가 몇 종류인가" — 8801007021348 이 30일 내내 팔려도 1품목. 두 도넛 모두 합이 100%. '매장별 각각 보기'는 매장마다 같은 계산.</div>
   <div class="guide-step"><span class="tt">⑦ 상품 검색 결과</span>
     검색한 UPC 의 <b>판매가</b>(매장별 단가 중 가장 낮은 값)와 <b>날짜 × 매장 수량표</b>. 날짜는 최근순, 맨 아래 합계. 검색 "8801007021348" · "08801007021348" · "신라면5입" 모두 같은 상품.</div>
 </div></div>
@@ -460,7 +460,7 @@
 
   /* ── 매장별 그래프: 날짜별 벤더 누적 막대 · 5일씩 ◀ ▶ ── */
   var pageOf={}; /* store → 끝 인덱스(최근쪽) */
-  var cMode='qty'; /* sold=판매된 아이템 기준(그날 팔린 UPC 종류 수 비율) · qty=등록된 아이템 기준(그날 판매 수량 비율, 같은 상품 여러 번 포함) */
+  var cMode='qty'; /* qty=판매된 아이템 기준(그날 판매 수량 비율, 같은 상품 여러 번 포함) · sold=등록된 아이템 기준(그날 팔린 UPC 종류 수 비율) */
   function vendorSplitDay(dm){ var by={}, total=0; for(var u in dm){ var q=dm[u].q; if(!q) continue; var v=vendorOf(u); if(!v) continue; by[v]=(by[v]||0)+q; total+=q; } return {by:by,total:total}; }
   function vendorSoldDay(dm){ var by={}, total=0; for(var u in dm){ if(!dm[u].q) continue; var v=vendorOf(u); if(!v) continue; by[v]=(by[v]||0)+1; total++; } return {by:by,total:total}; }
   function renderCharts(){
@@ -556,25 +556,25 @@
     ctx.fillStyle=C.faint; ctx.font='700 '+(big?10.5:10)+'px Pretendard,sans-serif'; ctx.fillText(sub,cx,cy+(big?11:9));
   }
   function mkCanvas(){ return document.createElement('canvas'); }
-  /* 판매된 아이템 기준: 팔린 UPC 종류 수 → 업체별 점유율 (합 100%) */
+  /* 등록된 아이템 기준: 팔린 UPC 종류 수 → 업체별 비율 (합 100%, 한 UPC 가 30일 팔려도 1품목) */
   function soldCol(storeFilter,big){
     var by=soldUpcsByVendor(storeFilter), list=sortVendors(Object.keys(by)).map(function(v){ return {v:v,q:by[v]}; }).sort(function(a,b){ return b.q-a.q; }), total=0; list.forEach(function(x){ total+=x.q; }); list.forEach(function(x){ x.lbl=Math.round(x.q/total*1000)/10+'%'; });
-    var cv=mkCanvas(); drawDonut(cv,list,total,fmtN(total),'판매된 아이템',big?220:150);
-    var lg=total?list.map(function(it,i){ return '<div class="lg"><span class="sw" style="background:'+colorFor(it.v,i)+'"></span><span>'+esc(it.v)+'</span><span class="qty">'+fmtN(it.q)+'품목</span><span class="pct">'+it.lbl+'</span></div>'; }).join('')+'<div class="lg sum"><span class="sw" style="background:transparent"></span><span>판매된 아이템</span><span class="qty">'+fmtN(total)+'품목</span><span class="pct">100%</span></div>':'<div class="empty">판매 데이터가 없습니다</div>';
-    return {title:'판매된 아이템 기준',sub:'팔린 UPC 종류 중 업체별 점유율',cv:cv,lg:lg};
+    var cv=mkCanvas(); drawDonut(cv,list,total,fmtN(total),'UPC 종류',big?220:150);
+    var lg=total?list.map(function(it,i){ return '<div class="lg"><span class="sw" style="background:'+colorFor(it.v,i)+'"></span><span>'+esc(it.v)+'</span><span class="qty">'+fmtN(it.q)+'품목</span><span class="pct">'+it.lbl+'</span></div>'; }).join('')+'<div class="lg sum"><span class="sw" style="background:transparent"></span><span>판매된 UPC 종류</span><span class="qty">'+fmtN(total)+'품목</span><span class="pct">100%</span></div>':'<div class="empty">판매 데이터가 없습니다</div>';
+    return {title:'등록된 아이템 기준',sub:'팔린 UPC 종류 수 중 업체별 비율 (30일 팔려도 1품목)',cv:cv,lg:lg};
   }
-  /* 등록된 아이템 기준: 전체 판매 수량(같은 상품 여러 번 포함) = 100%, 업체별 판매 수량 비율 — 예) 10,000개 중 STI 5,000 → 50% */
+  /* 판매된 아이템 기준: 전체 판매 수량(같은 상품 여러 번 포함) = 100%, 업체별 판매 수량 비율 — 예) 10,000개 중 STI 5,000 → 50% */
   function soldQtyByVendor(storeFilter){ var by={}; for(var s in sales){ if(storeFilter&&s!==storeFilter) continue; for(var d in sales[s]){ var dm=sales[s][d]; for(var u in dm){ var q=dm[u].q; if(!q) continue; var v=vendorOf(u); if(!v) continue; by[v]=(by[v]||0)+q; } } } return by; }
   function regCol(storeFilter,big){
     var by=soldQtyByVendor(storeFilter), list=sortVendors(Object.keys(by)).map(function(v){ return {v:v,q:by[v]}; }).sort(function(a,b){ return b.q-a.q; }), total=0;
     list.forEach(function(x){ total+=x.q; }); list.forEach(function(x){ x.lbl=Math.round(x.q/total*1000)/10+'%'; });
     var cv=mkCanvas(); drawDonut(cv,list,total,fmtN(total),'판매 수량',big?220:150);
     var lg=total?list.map(function(it,i){ return '<div class="lg"><span class="sw" style="background:'+colorFor(it.v,i)+'"></span><span>'+esc(it.v)+'</span><span class="qty">'+fmtN(it.q)+'개</span><span class="pct">'+it.lbl+'</span></div>'; }).join('')+'<div class="lg sum"><span class="sw" style="background:transparent"></span><span>전체 판매 수량</span><span class="qty">'+fmtN(total)+'개</span><span class="pct">100%</span></div>':'<div class="empty">판매 데이터가 없습니다</div>';
-    return {title:'등록된 아이템 기준',sub:'전체 판매 수량 중 업체별 비율 (같은 상품 여러 번 포함)',cv:cv,lg:lg};
+    return {title:'판매된 아이템 기준',sub:'전체 판매 수량 중 업체별 비율 (같은 상품 여러 번 포함)',cv:cv,lg:lg};
   }
   function ratioPair(storeFilter,big){
     var wrap=document.createElement('div'); wrap.className='ratio';
-    [soldCol(storeFilter,big),regCol(storeFilter,big)].forEach(function(c){ var col=document.createElement('div'); col.className='rcol card'; col.innerHTML='<div class="rt">'+c.title+'<small>'+c.sub+'</small></div>'; col.appendChild(c.cv); var lg=document.createElement('div'); lg.className='legend'; lg.innerHTML=c.lg; col.appendChild(lg); wrap.appendChild(col); });
+    [regCol(storeFilter,big),soldCol(storeFilter,big)].forEach(function(c){ var col=document.createElement('div'); col.className='rcol card'; col.innerHTML='<div class="rt">'+c.title+'<small>'+c.sub+'</small></div>'; col.appendChild(c.cv); var lg=document.createElement('div'); lg.className='legend'; lg.innerHTML=c.lg; col.appendChild(lg); wrap.appendChild(col); });
     return wrap;
   }
   function renderRatio(){
