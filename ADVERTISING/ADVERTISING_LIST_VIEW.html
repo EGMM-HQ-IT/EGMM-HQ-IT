@@ -107,11 +107,17 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getFirestore, doc, getDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
   const firebaseConfig = { apiKey:"AIzaSyC6t78BS99LX3261cRmApBG8AcZ8HPVxr0", authDomain:"the-shawn.firebaseapp.com", projectId:"the-shawn", storageBucket:"the-shawn.firebasestorage.app", messagingSenderId:"519898602513", appId:"1:519898602513:web:0f35e3dc9c29dce21665b0", measurementId:"G-NKGYGC63JN" };
   const app=initializeApp(firebaseConfig);
   window.fbDb=getFirestore(app);
   window.fbFns={ doc, getDoc, collection, getDocs };
-  window.dispatchEvent(new Event('fb-ready'));
+  /* [2026-10] 익명 인증 후 fb-ready — Firestore 규칙(request.auth != null) 대응 · 3초 폴백 */
+  (function(){
+    var fired=false; function fire(){ if(fired) return; fired=true; window.fbAuthed=true; window.dispatchEvent(new Event('fb-ready')); }
+    try{ var auth=getAuth(app); onAuthStateChanged(auth,function(u){ if(u) fire(); }); signInAnonymously(auth).catch(function(e){ console.warn('[익명 인증 실패]', e&&e.code||e); fire(); }); }catch(e){ fire(); }
+    setTimeout(fire,3000);
+  })();
 </script>
 </head>
 <body>
@@ -153,7 +159,7 @@
   function toast(m){ var t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(function(){t.classList.remove('show');},2200); }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
   function norm(s){ return String(s==null?'':s).trim(); }
-  function fbReady(){ return window.fbDb && window.fbFns; }
+  function fbReady(){ return window.fbDb && window.fbFns && window.fbAuthed; }
   function whenFb(cb){ if(fbReady()) cb(); else window.addEventListener('fb-ready', cb, {once:true}); }
 
   /* ===== 바코드 ===== */
