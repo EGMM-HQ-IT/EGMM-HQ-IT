@@ -108,7 +108,7 @@
 <script src="../FUNCTION-FIREBASE-EGMM.js"></script>
 <script>
   window.EgmmFB.ready.then(function(fb){
-    window.fbDb=fb.db; window.fbFns={ doc:fb.doc, getDoc:fb.getDoc, collection:fb.collection, getDocs:fb.getDocs }; window.fbAuthed=true;
+    window.fbDb=fb.db; window.fbFns={ doc:fb.doc, getDoc:fb.getDoc, collection:fb.collection, getDocs:fb.getDocs, onSnapshot:fb.onSnapshot }; window.fbAuthed=true;
     window.dispatchEvent(new Event('fb-ready'));
   }).catch(function(e){ console.error('[Firebase 연결 실패]', e); });
 </script>
@@ -165,6 +165,40 @@
     return svg.outerHTML;
   }
 
+  /* ===== [2026-10] UPC LIST 실시간 반영 =====
+     광고리스트 문서에는 저장 당시의 UPC 가 들어 있다. 보기 화면은 UPC MANAGER 의 UPC LIST(Firestore UPC-LIST)를 직접 읽어
+     ITEM CODE → UPC 를 화면에서 다시 매칭한다 (매니저와 같은 규칙: 코드 정규화 후 첫 UPC, 없으면 X).
+     UPC-LIST/_META 를 구독해 UPC LIST 가 저장되면 즉시 다시 그린다. */
+  var UPC_ROOT='UPC-LIST', UPC_CACHE_KEY='iaProdCache', upcIndex=null;
+  function normKeyU(s){ return String(s==null?'':s).trim().toUpperCase().replace(/[\s\-_.\/~*\[\]#]/g,''); }
+  function digitsU(s){ return String(s==null?'':s).replace(/[^0-9]/g,''); }
+  function buildUpcIndex(list){
+    var idx={};
+    (list||[]).forEach(function(p){ var upc=digitsU(p.upc); if(!upc) return; var code=normKeyU(p.code); if(!code) return; if(!idx[code]) idx[code]=[]; if(idx[code].indexOf(upc)<0) idx[code].push(upc); });
+    return idx;
+  }
+  function applyUpcIndex(list){
+    upcIndex=buildUpcIndex(list);
+    if(curList&&curList.length){ renderAdTable(curList, curMaxEtc); }
+  }
+  function loadUpcList(meta){
+    var F=window.fbFns, db=window.fbDb;
+    try{ var c=JSON.parse(localStorage.getItem(UPC_CACHE_KEY)||'null'); if(c&&c.savedAt===meta.savedAt&&Array.isArray(c.list)){ applyUpcIndex(c.list); return; } }catch(e){}
+    var reads=[];
+    (meta.tree||[]).forEach(function(b){ (b.subs||[]).forEach(function(sb){ reads.push(F.getDocs(F.collection(db, UPC_ROOT, b.id, sb.id)).then(function(snap){ var out=[]; snap.forEach(function(d){ var x=d.data()||{}; var v=(x.r&&x.r.v)||{}; out.push({ upc:String(x.plu||d.id), eng:String(v.ITEM_ENGLISH||''), kor:String(v.ITEM_KOREA||''), vender:String(v.VENDER_VENDER||sb.name||'').trim(), code:String(v.VENDER_ITEM_CODE||''), size:(String(v.UNIT_SIZE_3||'')+' '+String(v.UNIT_CODE||'')).trim() }); }); return out; })); }); });
+    Promise.all(reads).then(function(parts){ var list=[].concat.apply([],parts); try{ localStorage.setItem(UPC_CACHE_KEY, JSON.stringify({ savedAt:meta.savedAt, list:list })); }catch(e){} applyUpcIndex(list); }).catch(function(){});
+  }
+  function watchUpcList(){
+    var F=window.fbFns, db=window.fbDb; if(!F.onSnapshot) return;
+    try{ F.onSnapshot(F.doc(db, UPC_ROOT, '_META'), function(s){ var d=(s&&s.exists&&s.exists())?(s.data()||{}):null; if(d&&d.tree) loadUpcList(d); }, function(){}); }catch(e){}
+  }
+  /* 화면 표시용: 저장된 UPC 대신 현재 UPC LIST 기준으로 다시 매칭 (UPC LIST 를 아직 못 읽었으면 저장값 그대로) */
+  function liveUpcOf(it){
+    if(!upcIndex) return it.upc;
+    var code=normKeyU(it.itemcode); if(!code) return it.upc;
+    var arr=upcIndex[code]; return (arr&&arr.length)?arr[0]:'X';
+  }
+
   /* ===== AD LIST (advertising 컬렉션) ===== */
   function renderAdTable(list, maxEtc){
     var box=$('previewBox');
@@ -172,7 +206,7 @@
     maxEtc=Math.max(maxEtc||0, 2);   // ETC #1·#2 상시 표시
     var etcH=''; for(var e=1;e<=maxEtc;e++) etcH+='<th>ETC #'+e+'</th>';
     var head='<thead><tr><th class="no">#</th><th>UPC</th><th>ITEMCODE</th><th>DESC</th><th>COST</th><th>SRP</th><th>BARCODE</th>'+etcH+'</tr></thead>';
-    var rows=list.map(function(it,i){ var isX=(String(it.upc||'').toUpperCase()==='X'||!it.upc);
+    var rows=list.map(function(it0,i){ var it=Object.assign({},it0,{upc:liveUpcOf(it0)}); var isX=(String(it.upc||'').toUpperCase()==='X'||!it.upc);
       var etcT=''; for(var e=0;e<maxEtc;e++){ etcT+='<td class="etc">'+esc((it.etc&&it.etc[e])||'')+'</td>'; }
       return '<tr><td>'+(i+1)+'</td>'+
         '<td class="upc'+(isX?' x':'')+'">'+(isX?'X':esc(it.upc))+'</td>'+
@@ -204,6 +238,7 @@
     el.classList.add('show');
   }
   function initAdView(){
+    watchUpcList();
     window.fbFns.getDocs(window.fbFns.collection(window.fbDb, AD_COL)).then(function(snap){
       var arr=[]; snap.forEach(function(d){ var v=d.data()||{}; if(d.id===MASTER_ID || d.id===AD_DRAFT_ID || v.type==='master' || v.type==='draft') return; arr.push({id:d.id,title:(v.title||d.id),count:(v.count!=null?v.count:(v.items?v.items.length:0)),updatedAt:(v.updatedAt||0)}); });
       arr.sort(function(a,b){ return (b.updatedAt||0)-(a.updatedAt||0); });
@@ -234,7 +269,7 @@
     if(!curList.length){ toast('내보낼 항목이 없습니다'); return; }
     var maxEtc=2; curList.forEach(function(it){ if(it.etc&&it.etc.length>maxEtc) maxEtc=it.etc.length; });
     var head=['UPC','ITEMCODE','DESC','COST','SRP']; for(var e=1;e<=maxEtc;e++) head.push('ETC #'+e);
-    var aoa=[head]; curList.forEach(function(it){ var r=[(it.upc||'X'),it.itemcode||'',it.desc||'',it.cost||'',it.srp||'']; for(var e=0;e<maxEtc;e++) r.push((it.etc&&it.etc[e])||''); aoa.push(r); });
+    var aoa=[head]; curList.forEach(function(it0){ var it=Object.assign({},it0,{upc:liveUpcOf(it0)}); var r=[(it.upc||'X'),it.itemcode||'',it.desc||'',it.cost||'',it.srp||'']; for(var e=0;e<maxEtc;e++) r.push((it.etc&&it.etc[e])||''); aoa.push(r); });
     var ws=XLSX.utils.aoa_to_sheet(aoa); var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'AD'); XLSX.writeFile(wb,(curTitle||'AD_LIST')+'.xlsx');
   }
   function printList(){
@@ -244,7 +279,7 @@
       var maxEtc=2; curList.forEach(function(it){ if(it.etc&&it.etc.length>maxEtc) maxEtc=it.etc.length; });
       var etcH=''; for(var e=1;e<=maxEtc;e++) etcH+='<th>ETC #'+e+'</th>';
       head='<th>UPC</th><th>ITEMCODE</th><th>DESC</th><th>COST</th><th>SRP</th><th>BARCODE</th>'+etcH;
-      body=curList.map(function(it){ var isX=(String(it.upc||'').toUpperCase()==='X'||!it.upc); var etcT=''; for(var e=0;e<maxEtc;e++) etcT+='<td>'+esc((it.etc&&it.etc[e])||'')+'</td>';
+      body=curList.map(function(it0){ var it=Object.assign({},it0,{upc:liveUpcOf(it0)}); var isX=(String(it.upc||'').toUpperCase()==='X'||!it.upc); var etcT=''; for(var e=0;e<maxEtc;e++) etcT+='<td>'+esc((it.etc&&it.etc[e])||'')+'</td>';
         return '<tr><td class="u'+(isX?' x':'')+'">'+(isX?'X':esc(it.upc))+'</td><td>'+esc(it.itemcode||'')+'</td><td class="l">'+esc(it.desc||'')+'</td><td>'+esc(it.cost||'')+'</td><td>'+esc(it.srp||'')+'</td><td>'+(isX?'—':barcodeSVG(it.upc))+'</td>'+etcT+'</tr>'; }).join('');
     }
     var css='body{font-family:Arial,sans-serif;margin:14px;color:#1E1B16}h1{font-size:16px;margin:0 0 10px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #999;padding:4px 6px;text-align:center}thead th{background:#2F5D46;color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}td.u{font-weight:700;color:#2F5D46}td.u.x{color:#9C3327}td.l{text-align:left}svg{display:block;margin:0 auto}@page{margin:10mm}';
