@@ -221,7 +221,7 @@ try{ document.documentElement.setAttribute('data-theme', localStorage.getItem('p
   /* 필드 추가 형태 선택 팝업 */
   .plu-modal-ov { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: none; align-items: center; justify-content: center; z-index: 1000; }
   .plu-modal-ov.show { display: flex; }
-  .plu-modal { background: #fff; border-radius: 16px; padding: 22px; width: 92%; max-width: 360px; box-shadow: 0 12px 40px rgba(0,0,0,0.2); }
+  .plu-modal { background: #fff; border-radius: 16px; padding: 22px; width: 92%; max-width: 360px; box-shadow: 0 12px 40px rgba(0,0,0,0.2); max-height: 90vh; overflow-y: auto; box-sizing: border-box; }
   .plu-modal h3 { margin: 0 0 4px; font-size: 17px; color: var(--text); }
   .plu-modal p { margin: 0 0 16px; font-size: 13px; color: var(--text-dim); }
   .plu-modal-btns { display: flex; flex-direction: column; gap: 10px; }
@@ -1099,7 +1099,7 @@ html[data-theme=night] .plu-cm-row.cur { border-color:#4d8bea; background:#1e2c4
 <div class="plu-modal-ov" id="cfOv">
   <div class="plu-modal">
     <h3 id="cfTitle">확인</h3>
-    <p id="cfMsg" style="white-space:pre-line;"></p>
+    <p id="cfMsg" style="white-space:pre-line;max-height:55vh;overflow-y:auto;overscroll-behavior:contain;"></p>
     <input type="text" id="cfInput" class="cnm-input" style="display:none;width:100%;box-sizing:border-box;margin-bottom:14px;" autocomplete="off">
     <div class="plu-modal-btns">
       <button class="plu-modal-choice" id="cfOk" style="text-align:center;">확인</button>
