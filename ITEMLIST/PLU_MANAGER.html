@@ -2474,7 +2474,7 @@ var GUIDE_PLU=[
   ['엑셀 내보내기','내보낼 필드를 고르고(프리셋 저장 가능) 1행 필드명 + 데이터로 출력. 목록 값은 번호로 나갑니다. 그대로 수정해 다시 불러올 수 있습니다.'],
   ['매장','상단 매장 버튼으로 전환. 기본(전체)에서 수정 = 전 매장 적용, 매장 선택 후 수정 = 그 매장만. LOCATION 99 = EGMM 매장.'],
   ['필드 편집','필드명 · 너비 · 목록 · 수식 · 숨김은 필드 편집에서 — 전 카테고리 공통 적용.'],
-  ['저장','모든 변경은 즉시 자동 저장되고 Firebase(PLU-LIST)에 자동 동기화됩니다. 상단 칩에서 상태 확인.']
+  ['저장','모든 변경은 즉시 자동 저장되고 CLOUD(PLU-LIST)에 자동 동기화됩니다. 상단 칩에서 상태 확인.']
 ];
 var GUIDE_UPC=[
   ['구조','대분류 = 영역(STI …), 중간 카테고리 = 업체 축약어(VENDER). 업체명·축약어·영업 품목은 EGMM > SYSTEM > VENDER 에서 관리.'],
@@ -2485,8 +2485,8 @@ var GUIDE_UPC=[
   ['매칭 결과 확인','실행 전 팝업에 열마다 "이 열 → 이 필드" 가 표시됩니다. ✓ = 연결됨(유사 이름이면 표시), ✗ = 매칭 없음 → 그 열은 무시. 같은 필드가 이미 다른 열에 연결되면 뒤의 열은 무시됩니다 (예: PLU 열과 Barcode 열이 함께 있으면 PLU 만 UPC 로). UPC 열이 하나도 없으면 오류로 중단. 매칭 안 되는 열은 엑셀 1행 이름을 앱 필드명과 똑같이 고치면 됩니다.'],
   ['업데이트 규칙','같은 업체(중간 카테고리) 안에서 UPC가 같은 행은 업데이트, 없으면 새 행. 같은 상품이 STI-WA 에도 JFC 에도 있어도 됨 — 다른 업체의 같은 UPC 는 건드리지 않고 각각 등록(중복 UPC 는 바탕색으로 표시, 쓸모없는 쪽은 직접 삭제 → TRASH). UPC와 ITEM CODE가 모두 같은 행은 무시. UPC가 빈 행은 건너뜀.'],
   ['표시','같은 UPC 행은 UPC 칸이 같은 색. USE 미체크 행은 회색 취소선. 검색은 Enter, 번호는 쉼표로 여러 개.'],
-  ['저장','모든 변경은 즉시 자동 저장되고 Firebase(UPC-LIST)에 자동 동기화됩니다. 상단 칩에서 상태 확인.'],
-  ['동기화 규칙','수정하면 조건 없이 무조건 Firebase 로 전송됩니다(업체 이름이 한글이어도 자동 ID, 0건도 전송). 기본 데이터는 없고 모든 데이터(상품 + 필드 설정값)는 Firebase 에서 가져옵니다. 열면 먼저 Firebase 를 불러오고, 끝나기 전에는 수정·저장이 잠깁니다. 여러 컴퓨터에서 쓸 때 가장 최근에 수정된 쪽이 항상 기준(충돌 선택 없음). 다른 컴퓨터가 저장하면 이 화면에도 바로 반영되고, 메뉴 > 동기화 로그에 날짜·시간·방향(전송/반영)·컴퓨터가 기록됩니다.'],
+  ['저장','모든 변경은 즉시 자동 저장되고 CLOUD(UPC-LIST)에 자동 동기화됩니다. 상단 칩에서 상태 확인.'],
+  ['동기화 규칙','수정하면 조건 없이 무조건 CLOUD 로 전송됩니다(업체 이름이 한글이어도 자동 ID, 0건도 전송). 기본 데이터는 없고 모든 데이터(상품 + 필드 설정값)는 CLOUD 에서 가져옵니다. 열면 먼저 CLOUD 를 불러오고, 끝나기 전에는 수정·저장이 잠깁니다. 여러 컴퓨터에서 쓸 때 가장 최근에 수정된 쪽이 항상 기준(충돌 선택 없음). 다른 컴퓨터가 저장하면 이 화면에도 바로 반영되고, 메뉴 > 동기화 로그에 날짜·시간·방향(전송/반영)·컴퓨터가 기록됩니다.'],
   ['TRASH','리스트에서 삭제한 행은 UPC · ITEM CODE · VENDER 3개만 TRASH 에 보관됩니다(메뉴 > TRASH). 엑셀 불러오기 때 TRASH 와 UPC·ITEM CODE 가 모두 같은 행은 무조건 무시되어 쓰레기가 다시 쌓이지 않습니다. TRASH 에서 제거하면 다시 등록 가능.']
 ];
 function openGuide(){
@@ -5807,7 +5807,7 @@ function fbLoadSdk(){
 }
 function fbConnect(log){
   var cur=fbCfgCur();
-  if(!cur) return Promise.reject(new Error('Firebase 설정이 없습니다 — 메뉴 > Firebase 설정'));
+  if(!cur) return Promise.reject(new Error('CLOUD 설정이 없습니다 — 메뉴 > CLOUD 설정'));
   var key=JSON.stringify([cur.cfg,cur.dbId]);
   if(__fbConn&&__fbConn.key===key) return Promise.resolve(__fbConn);
   if(log) log('SDK 로드…');
@@ -5828,7 +5828,7 @@ function fbErrHelp(e){
   if(s.indexOf('admin-restricted-operation')>=0) return '익명 로그인이 꺼져 있습니다 → Firebase 콘솔 > Authentication > Sign-in method 에서 익명(Anonymous) 사용 설정';
   if(s.indexOf('configuration-not-found')>=0) return 'Authentication 초기 설정 전입니다 → 콘솔 > Authentication 에서 "시작하기" 클릭 후 익명(Anonymous) 사용 설정';
   if(s.indexOf('permission')>=0&&s.indexOf('denied')>=0) return '보안 규칙이 차단했습니다 → Firestore > 규칙 탭(상단 DB 선택이 '+(fbCfgCur()&&fbCfgCur().dbId||'(default)')+' 인지 확인)에 아래를 게시:\n'+FB_RULES;
-  if(s.indexOf('not-found')>=0||s.indexOf('does not exist')>=0) return '데이터베이스를 못 찾았습니다 → Firebase 설정 팝업의 Database ID 가 콘솔의 DB 이름(egmm)과 같은지 확인';
+  if(s.indexOf('not-found')>=0||s.indexOf('does not exist')>=0) return '데이터베이스를 못 찾았습니다 → CLOUD 설정 팝업의 Database ID 가 콘솔의 DB 이름(egmm)과 같은지 확인';
   if(s.indexOf('api-key')>=0||s.indexOf('invalid')>=0&&s.indexOf('key')>=0) return 'firebaseConfig 가 잘못되었습니다 → 콘솔 > 프로젝트 설정 > 내 앱의 config 를 다시 붙여넣기';
   if(s.indexOf('network')>=0||s.indexOf('unavailable')>=0||s.indexOf('failed to fetch')>=0||s.indexOf('resolve module')>=0) return '네트워크 문제입니다 → 인터넷 연결·방화벽 확인 후 재시도';
   return '';
@@ -5849,7 +5849,7 @@ function openFbCfg(){
   var cur=fbCfgCur();
   var head=cur?('현재 적용: <b>'+escapeHtml(cur.cfg.projectId)+'</b> / DB <b>'+escapeHtml(cur.dbId||'(default)')+'</b>'+(cur.isCustom?' (붙여넣은 설정)':' (파일 기본값)')):'설정 없음';
   var ov=__fbOverlay('fbCfgOv',
-    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b style="font-size:15px">Firebase 설정</b><button id="fbCfgX" class="plu-tool-btn">✕</button></div>'
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b style="font-size:15px">CLOUD 설정</b><button id="fbCfgX" class="plu-tool-btn">✕</button></div>'
     +'<div id="fbCfgCur" style="margin-bottom:8px">'+head+'</div>'
     +'<div style="margin:6px 0 4px">다른 프로젝트로 바꿀 때만: 콘솔의 firebaseConfig 를 그대로 붙여넣기</div>'
     +'<textarea id="fbCfgTa" style="width:100%;height:110px;box-sizing:border-box;font-family:monospace;font-size:12px" placeholder="const firebaseConfig = { apiKey: ... };"></textarea>'
@@ -5863,9 +5863,9 @@ function openFbCfg(){
   $('fbCfgX').onclick=function(){ __fbClose('fbCfgOv'); };
   $('fbCfgSave').onclick=function(){
     var ta=$('fbCfgTa').value.trim(), db=$('fbCfgDb').value.trim();
-    if(ta){ var c=fbParseCfg(ta); if(!c){ uiAlert('붙여넣은 내용에서 firebaseConfig 를 읽지 못했습니다 — 콘솔의 const firebaseConfig = { ... }; 블록 전체를 그대로 붙여넣어 주세요.','Firebase 설정'); return; } S.fbCfg=c; }
+    if(ta){ var c=fbParseCfg(ta); if(!c){ uiAlert('붙여넣은 내용에서 firebaseConfig 를 읽지 못했습니다 — 콘솔의 const firebaseConfig = { ... }; 블록 전체를 그대로 붙여넣어 주세요.','CLOUD 설정'); return; } S.fbCfg=c; }
     S.fbDbId=db; __fbConn=null; saveState();
-    showToast('Firebase 설정 저장','success'); __fbClose('fbCfgOv'); openFbCfg();
+    showToast('CLOUD 설정 저장','success'); __fbClose('fbCfgOv'); openFbCfg();
   };
   $('fbCfgReset').onclick=function(){ delete S.fbCfg; S.fbDbId=__FB_DBID_DEFAULT; __fbConn=null; saveState(); showToast('파일 기본값(egmm-hq-it / DB egmm) 적용','success'); __fbClose('fbCfgOv'); openFbCfg(); };
   $('fbCfgRules').onclick=function(){ $('fbDiagOut').textContent='Firestore > 규칙 탭에 게시 (상단 DB 선택 = '+((fbCfgCur()&&fbCfgCur().dbId)||'(default)')+'):\n\n'+FB_RULES; };
@@ -5882,7 +5882,7 @@ function fbRunDiag(out){
     var M=conn.M, ref=M.fs.doc(conn.db,FB_ROOT,'_DIAG');
     return M.fs.setDoc(ref,{t:Date.now()}).then(function(){ L('✓ 쓰기 (PLU-LIST/_DIAG)');
       return M.fs.getDoc(ref); }).then(function(sn){ L(sn.exists()?'✓ 읽기':'✗ 읽기 — 문서 없음');
-      L('◎ 모든 단계 통과 — Firebase 업로드를 실행하세요'); });
+      L('◎ 모든 단계 통과 — CLOUD 업로드를 실행하세요'); });
   }).catch(function(e){
     L('✗ 실패: '+((e&&(e.code||e.message))||e));
     var h=fbErrHelp(e); if(h) L('→ '+h);
@@ -5899,7 +5899,7 @@ function fbNamePopup(list){
         +'<input data-fbnm="'+i+'" style="flex:1;text-transform:uppercase" placeholder="영어 이름 (A-Z 0-9 -)"></div>';
     }).join('');
     var ov=__fbOverlay('fbNameOv',
-      '<b style="font-size:15px">Firebase 저장 이름 (영어) 지정</b>'
+      '<b style="font-size:15px">CLOUD 저장 이름 (영어) 지정</b>'
       +'<div style="margin:8px 0;opacity:.85">사전에 없는 이름입니다. 문서 이름으로 쓸 영어를 입력하세요 — 데이터 안의 한글 원본은 그대로 보존됩니다. 한 번 확정하면 이후 업로드에도 항상 같은 이름이 쓰입니다.</div>'
       +rows
       +'<div id="fbNmErr" style="color:#d33;min-height:18px;margin-top:6px"></div>'
@@ -5958,17 +5958,17 @@ function fbConfigJoin(docs,fmt){
 /* ── 업로드 ── */
 async function fbUploadStart(){
   var plan=fbBuildPlan(S);
-  if(plan.err==='EMPTY'){ uiAlert('업로드할 상품이 0건입니다.\n\n이 브라우저의 프로그램에 상품 데이터가 없는 상태입니다 — 상품 리스트가 화면에 보이는 컴퓨터·브라우저에서 이 파일을 열어 업로드하세요. (빈 상태를 올려 Firebase 데이터를 지우는 사고를 막기 위해 차단합니다)','Firebase 업로드'); return; }
+  if(plan.err==='EMPTY'){ uiAlert('업로드할 상품이 0건입니다.\n\n이 브라우저의 프로그램에 상품 데이터가 없는 상태입니다 — 상품 리스트가 화면에 보이는 컴퓨터·브라우저에서 이 파일을 열어 업로드하세요. (빈 상태를 올려 CLOUD 데이터를 지우는 사고를 막기 위해 차단합니다)','CLOUD 업로드'); return; }
   if(plan.needNames.length){
     var ok=await fbNamePopup(plan.needNames); if(!ok) return;
     plan=fbBuildPlan(S);
-    if(plan.needNames.length||plan.errs.length){ uiAlert('이름 확정이 끝나지 않았습니다:\n'+plan.errs.concat(plan.needNames.map(function(n){return n.label;})).join('\n'),'Firebase 업로드'); return; }
+    if(plan.needNames.length||plan.errs.length){ uiAlert('이름 확정이 끝나지 않았습니다:\n'+plan.errs.concat(plan.needNames.map(function(n){return n.label;})).join('\n'),'CLOUD 업로드'); return; }
   }
-  if(plan.errs.length){ uiAlert(plan.errs.join('\n'),'Firebase 업로드'); return; }
+  if(plan.errs.length){ uiAlert(plan.errs.join('\n'),'CLOUD 업로드'); return; }
   var cur=fbCfgCur();
   var sum=plan.tree.map(function(b){ return b.name+'('+b.id+') '+b.subs.reduce(function(a,s){return a+s.count;},0)+'건'; }).join(' · ');
-  if(!(await uiConfirm('Firebase 에 업로드할까요?\n\n대상: '+cur.cfg.projectId+' / DB '+(cur.dbId||'(default)')+'\n상품 '+plan.total+'건 — '+sum+'\n\n기존 Firebase 의 PLU 내용은 이 내용으로 교체됩니다.','Firebase 업로드'))) return;
-  var log=fbRunOpen('Firebase 업로드');
+  if(!(await uiConfirm('CLOUD 에 업로드할까요?\n\n대상: '+cur.cfg.projectId+' / DB '+(cur.dbId||'(default)')+'\n상품 '+plan.total+'건 — '+sum+'\n\n기존 CLOUD 의 PLU 내용은 이 내용으로 교체됩니다.','CLOUD 업로드'))) return;
+  var log=fbRunOpen('CLOUD 업로드');
   try{
     var conn=await fbConnect(log), M=conn.M, db=conn.db;
     /* 이전 목차 → 삭제 대상 소분류 파악 (v3 META 만) */
@@ -6042,20 +6042,20 @@ async function fbUploadStart(){
     __fbState='ok'; renderSaveChip();
     log('◎ 업로드 완료 — 상품 '+plan.total+'건 · 대분류 '+plan.tree.length+'개');
     log('콘솔 확인: '+FB_ROOT+' > 대분류 > 소분류 안에 상품 문서 (예: '+(plan.items[0]?FB_ROOT+'/'+plan.items[0].big+'/'+plan.items[0].sub+'/'+plan.items[0].id:'')+')');
-    showToast('Firebase 업로드 완료 — 상품 '+plan.total+'건','success');
+    showToast('CLOUD 업로드 완료 — 상품 '+plan.total+'건','success');
   }catch(e){
     log('✗ 실패: '+((e&&(e.code||e.message))||e));
     var h=fbErrHelp(e); if(h) log('→ '+h);
-    showToast('Firebase 업로드 실패','error');
+    showToast('CLOUD 업로드 실패','error');
   }
   fbRunDone();
 }
 
 /* ── 복원 (Firebase → 로컬 전체 교체) ── */
 async function fbRestoreStart(){
-  var cur=fbCfgCur(); if(!cur){ uiAlert('Firebase 설정이 없습니다','Firebase 복원'); return; }
-  if(!(await uiConfirm('Firebase('+cur.cfg.projectId+' / DB '+(cur.dbId||'(default)')+') 내용으로 로컬 전체를 교체할까요?\n\n지금 로컬 내용은 사라집니다 — 먼저 메뉴 > 백업을 눌러 파일로 저장해 두는 것을 권장합니다.','Firebase 복원'))) return;
-  var log=fbRunOpen('Firebase 복원');
+  var cur=fbCfgCur(); if(!cur){ uiAlert('CLOUD 설정이 없습니다','CLOUD 복원'); return; }
+  if(!(await uiConfirm('CLOUD('+cur.cfg.projectId+' / DB '+(cur.dbId||'(default)')+') 내용으로 로컬 전체를 교체할까요?\n\n지금 로컬 내용은 사라집니다 — 먼저 메뉴 > 백업을 눌러 파일로 저장해 두는 것을 권장합니다.','CLOUD 복원'))) return;
+  var log=fbRunOpen('CLOUD 복원');
   try{
     var conn=await fbConnect(log);
     log('읽는 중… (_META · _CONFIG · 상품 · STORE)');
@@ -6063,7 +6063,7 @@ async function fbRestoreStart(){
     log('상품 '+r.got+'건 읽음 (목차 기준 '+(r.meta.total!=null?r.meta.total:'?')+'건) · STORE '+((r.st.stores||[]).length)+'건');
     if(r.mismatch.length){
       log('⚠ 개수 불일치: '+r.mismatch.join(', '));
-      if(!(await uiConfirm('일부 소분류 개수가 목차와 다릅니다(중단된 업로드 가능성).\n'+r.mismatch.join('\n')+'\n\n그래도 이 내용으로 복원할까요?','Firebase 복원'))){ log('취소됨'); fbRunDone(); return; }
+      if(!(await uiConfirm('일부 소분류 개수가 목차와 다릅니다(중단된 업로드 가능성).\n'+r.mismatch.join('\n')+'\n\n그래도 이 내용으로 복원할까요?','CLOUD 복원'))){ log('취소됨'); fbRunDone(); return; }
     }
     __fbMuting=true;
     S=migrate(r.st); pluBig=0; pluSub=0;
@@ -6074,11 +6074,11 @@ async function fbRestoreStart(){
     __fbLast=fbDocsMap(fbBuildPlan(S)); __fbState='ok'; renderSaveChip(); /* [MODULE 26] 기준선 */
     var got=r.got, meta=r.meta;
     log('◎ 복원 완료 — 상품 '+got+'건 ('+meta.savedAt+' 업로드본)');
-    showToast('Firebase 복원 완료 — 상품 '+got+'건','success');
+    showToast('CLOUD 복원 완료 — 상품 '+got+'건','success');
   }catch(e){
     log('✗ 실패: '+((e&&(e.code||e.message))||e));
     var h=fbErrHelp(e); if(h) log('→ '+h);
-    showToast('Firebase 복원 실패','error');
+    showToast('CLOUD 복원 실패','error');
   }
   fbRunDone();
 }
@@ -6094,7 +6094,7 @@ try{
 
 /* ═══════════════════════════════════════════════════════════════════════════
    [MODULE 26 · FB-SYNC] Firebase 실시간 자동 동기화 (2026-09 사용자 요구)
-   - 요구: "프로그램 실행 중 단 한 가지라도 수정되면 무조건 Firebase 자동저장" ·
+   - 요구: "프로그램 실행 중 단 한 가지라도 수정되면 무조건 CLOUD 자동저장" ·
            파일(plu-data.json) 재연결 안내 제거 (Firebase 가 표준 저장소)
    - 시작 시(fbAutoStart): 자동 접속 →
        · Firebase 비어있음 + 로컬 데이터 있음 → 전체 자동 전송
@@ -6118,7 +6118,7 @@ function fbBootOverlay(on,msg){
   var ov=$('fbBootOv');
   if(!on){ if(ov) ov.remove(); return; }
   if(!ov){ ov=document.createElement('div'); ov.id='fbBootOv'; ov.setAttribute('style','position:fixed;inset:0;z-index:9995;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;'); document.body.appendChild(ov); }
-  ov.innerHTML='<div style="background:var(--panel,#fff);color:var(--ink,#222);border-radius:12px;padding:18px 24px;font-size:14px;font-weight:800;box-shadow:0 12px 40px rgba(0,0,0,.35)">'+escapeHtml(msg||'Firebase 데이터 불러오는 중…')+'</div>';
+  ov.innerHTML='<div style="background:var(--panel,#fff);color:var(--ink,#222);border-radius:12px;padding:18px 24px;font-size:14px;font-weight:800;box-shadow:0 12px 40px rgba(0,0,0,.35)">'+escapeHtml(msg||'CLOUD 데이터 불러오는 중…')+'</div>';
 }
 var __fbErrMsg='', __fbNamesAsked='', __fbConflict=null;
 
@@ -6136,7 +6136,7 @@ function openSyncLog(){
   var render=function(list,src){
     list=(list||[]).slice().reverse();
     var h='<b style="font-size:15px">동기화 로그 ('+src+' · 최근 '+list.length+'건)</b>'
-      +'<div style="margin:6px 0 10px;color:var(--ink-dim,#777)">이 컴퓨터 = <b>'+escapeHtml(fbDeviceId())+'</b> · 전송 = 이 컴퓨터 → Firebase · 반영 = Firebase 최신본 → 이 컴퓨터. 가장 최근에 수정된 쪽이 항상 기준이 됩니다.</div>'
+      +'<div style="margin:6px 0 10px;color:var(--ink-dim,#777)">이 컴퓨터 = <b>'+escapeHtml(fbDeviceId())+'</b> · 전송 = 이 컴퓨터 → CLOUD · 반영 = CLOUD 최신본 → 이 컴퓨터. 가장 최근에 수정된 쪽이 항상 기준이 됩니다.</div>'
       +'<div style="max-height:56vh;overflow:auto;border:1px solid var(--line,#ddd);border-radius:8px"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="position:sticky;top:0;background:var(--panel-2,#f4f4f4)"><th style="text-align:left;padding:6px 8px">날짜 · 시간</th><th style="text-align:left;padding:6px 8px">방향</th><th style="text-align:left;padding:6px 8px">컴퓨터</th><th style="text-align:right;padding:6px 8px">문서</th><th style="text-align:left;padding:6px 8px">비고</th></tr></thead><tbody>'
       +(list.length?list.map(function(e){ var d=new Date(e.at); var ds=isNaN(d)?String(e.at):(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0'));
           return '<tr><td style="padding:5px 8px;border-top:1px solid var(--line,#eee);white-space:nowrap">'+escapeHtml(ds)+'</td><td style="padding:5px 8px;border-top:1px solid var(--line,#eee)">'+(e.dir==='push'?'⬆ 전송':'⬇ 반영')+'</td><td style="padding:5px 8px;border-top:1px solid var(--line,#eee)">'+escapeHtml(e.by||'')+'</td><td style="padding:5px 8px;border-top:1px solid var(--line,#eee);text-align:right">'+escapeHtml(String(e.n||0))+'</td><td style="padding:5px 8px;border-top:1px solid var(--line,#eee)">'+escapeHtml(e.note||'')+'</td></tr>'; }).join(''):'<tr><td colspan="5" style="padding:18px;text-align:center;color:var(--ink-dim,#777)">기록 없음</td></tr>')
@@ -6145,7 +6145,7 @@ function openSyncLog(){
   };
   render(S.syncLog,'이 컴퓨터');
   fbConnect().then(function(conn){ return conn.M.fs.getDoc(conn.M.fs.doc(conn.db,FB_ROOT,'_SYNCLOG')); })
-    .then(function(sn){ if(sn.exists()&&sn.data()&&Array.isArray(sn.data().list)&&$('syncLogOv')) render(sn.data().list,'Firebase · 모든 컴퓨터'); }).catch(function(){});
+    .then(function(sn){ if(sn.exists()&&sn.data()&&Array.isArray(sn.data().list)&&$('syncLogOv')) render(sn.data().list,'CLOUD · 모든 컴퓨터'); }).catch(function(){});
 }
 /* [최신본 우선] 원격 savedAt 과 이 컴퓨터 마지막 수정 시각 비교 — 원격이 더 최근이면 true (원격 반영) */
 function fbRemoteNewer(remoteSavedAt){
@@ -6226,11 +6226,11 @@ async function fbSyncRun(){
     var conn=await fbConnect(), M=conn.M, db=conn.db;
     var ms=await M.fs.getDoc(M.fs.doc(db,FB_ROOT,'_META'));
     var meta=(ms.exists()&&ms.data()&&ms.data().ver==='v3')?ms.data():null;
-    if(meta&&meta.savedAt&&S.seeded&&!S.fbLastSync){ /* 내장 데이터로 Firebase 를 덮지 않음 → 가져오기 */ var rs=await fbPullApply(conn); fbLogSync('pull',rs.got,'내장 데이터 → Firebase 데이터로 교체'); return; }
+    if(meta&&meta.savedAt&&S.seeded&&!S.fbLastSync){ /* 내장 데이터로 Firebase 를 덮지 않음 → 가져오기 */ var rs=await fbPullApply(conn); fbLogSync('pull',rs.got,'내장 데이터 → CLOUD 데이터로 교체'); return; }
     if(meta&&meta.savedAt&&S.fbLastSync!==meta.savedAt){
       if(SYNC_LATEST_WINS){
         /* [최신본 우선] 원격이 더 최근이면 원격 반영(이 컴퓨터의 더 오래된 수정은 버림), 아니면 계보 승계 후 전체 덮어쓰기 */
-        if(fbRemoteNewer(meta.savedAt)){ var rr=await fbPullApply(conn); fbLogSync('pull',rr.got,'원격이 더 최근 → 반영'); showToast('Firebase 최신본 반영 — 상품 '+rr.got+'건','success'); return; }
+        if(fbRemoteNewer(meta.savedAt)){ var rr=await fbPullApply(conn); fbLogSync('pull',rr.got,'원격이 더 최근 → 반영'); showToast('CLOUD 최신본 반영 — 상품 '+rr.got+'건','success'); return; }
         __fbMuting=true; S.fbLastSync=meta.savedAt; saveState(); __fbMuting=false; __fbLast=null;
       } else {
         /* 다른 컴퓨터가 그 사이에 기록 — 미전송 수정이 있으므로 자동 결정 불가 */
@@ -6285,7 +6285,7 @@ async function fbSyncRun(){
 async function fbReadAll(conn){
   var M=conn.M, db=conn.db;
   var ms=await M.fs.getDoc(M.fs.doc(db,FB_ROOT,'_META'));
-  if(!ms.exists()||!ms.data()||ms.data().ver!=='v3') throw new Error('Firebase 에 v3 데이터가 없습니다 — 먼저 이 파일로 Firebase 업로드를 실행하세요');
+  if(!ms.exists()||!ms.data()||ms.data().ver!=='v3') throw new Error('CLOUD 에 v3 데이터가 없습니다 — 먼저 이 파일로 CLOUD 업로드를 실행하세요');
   var meta=ms.data(), chunks=[], fmt='JS';
   for(var p=0;p<(meta.configParts||1);p++){
     var id=p===0?'_CONFIG':('_CONFIG__P'+(p+1));
@@ -6294,17 +6294,17 @@ async function fbReadAll(conn){
     fmt=cs.data().fmt||'JS'; chunks.push(cs.data().d||'');
   }
   var st=fbConfigJoin(chunks,fmt), got=0, mismatch=[];
-  for(var bi=0;bi<(meta.tree||[]).length;bi++){ var b=meta.tree[bi];
-    for(var si=0;si<(b.subs||[]).length;si++){ var sb=b.subs[si];
-      var snap=await M.fs.getDocs(M.fs.collection(db,FB_ROOT,b.id,sb.id));
-      var rows=[]; snap.forEach(function(d){ var dd=d.data(); if(dd&&dd.r) rows.push(dd); });
-      rows.sort(function(a,c){ return (a.order||0)-(c.order||0); });
-      if(!st.data[b.name]) st.data[b.name]={};
-      st.data[b.name][sb.name]=rows.map(function(x){ return x.r; });
-      got+=rows.length;
-      if(sb.count!=null&&rows.length!==sb.count) mismatch.push(b.name+'/'+sb.name+' '+rows.length+'/'+sb.count);
-    }
-  }
+  /* [속도 2026-10-01] 소분류별 읽기를 순차 → 동시 요청 */
+  var jobs=[];
+  (meta.tree||[]).forEach(function(b){ (b.subs||[]).forEach(function(sb){ jobs.push(M.fs.getDocs(M.fs.collection(db,FB_ROOT,b.id,sb.id)).then(function(snap){ return {b:b,sb:sb,snap:snap}; })); }); });
+  var res=await Promise.all(jobs);
+  res.forEach(function(x){ var b=x.b, sb=x.sb, rows=[]; x.snap.forEach(function(d){ var dd=d.data(); if(dd&&dd.r) rows.push(dd); });
+    rows.sort(function(a,c){ return (a.order||0)-(c.order||0); });
+    if(!st.data[b.name]) st.data[b.name]={};
+    st.data[b.name][sb.name]=rows.map(function(x2){ return x2.r; });
+    got+=rows.length;
+    if(sb.count!=null&&rows.length!==sb.count) mismatch.push(b.name+'/'+sb.name+' '+rows.length+'/'+sb.count);
+  });
   var stSnap=await M.fs.getDocs(M.fs.collection(db,FB_STORE));
   var stArr=[]; stSnap.forEach(function(d){ var dd=d.data(); if(dd&&dd.name) stArr.push(dd); });
   if(stArr.length){ stArr.sort(function(a,c){ return (a.order||0)-(c.order||0); }); st.stores=stArr.map(function(x){ return x.name; }); }
@@ -6327,12 +6327,12 @@ function fbConflictPopup(){
   if($('fbConfOv')) return;
   var rem=(__fbConflict&&__fbConflict.remote)||'';
   var ov=__fbOverlay('fbConfOv',
-    '<b style="font-size:15px">Firebase 동기화 충돌</b>'
-    +'<div style="margin:10px 0">다른 컴퓨터가 Firebase 를 더 최근에 수정했고('+escapeHtml(String(rem).slice(0,19).replace('T',' '))+'), 이 컴퓨터에도 아직 전송 안 된 수정이 있습니다.<br>어느 쪽을 남길지 선택하기 전까지 자동 전송은 멈춥니다 (이 컴퓨터 안의 저장은 계속됩니다).</div>'
+    '<b style="font-size:15px">CLOUD 동기화 충돌</b>'
+    +'<div style="margin:10px 0">다른 컴퓨터가 CLOUD 를 더 최근에 수정했고('+escapeHtml(String(rem).slice(0,19).replace('T',' '))+'), 이 컴퓨터에도 아직 전송 안 된 수정이 있습니다.<br>어느 쪽을 남길지 선택하기 전까지 자동 전송은 멈춥니다 (이 컴퓨터 안의 저장은 계속됩니다).</div>'
     +'<div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">'
     +'<button id="fbConfLater" class="plu-tool-btn">나중에</button>'
     +'<button id="fbConfPush" class="plu-tool-btn">이 컴퓨터 내용으로 덮어쓰기</button>'
-    +'<button id="fbConfPull" class="plu-tool-btn plu-imp-go">Firebase 최신본 가져오기 (권장)</button></div>');
+    +'<button id="fbConfPull" class="plu-tool-btn plu-imp-go">CLOUD 최신본 가져오기 (권장)</button></div>');
   $('fbConfLater').onclick=function(){ __fbClose('fbConfOv'); renderSaveChip(); };
   $('fbConfPush').onclick=function(){
     var rem2=__fbConflict&&__fbConflict.remote;
@@ -6343,7 +6343,7 @@ function fbConflictPopup(){
   $('fbConfPull').onclick=function(){
     __fbClose('fbConfOv'); __fbConflict=null;
     fbConnect().then(function(conn){ return fbPullApply(conn); })
-      .then(function(r){ showToast('Firebase 최신본 반영 — 상품 '+r.got+'건','success'); })
+      .then(function(r){ showToast('CLOUD 최신본 반영 — 상품 '+r.got+'건','success'); })
       .catch(function(e){ __fbState='err'; __fbErrMsg=String((e&&e.message)||e); renderSaveChip(); showToast('가져오기 실패','error'); });
   };
 }
@@ -6361,44 +6361,46 @@ async function fbAutoStart(){
       if(localRows>0){ __fbLast=null; fbSyncQueue(300); }
       else { __fbLast={}; __fbState='ok'; }
     } else if(SYNC_LATEST_WINS){
-      /* [원칙 2026-10-01] 접속하면 기본적으로 Firebase 데이터(상품 + 필드 설정값)를 가져온다.
-         예외: 이 컴퓨터에 아직 전송 못 한 수정이 있고 그 수정이 Firebase 기록보다 더 최근일 때만 전송 */
-      if(S.dirtySinceSync&&!fbRemoteNewer(meta.savedAt)){ __fbMuting=true; S.fbLastSync=meta.savedAt; saveState(); __fbMuting=false; __fbLast=null; fbSyncQueue(300); }
-      else { var r0=await fbPullApply(conn); fbLogSync('pull',r0.got,'시작 시 Firebase 데이터 가져오기'); showToast('Firebase 데이터 불러오기 — 상품 '+r0.got+'건','success'); }
+      /* [원칙 2026-10-01] 접속하면 기본적으로 CLOUD 데이터(상품 + 필드 설정값)를 가져온다.
+         [속도 2026-10-01] 이 컴퓨터 사본이 CLOUD 의 마지막 기록과 같으면(savedAt 일치) 다시 내려받지 않음 — 수천 건 재다운로드가 로딩 지연의 원인
+         예외: 이 컴퓨터에 아직 전송 못 한 수정이 있고 그 수정이 CLOUD 기록보다 더 최근일 때만 전송 */
+      if(meta.savedAt===S.fbLastSync&&localRows>0){ __fbLast=fbDocsMap(fbBuildPlan(S)); if(S.dirtySinceSync) fbSyncQueue(300); else __fbState='ok'; }
+      else if(S.dirtySinceSync&&!fbRemoteNewer(meta.savedAt)){ __fbMuting=true; S.fbLastSync=meta.savedAt; saveState(); __fbMuting=false; __fbLast=null; fbSyncQueue(300); }
+      else { var r0=await fbPullApply(conn); fbLogSync('pull',r0.got,'시작 시 CLOUD 데이터 가져오기'); showToast('CLOUD 데이터 불러오기 — 상품 '+r0.got+'건','success'); }
     } else if(localRows===0||(S.seeded&&!S.fbLastSync)){
       var __wasSeed=!!S.seeded; var r=await fbPullApply(conn);
-      fbLogSync('pull',r.got,__wasSeed?'내장 데이터 → Firebase 데이터로 교체':'빈 상태 → 불러오기');
-      showToast('Firebase 자동 불러오기 — 상품 '+r.got+'건','success');
+      fbLogSync('pull',r.got,__wasSeed?'내장 데이터 → CLOUD 데이터로 교체':'빈 상태 → 불러오기');
+      showToast('CLOUD 자동 불러오기 — 상품 '+r.got+'건','success');
     } else if(meta.savedAt===S.fbLastSync){
       __fbLast=null; /* 같은 계보 — 다음 전송은 전체 기준 재확립 */
       if(S.dirtySinceSync) fbSyncQueue(300); else __fbState='ok';
     } else if(!S.dirtySinceSync){
       var r2=await fbPullApply(conn);
       fbLogSync('pull',r2.got,'시작 시 최신본 반영');
-      showToast('Firebase 최신본 자동 반영 — 상품 '+r2.got+'건','success');
+      showToast('CLOUD 최신본 자동 반영 — 상품 '+r2.got+'건','success');
     } else if(SYNC_LATEST_WINS){
-      if(fbRemoteNewer(meta.savedAt)){ var r3=await fbPullApply(conn); fbLogSync('pull',r3.got,'시작 시 원격이 더 최근 → 반영'); showToast('Firebase 최신본 반영 — 상품 '+r3.got+'건','success'); }
+      if(fbRemoteNewer(meta.savedAt)){ var r3=await fbPullApply(conn); fbLogSync('pull',r3.got,'시작 시 원격이 더 최근 → 반영'); showToast('CLOUD 최신본 반영 — 상품 '+r3.got+'건','success'); }
       else { __fbMuting=true; S.fbLastSync=meta.savedAt; saveState(); __fbMuting=false; __fbLast=null; fbSyncQueue(300); }
     } else {
       __fbConflict={remote:meta.savedAt}; __fbState='conflict'; fbConflictPopup();
     }
     fbWatchStart(conn);
-  }catch(e){ __fbState='err'; __fbErrMsg=String((e&&(e.code||e.message))||e); if(__fbBooting) showToast('Firebase 불러오기 실패 — '+__fbErrMsg+' (이 컴퓨터 사본으로 표시, 저장 칩 클릭으로 재시도)','error'); }
+  }catch(e){ __fbState='err'; __fbErrMsg=String((e&&(e.code||e.message))||e); if(__fbBooting) showToast('CLOUD 불러오기 실패 — '+__fbErrMsg+' (이 컴퓨터 사본으로 표시, 저장 칩 클릭으로 재시도)','error'); }
   __fbBooting=false; fbBootOverlay(false);
   renderSaveChip();
 }
 /* 저장 칩 연동 */
 function fbSyncChipInfo(){
   var st=__fbState;
-  if(st==='off'&&FB_LOCAL_ONLY) return { cls:'', text:'로컬 전용 (Firebase 꺼짐)', title:'FB_LOCAL_ONLY=true — 로컬 저장만 사용' };
-  if(st==='off') return { cls:'', text:'FB: 설정 없음 (클릭)', title:'메뉴 > Firebase 설정' };
-  if(st==='run') return { cls:'need', text:'FB 전송 중…', title:'Firebase 에 기록하는 중입니다' };
-  if(st==='wait') return { cls:'need', text:'FB 자동 전송 예약', title:'수정 후 몇 초 안에 자동 전송됩니다. 클릭: 지금 즉시' };
-  if(st==='names') return { cls:'err', text:'FB: 영어 이름 확정 필요 (클릭)', title:'새 카테고리의 Firebase 저장 이름을 정해야 전송됩니다' };
-  if(st==='hold') return { cls:'err', text:'FB 보류: 상품 0건 (클릭)', title:'전체 0건 상태는 자동 전송하지 않습니다 (실수 방지)' };
-  if(st==='conflict') return { cls:'err', text:'FB 충돌 — 선택 필요 (클릭)', title:'다른 컴퓨터 수정과 겹쳤습니다' };
-  if(st==='ok') return { cls:'ok', text:(S&&S.dirtySinceSync)?'FB 자동 전송 예약':'FB 동기화됨', title:'클릭: 지금 즉시 전송' };
-  return { cls:'err', text:'FB 오류 (클릭 재시도)', title:__fbErrMsg||'' };
+  if(st==='off'&&FB_LOCAL_ONLY) return { cls:'', text:'로컬 전용 (CLOUD 꺼짐)', title:'FB_LOCAL_ONLY=true — 로컬 저장만 사용' };
+  if(st==='off') return { cls:'', text:'CLOUD: 설정 없음 (클릭)', title:'메뉴 > CLOUD 설정' };
+  if(st==='run') return { cls:'need', text:'CLOUD 전송 중…', title:'CLOUD 에 기록하는 중입니다' };
+  if(st==='wait') return { cls:'need', text:'CLOUD 자동 전송 예약', title:'수정 후 몇 초 안에 자동 전송됩니다. 클릭: 지금 즉시' };
+  if(st==='names') return { cls:'err', text:'CLOUD: 영어 이름 확정 필요 (클릭)', title:'새 카테고리의 CLOUD 저장 이름을 정해야 전송됩니다' };
+  if(st==='hold') return { cls:'err', text:'CLOUD 보류: 상품 0건 (클릭)', title:'전체 0건 상태는 자동 전송하지 않습니다 (실수 방지)' };
+  if(st==='conflict') return { cls:'err', text:'CLOUD 충돌 — 선택 필요 (클릭)', title:'다른 컴퓨터 수정과 겹쳤습니다' };
+  if(st==='ok') return { cls:'ok', text:(S&&S.dirtySinceSync)?'CLOUD 자동 전송 예약':'CLOUD 동기화됨', title:'클릭: 지금 즉시 전송' };
+  return { cls:'err', text:'CLOUD 오류 (클릭 재시도)', title:__fbErrMsg||'' };
 }
 function fbSyncChipClick(){
   if(__fbState==='conflict'){ fbConflictPopup(); return true; }
@@ -6408,7 +6410,7 @@ function fbSyncChipClick(){
     if(p.needNames.length){ fbNamePopup(p.needNames).then(function(ok){ if(ok){ __fbNamesAsked=''; __fbState='wait'; fbSyncQueue(200); } }); }
     return true;
   }
-  if(__fbState==='hold'){ uiAlert('상품이 0건이라 자동 전송을 보류 중입니다 — 실수로 Firebase 를 비우는 것을 막기 위해서입니다.\n정말 Firebase 를 비우려면 메뉴 > Firebase 업로드를 직접 실행하세요.','FB 동기화'); return true; }
+  if(__fbState==='hold'){ uiAlert('상품이 0건이라 자동 전송을 보류 중입니다 — 실수로 CLOUD 를 비우는 것을 막기 위해서입니다.\n정말 CLOUD 를 비우려면 메뉴 > CLOUD 업로드를 직접 실행하세요.','CLOUD 동기화'); return true; }
   fbSyncRun(); return true;
 }
 /* [MODULE 26] 테스트/외부 공개 */
