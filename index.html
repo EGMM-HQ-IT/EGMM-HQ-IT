@@ -2609,7 +2609,7 @@
     background:
       radial-gradient(120% 90% at 100% 0%, rgba(255,255,255,.10) 0%, transparent 55%),
       linear-gradient(135deg, var(--hm-red-bright) 0%, var(--hm-red) 48%, var(--hm-red-deep) 100%);
-    padding:64px 40px 124px;
+    padding:36px 40px 84px;   /* [2026-10] 1920×1080 한 화면에 맞춤 — 세로 간격 축소 */
   }
   /* 배경의 거대한 "H" 타이포 (브랜드 이니셜 장식) */
   .hm-hero::before{
@@ -2626,7 +2626,7 @@
   }
   .hm-hero-in{
     position:relative; z-index:1; max-width:1120px; margin:0 auto;
-    display:flex; flex-direction:column; gap:22px;
+    display:flex; flex-direction:column; gap:14px;
   }
   .hm-eyebrow{
     display:flex; align-items:center; gap:14px;
@@ -2656,7 +2656,7 @@
 
   /* ── 메인 카드 2개 (H-MART 매장 관리 · EGMM 운영 콘솔) — 히어로에 걸치기 ── */
   .hm-primary-wrap{
-    position:relative; z-index:2; max-width:1120px; width:100%; margin:-56px auto 0; padding:0 40px;
+    position:relative; z-index:2; max-width:1120px; width:100%; margin:-48px auto 0; padding:0 40px;
     display:grid; grid-template-columns:1fr 1fr; gap:20px;
   }
   .portal-card.hm-primary{
@@ -2695,11 +2695,11 @@
   /* ── 섹션(구역) + 오른쪽 매장 목록 ── */
   /* 섹션은 기존 그대로(가운데 1120px 컨테이너) · 매장 목록만 화면 오른쪽 끝에 붙인다 */
   .portal-body{
-    position:relative; width:100%; max-width:1120px; margin:0 auto; padding:48px 40px 24px;
+    position:relative; width:100%; max-width:1120px; margin:0 auto; padding:26px 40px 10px;
   }
-  .portal-cats{ min-width:0; display:flex; flex-direction:column; gap:40px; }
+  .portal-cats{ min-width:0; display:flex; flex-direction:column; gap:20px; }
   .hm-stores{
-    position:absolute; top:48px; width:180px; padding:4px 0 0 24px; border-left:1px solid var(--border);
+    position:absolute; top:26px; width:180px; padding:4px 0 0 24px; border-left:1px solid var(--border);
     /* 컨테이너 오른쪽 가장자리에서 뷰포트 오른쪽 끝까지 밀어냄 */
     right:calc(-1 * ((100vw - 100%) / 2) + 32px);
   }
@@ -2727,13 +2727,13 @@
   }
   .portal-cat-title::before{ content:''; width:38px; height:3px; background:var(--hm-red); border-radius:2px; margin-bottom:8px; }
   .portal-cat-title .ko{ font-size:15px; font-weight:700; letter-spacing:.01em; color:var(--text); text-transform:none; }
-  .portal-cat-cards{ display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:16px; }
+  .portal-cat-cards{ display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:12px; }
 
   /* ── 일반 카드 ── */
   .portal-card{
     position:relative; overflow:hidden; background:#FFFDFA;
     border:1px solid var(--border); border-radius:18px;
-    min-height:112px; padding:22px 24px;
+    min-height:88px; padding:16px 22px;
     display:flex; flex-direction:column; justify-content:center;
     cursor:pointer; text-align:left;
     box-shadow:0 1px 2px rgba(30,27,22,.04), 0 12px 28px -24px rgba(30,27,22,.35);
@@ -2768,7 +2768,7 @@
 
   /* ── 푸터 ── */
   .hm-foot{
-    max-width:1120px; width:100%; margin:0 auto; padding:28px 40px 56px;
+    max-width:1120px; width:100%; margin:0 auto; padding:14px 40px 20px;
     display:flex; align-items:center; gap:14px; flex-wrap:wrap;
     font-family:var(--mono); font-size:11px; font-weight:700; letter-spacing:.18em; color:var(--text-faint);
   }
