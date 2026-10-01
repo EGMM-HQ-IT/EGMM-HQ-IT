@@ -1455,6 +1455,8 @@ function migrate(st){
   });
   if(!st.layouts||typeof st.layouts!=='object') st.layouts={};
   if(!st.data||typeof st.data!=='object') st.data={};
+  /* [2026-10] 데이터에는 있는데 탭 목록에 빠진 소분류(Firebase 복원 등)는 탭에 되살린다 — 행이 고아가 되어 전송 0건으로 잡히는 일 방지 */
+  st.tabs.forEach(function(t){ var dm=st.data[t.label]; if(!dm||typeof dm!=='object') return; Object.keys(dm).forEach(function(sb){ if(Array.isArray(dm[sb])&&dm[sb].length&&t.subs.indexOf(sb)<0) t.subs.push(sb); }); });
   if(!Array.isArray(st.stores)||!st.stores.length) st.stores=DEFAULT_STORES.slice();
   if(typeof st.curStore!=='string') st.curStore='';
   if(!st.ui) st.ui={big:0,sub:0};
@@ -2483,7 +2485,7 @@ var GUIDE_UPC=[
   ['업데이트 규칙','같은 업체(중간 카테고리) 안에서 UPC가 같은 행은 업데이트, 없으면 새 행. 같은 상품이 STI-WA 에도 JFC 에도 있어도 됨 — 다른 업체의 같은 UPC 는 건드리지 않고 각각 등록(중복 UPC 는 바탕색으로 표시, 쓸모없는 쪽은 직접 삭제 → TRASH). UPC와 ITEM CODE가 모두 같은 행은 무시. UPC가 빈 행은 건너뜀.'],
   ['표시','같은 UPC 행은 UPC 칸이 같은 색. USE 미체크 행은 회색 취소선. 검색은 Enter, 번호는 쉼표로 여러 개.'],
   ['저장','모든 변경은 즉시 자동 저장되고 Firebase(UPC-LIST)에 자동 동기화됩니다. 상단 칩에서 상태 확인.'],
-  ['동기화 규칙','여러 컴퓨터에서 쓸 때 가장 최근에 수정된 쪽이 항상 기준입니다(충돌 선택 없음). 다른 컴퓨터가 저장하면 이 화면에도 바로 반영되고, 메뉴 > 동기화 로그에 날짜·시간·방향(전송/반영)·컴퓨터가 기록됩니다.'],
+  ['동기화 규칙','기본 데이터는 없고 모든 데이터(상품 + 필드 설정값)는 Firebase 에서 가져옵니다. 열면 먼저 Firebase 를 불러오고, 끝나기 전에는 수정·저장이 잠깁니다. 여러 컴퓨터에서 쓸 때 가장 최근에 수정된 쪽이 항상 기준(충돌 선택 없음). 다른 컴퓨터가 저장하면 이 화면에도 바로 반영되고, 메뉴 > 동기화 로그에 날짜·시간·방향(전송/반영)·컴퓨터가 기록됩니다.'],
   ['TRASH','리스트에서 삭제한 행은 UPC · ITEM CODE · VENDER 3개만 TRASH 에 보관됩니다(메뉴 > TRASH). 엑셀 불러오기 때 TRASH 와 UPC·ITEM CODE 가 모두 같은 행은 무조건 무시되어 쓰레기가 다시 쌓이지 않습니다. TRASH 에서 제거하면 다시 등록 가능.']
 ];
 function openGuide(){
@@ -5606,6 +5608,7 @@ function init(){
   applyTheme(curTheme()); $('themeBtn').onclick=toggleTheme; /* [MODULE 00] DAY/NIGHT */
   bindCatMgr(); /* [MODULE 24] 카테고리 관리 */
   /* [MODULE 26] 파일(plu-data.json) 재연결 사용 안 함 — Firebase 자동 동기화로 대체 */
+  if(SYNC_LATEST_WINS&&fbCfgCur()){ __fbBooting=true; fbBootOverlay(true); } /* [원칙] 모든 데이터는 Firebase 에서 — 불러오기 끝난 뒤에만 수정·저장 */
   fbAutoStart();
   /* 종료·숨김 직전 미기록분 즉시 기록 (브라우저 저장 병합분 + 파일) */
   window.addEventListener('beforeunload',function(){ __lsFlush(); if(fsTimer){ fsWriteNow(); } });
@@ -6100,6 +6103,13 @@ var __fbLast=null;   /* path→json — 이 세션이 아는 Firebase 상태. nu
 var __fbSyncTimer=0, __fbSyncRunning=false, __fbSyncPending=false, __fbRetryTimer=0;
 var __fbMuting=false;   /* 동기화 자신이 하는 저장(플래그·복원 적용)의 재큐잉 방지 */
 var __fbState='off';    /* off|wait|run|ok|err|conflict|names|hold */
+var __fbBooting=false;  /* [UPC 2026-10] 시작 시 Firebase 불러오기 완료 전 — 전송·수정 금지 */
+function fbBootOverlay(on,msg){
+  var ov=$('fbBootOv');
+  if(!on){ if(ov) ov.remove(); return; }
+  if(!ov){ ov=document.createElement('div'); ov.id='fbBootOv'; ov.setAttribute('style','position:fixed;inset:0;z-index:9995;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;'); document.body.appendChild(ov); }
+  ov.innerHTML='<div style="background:var(--panel,#fff);color:var(--ink,#222);border-radius:12px;padding:18px 24px;font-size:14px;font-weight:800;box-shadow:0 12px 40px rgba(0,0,0,.35)">'+escapeHtml(msg||'Firebase 데이터 불러오는 중…')+'</div>';
+}
 var __fbErrMsg='', __fbNamesAsked='', __fbConflict=null;
 
 /* ═══ [SYNC LOG · UPC 2026-10] 동기화 날짜·시간 기록 — 로컬(S.syncLog) + Firebase FB_ROOT/_SYNCLOG (두 컴퓨터 공용, 최근 300건) ═══ */
@@ -6150,7 +6160,7 @@ function fbWatchStart(conn){
   },function(){}); }catch(e){}
 }
 function fbRowsTotal(st){ var n=0,d=(st&&st.data)||{}; for(var b in d){ var ss=d[b]; for(var s2 in ss){ if(Array.isArray(ss[s2])) n+=ss[s2].length; } } return n; }
-function fbSyncTouch(){ if(__fbMuting||!S) return; S.dirtySinceSync=true; S.dirtyAt=new Date().toISOString(); if(__fbState!=='conflict') fbSyncQueue(); else renderSaveChip(); }
+function fbSyncTouch(){ if(__fbMuting||!S||__fbBooting) return; S.dirtySinceSync=true; S.dirtyAt=new Date().toISOString(); if(__fbState!=='conflict') fbSyncQueue(); else renderSaveChip(); }
 function fbSyncQueue(ms){
   if(__fbState==='conflict'){ renderSaveChip(); return; }
   clearTimeout(__fbSyncTimer);
@@ -6340,6 +6350,11 @@ async function fbAutoStart(){
     if(!meta){
       if(localRows>0){ __fbLast=null; fbSyncQueue(300); }
       else { __fbLast={}; __fbState='ok'; }
+    } else if(SYNC_LATEST_WINS){
+      /* [원칙 2026-10-01] 접속하면 기본적으로 Firebase 데이터(상품 + 필드 설정값)를 가져온다.
+         예외: 이 컴퓨터에 아직 전송 못 한 수정이 있고 그 수정이 Firebase 기록보다 더 최근일 때만 전송 */
+      if(S.dirtySinceSync&&!fbRemoteNewer(meta.savedAt)){ __fbMuting=true; S.fbLastSync=meta.savedAt; saveState(); __fbMuting=false; __fbLast=null; fbSyncQueue(300); }
+      else { var r0=await fbPullApply(conn); fbLogSync('pull',r0.got,'시작 시 Firebase 데이터 가져오기'); showToast('Firebase 데이터 불러오기 — 상품 '+r0.got+'건','success'); }
     } else if(localRows===0||(S.seeded&&!S.fbLastSync)){
       var __wasSeed=!!S.seeded; var r=await fbPullApply(conn);
       fbLogSync('pull',r.got,__wasSeed?'내장 데이터 → Firebase 데이터로 교체':'빈 상태 → 불러오기');
@@ -6358,7 +6373,8 @@ async function fbAutoStart(){
       __fbConflict={remote:meta.savedAt}; __fbState='conflict'; fbConflictPopup();
     }
     fbWatchStart(conn);
-  }catch(e){ __fbState='err'; __fbErrMsg=String((e&&(e.code||e.message))||e); }
+  }catch(e){ __fbState='err'; __fbErrMsg=String((e&&(e.code||e.message))||e); if(__fbBooting) showToast('Firebase 불러오기 실패 — '+__fbErrMsg+' (이 컴퓨터 사본으로 표시, 저장 칩 클릭으로 재시도)','error'); }
+  __fbBooting=false; fbBootOverlay(false);
   renderSaveChip();
 }
 /* 저장 칩 연동 */
