@@ -868,6 +868,8 @@ html[data-theme=night] .plu-cm-row.cur { border-color:#4d8bea; background:#1e2c4
       <div class="plu-store-wrap" id="pluStoreWrap"></div>
       <!-- [MODULE 15 · AUTOSAVE] 실시간 저장 칩 -->
       <button class="plu-save-chip" id="saveChip" type="button"></button>
+      <!-- [TRASH · UPC 2026-10] 삭제 보관함 보기 (TRASH_ENABLED 일 때만 표시) -->
+      <button class="plu-tool-btn" id="trashBtn" type="button" style="display:none" title="삭제한 상품 보관함 (UPC · ITEM CODE · VENDER)">♻ TRASH</button>
       <!-- [선택삭제] 메뉴 버튼 왼쪽 -->
       <button class="plu-tool-btn plu-delsel" id="delSelBtn" type="button">🗑 선택삭제</button>
       <!-- [MODULE 08] 기능 메뉴 버튼 (팝업은 아래 모달) -->
@@ -2477,7 +2479,7 @@ var GUIDE_UPC=[
   ['필드명 파일 불러오기','1행 = 필드명, 2행부터 데이터. UPC 열 필수. 이름이 조금 달라도 유사 이름으로 자동 매칭, PRODUCT NAME 열은 자동 분리.'],
   ['필드 매칭 순서','엑셀 1행의 각 열 이름을 왼쪽 열부터 차례로 아래 순서로 찾고, 한 필드는 한 열에만 연결됩니다(먼저 매칭된 열이 차지). ① 필드명과 대소문자·띄어쓰기까지 정확히 같은 이름 (예: SIZE → SIZE, size → size 필드) ② 대소문자 무시 (english_desc → ENGLISH_DESC, Item Code → ITEM CODE) ③ 별칭 (PLU → UPC, PLU TYPE → UPC TYPE) ④ 유사 이름 (Vendor·업체명 → VENDER, Retail Price·판매가 → SRP, Unit Cost·원가 → COST, UOM·단위 → UNIT CODE, Pack Qty·입수 → PACK, Case Qty·박스입수 → CASE, Barcode·UPC CODE·GTIN → UPC, Item No·SKU·상품코드 → ITEM CODE, Korean·한글명 → KOREA_DESC, English·영문명 → ENGLISH_DESC, Store·매장 → LOCATION). ⑤ PRODUCT NAME·상품명·DESCRIPTION 같은 합본 열은 ENGLISH_DESC 로 받아 영문/한글을 자동 분리하고 용량(CASE/PACK/SIZE/UNIT CODE)을 뽑습니다.'],
   ['매칭 결과 확인','실행 전 팝업에 열마다 "이 열 → 이 필드" 가 표시됩니다. ✓ = 연결됨(유사 이름이면 표시), ✗ = 매칭 없음 → 그 열은 무시. 같은 필드가 이미 다른 열에 연결되면 뒤의 열은 무시됩니다 (예: PLU 열과 Barcode 열이 함께 있으면 PLU 만 UPC 로). UPC 열이 하나도 없으면 오류로 중단. 매칭 안 되는 열은 엑셀 1행 이름을 앱 필드명과 똑같이 고치면 됩니다.'],
-  ['업데이트 규칙','UPC가 같은 행은 업데이트, 없으면 새 행. UPC와 ITEM CODE가 모두 같은 행은 무시. UPC가 빈 행은 건너뜀. 실행 전 확인 팝업을 확인하세요.'],
+  ['업데이트 규칙','같은 업체(중간 카테고리) 안에서 UPC가 같은 행은 업데이트, 없으면 새 행. 같은 상품이 STI-WA 에도 JFC 에도 있어도 됨 — 다른 업체의 같은 UPC 는 건드리지 않고 각각 등록(중복 UPC 는 바탕색으로 표시, 쓸모없는 쪽은 직접 삭제 → TRASH). UPC와 ITEM CODE가 모두 같은 행은 무시. UPC가 빈 행은 건너뜀.'],
   ['표시','같은 UPC 행은 UPC 칸이 같은 색. USE 미체크 행은 회색 취소선. 검색은 Enter, 번호는 쉼표로 여러 개.'],
   ['저장','모든 변경은 즉시 자동 저장되고 Firebase(UPC-LIST)에 자동 동기화됩니다. 상단 칩에서 상태 확인.'],
   ['동기화 규칙','여러 컴퓨터에서 쓸 때 가장 최근에 수정된 쪽이 항상 기준입니다(충돌 선택 없음). 다른 컴퓨터가 저장하면 이 화면에도 바로 반영되고, 메뉴 > 동기화 로그에 날짜·시간·방향(전송/반영)·컴퓨터가 기록됩니다.'],
@@ -4109,6 +4111,7 @@ function applyImport(opts){
       rowsFor(big,sb).forEach(function(r){
         var mv=matchNorm(r.v?r.v[mF.key]:'');
         if(mv&&!index[mv]) index[mv]={sub:sb,row:r};
+        if(mv&&SUB_BY_VENDER&&!index[mv+'@'+sb]) index[mv+'@'+sb]={sub:sb,row:r}; /* [UPC] 업체별 매칭 키 */
       });
     });
   }
@@ -4129,7 +4132,7 @@ function applyImport(opts){
     if(bg===big) return index;
     if(idxByBig[bg]) return idxByBig[bg];
     var ix={}; var tt=tabOf(bg);
-    if(mF&&tt){ (tt.subs||[]).forEach(function(sb){ rowsFor(bg,sb).forEach(function(r){ var mv=matchNorm(r.v?r.v[mF.key]:''); if(mv&&!ix[mv]) ix[mv]={sub:sb,row:r}; }); }); }
+    if(mF&&tt){ (tt.subs||[]).forEach(function(sb){ rowsFor(bg,sb).forEach(function(r){ var mv=matchNorm(r.v?r.v[mF.key]:''); if(mv&&!ix[mv]) ix[mv]={sub:sb,row:r}; if(mv&&SUB_BY_VENDER&&!ix[mv+'@'+sb]) ix[mv+'@'+sb]={sub:sb,row:r}; }); }); }
     idxByBig[bg]=ix; return ix;
   }
 
@@ -4244,9 +4247,11 @@ function applyImport(opts){
 
       var rIdx=getIdx(rowBig);
       var hit=null;
+      /* [확정 2026-10-01 · UPC] 같은 상품이 STI-WA 에도 JFC 에도 있어도 됨 — UPC 매칭은 목적지 업체(중간 카테고리) 안에서만. 다른 업체의 같은 UPC 행은 건드리지 않고 새 행으로 들어감 */
+      var __vendScope=(SUB_BY_VENDER&&!venderBig)?String(vals.VENDER_VENDER==null?'':vals.VENDER_VENDER).trim():venderBig;
       /* [요구 2026-09 ①] PLU/UPC 값이 없는 행은 건너뜀 (기준 없이 새 행을 만들지 않음) */
       if(mF&&!matchNorm(vals[mF.key])){ stats.skipped=(stats.skipped||0)+1; continue; }
-      if(mF&&vals[mF.key]!=null){ hit=rIdx?(rIdx[matchNorm(vals[mF.key])]||null):null; }
+      if(mF&&vals[mF.key]!=null){ hit=rIdx?(rIdx[matchNorm(vals[mF.key])]||null):null; if(hit&&SUB_BY_VENDER&&__vendScope&&hit.sub!==__vendScope){ var __alt=rIdx[matchNorm(vals[mF.key])+'@'+__vendScope]||null; hit=__alt; } }
       /* [확정 2026-09-30 · UPC] 중간 카테고리 = VENDER 값 — 파일 VENDER → 기존 행 VENDER → 대분류 기본(STI-WA) 순.
          기존 행에 VENDER 가 있으면 파일에 없을 때 덮어쓰지 않음 */
       if(SUB_BY_VENDER&&!venderBig){
@@ -4288,7 +4293,7 @@ function applyImport(opts){
         if(venderBig){ var __vf2=fieldByKey(rowBig,'VENDER_VENDER'); if(__vf2) setCell(nr,__vf2,venderBig,''); }
         applyRowDefaults(rowBig,nr); /* [UPC 기본값] LOCATION 99 · USE 1 */
         rowsFor(rowBig,dest).push(nr);
-        if(mF&&vals[mF.key]!=null&&rIdx){ var mv2=matchNorm(vals[mF.key]); if(mv2&&!rIdx[mv2]) rIdx[mv2]={sub:dest,row:nr}; }
+        if(mF&&vals[mF.key]!=null&&rIdx){ var mv2=matchNorm(vals[mF.key]); if(mv2&&!rIdx[mv2]) rIdx[mv2]={sub:dest,row:nr}; if(mv2&&SUB_BY_VENDER&&!rIdx[mv2+'@'+dest]) rIdx[mv2+'@'+dest]={sub:dest,row:nr}; }
         stats.add++;
       }
     }
@@ -5584,6 +5589,7 @@ function init(){
   $('printX').onclick=function(){ $('printOv').classList.remove('show'); };
   $('puX').onclick=function(){ $('puOv').classList.remove('show'); };
   $('delSelBtn').onclick=function(){ delSelected(); };
+  if(TRASH_ENABLED){ $('trashBtn').style.display=''; $('trashBtn').onclick=function(){ openTrash(); }; }
   $('printOv').addEventListener('click',function(ev){ if(ev.target===this) this.classList.remove('show'); });
   $('menuPop').addEventListener('click',function(ev){ if(ev.target===this) toggleMenuPop(false); }); /* 바깥(오버레이) 클릭 닫기 */
   $('feSave').onclick=feSave;
