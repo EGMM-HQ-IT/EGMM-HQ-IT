@@ -79,7 +79,7 @@
   .ch .nm{ font-size:13.5px; font-weight:800; display:flex; align-items:baseline; gap:6px; margin-bottom:4px; white-space:nowrap; overflow:hidden; }
   .ch .nm small{ font-size:11px; color:var(--text-faint); font-weight:700; }
   .ch .nm .tot{ margin-left:auto; font-size:11px; font-weight:800; color:var(--text-faint); }
-  .ch canvas{ width:100%; height:200px; display:block; }
+  .ch canvas{ width:100%; height:280px; display:block; }
   .ch .nav{ display:flex; align-items:center; justify-content:center; gap:8px; margin-top:4px; }
   .ch .nav button{ border:1.5px solid var(--border); background:var(--bg-elev); border-radius:7px; font:inherit; font-size:12px; font-weight:800; width:28px; height:24px; cursor:pointer; color:var(--text-dim); line-height:1; }
   .ch .nav button:disabled{ opacity:.3; cursor:default; }
@@ -481,7 +481,7 @@
     box.querySelector('.rng').textContent=show.length?(show[0]+' ~ '+show[show.length-1]):'';
     box.querySelector('button[data-nav="-1"]').disabled=start<=0; box.querySelector('button[data-nav="1"]').disabled=end>=ds.length;
     /* 캔버스를 화면 픽셀 크기 그대로 사용 → 글씨 크기가 CSS px 와 동일 (최소 10px) */
-    var C=themeCol(), W=Math.max(120,Math.round(cv.clientWidth||cv.getBoundingClientRect().width||280)), Hc=200, dpr=window.devicePixelRatio||1;
+    var C=themeCol(), W=Math.max(120,Math.round(cv.clientWidth||cv.getBoundingClientRect().width||280)), Hc=280, dpr=window.devicePixelRatio||1;
     cv.width=Math.round(W*dpr); cv.height=Math.round(Hc*dpr); var ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,Hc);
     var base=Hc-28, H=Hc-28-24, left=4, right=W-4;
     ctx.strokeStyle=C.line; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(left,base); ctx.lineTo(right,base); ctx.stroke();
@@ -491,12 +491,16 @@
       var sp=vendorSplitDay(sales[code][d]); var X=left+gap+i*(w+gap);
       ctx.textAlign='center';
       if(!sp.total){ ctx.fillStyle=C.faint; ctx.font='700 10px Pretendard,sans-serif'; ctx.textBaseline='alphabetic'; ctx.fillText(d.slice(5),X+w/2,base+16); return; }
-      var y=base, ci=0;
-      sortVendors(Object.keys(sp.by)).forEach(function(v){
-        var q=sp.by[v], h=Math.round(q/sp.total*H); y-=h;
-        ctx.fillStyle=colorFor(v,ci++); ctx.fillRect(X,y,w,h); ctx.strokeStyle=C.stroke; ctx.lineWidth=1.5; ctx.strokeRect(X,y,w,h);
+      /* 조각 높이: 비율대로 나누되 % 숫자가 들어가도록 최소 16px 보장(부족분은 가장 큰 조각에서 뺌) */
+      var keys=sortVendors(Object.keys(sp.by)), MIN=16, hs=keys.map(function(v){ return Math.round(sp.by[v]/sp.total*H); });
+      var deficit=0; hs=hs.map(function(h){ if(h<MIN){ deficit+=MIN-h; return MIN; } return h; });
+      if(deficit){ var bi=0; hs.forEach(function(h,k){ if(h>hs[bi]) bi=k; }); hs[bi]=Math.max(MIN,hs[bi]-deficit); }
+      var y=base;
+      keys.forEach(function(v,k){
+        var q=sp.by[v], h=hs[k]; y-=h;
+        ctx.fillStyle=colorFor(v,k); ctx.fillRect(X,y,w,h); ctx.strokeStyle=C.stroke; ctx.lineWidth=1.5; ctx.strokeRect(X,y,w,h);
         var pct=Math.round(q/sp.total*100);
-        if(h>=14){ ctx.fillStyle=textOn(v); ctx.font='800 '+(h>=20?12:10)+'px Pretendard,sans-serif'; ctx.textBaseline='middle'; ctx.fillText(pct+'%',X+w/2,y+h/2); }
+        ctx.fillStyle=textOn(v); ctx.font='800 '+(h>=22?12:10)+'px Pretendard,sans-serif'; ctx.textBaseline='middle'; ctx.fillText(pct+'%',X+w/2,y+h/2);
       });
       ctx.fillStyle=C.text; ctx.font='800 10.5px Pretendard,sans-serif'; ctx.textBaseline='alphabetic'; ctx.fillText(fmtN(sp.total)+'개',X+w/2,base-H-6);
       ctx.fillStyle=C.dim; ctx.font='800 10.5px Pretendard,sans-serif'; ctx.fillText(d.slice(5),X+w/2,base+16);
