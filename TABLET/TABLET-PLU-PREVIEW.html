@@ -1558,6 +1558,21 @@
   /* 매장 목록 — plu-local-ver 가 기록하는 STORE/{매장ID} = { name, order }.
      게이트의 매장 선택지가 데이터의 매장별 값(sv) 키와 정확히 같은 이름이 되도록
      같은 위치에서 읽는다. 실패하면 게이트가 app-config/stores → 내장 목록으로 폴백. */
+  /* (2026-10) WEEKLY SALES 이미지 = EGMM > WEEKLY AD MANAGER 가 저장한 egmm-hq-it(DB egmm) weekly-ad
+       · weekly-ad/_META : { current, list:[{id,title,pages}] }  · weekly-ad/{id}-p{n} : { b64 }
+       · 게시(current)된 광고지의 페이지 이미지를 [{url:b64, title}] 로 돌려준다. 없으면 [] */
+  window.__fbFetchWeeklyAd = async function(){
+    await pluAuthReady;
+    const ms = await getDoc(doc(pluDb, 'weekly-ad', '_META'));
+    const v = (ms && ms.exists && ms.exists()) ? (ms.data()||{}) : {};
+    const id = String(v.current||''); const list = Array.isArray(v.list) ? v.list : [];
+    const x = list.filter(function(y){ return y && y.id===id; })[0];
+    if(!id || !x) return [];
+    const reads=[]; for(let i=0;i<(x.pages||0);i++) reads.push(getDoc(doc(pluDb, 'weekly-ad', id+'-p'+i)));
+    const ss = await Promise.all(reads);
+    const out=[]; ss.forEach(function(p,i){ const d=(p&&p.exists&&p.exists())?(p.data()||{}):{}; if(d.b64) out.push({ url:d.b64, title:(x.title||'')+(x.pages>1?(' · '+(i+1)+'/'+x.pages):'') }); });
+    return out;
+  };
   window.__fbFetchStores = async function(){
     await pluAuthReady;
     const snap = await getDocs(collection(pluDb, 'STORE'));
@@ -3063,10 +3078,12 @@
           try{ return { r: await window.__fbFetchPlu(STORE, (DATA&&DATA.schema===DATA_SCHEMA)?DATA.pluSavedAt:null) }; }
           catch(e){ return { err:(e&&e.message)?e.message:String(e) }; }
         })();
+        var wkTask=(async function(){ try{ return await window.__fbFetchWeeklyAd(); }catch(e){ console.warn('[WEEKLY AD]', e&&e.message||e); return null; } })();
         var pcAll=await window.__fbFetchPreview();
         var pc=await fetchStoreConfig(pcAll);
         var hasPc=!!pc;
         var pluRes=await pluTask;
+        var wkAd=await wkTask;   // (2026-10) EGMM WEEKLY AD MANAGER 게시본 — 있으면 WEEKLY SALES 에 우선 표시
         var plu=pluRes.r||null;
         if(pluRes.err && !silent) console.warn('[PLU 리스트]', pluRes.err);
         var hasList=!!(plu && (plu.unchanged || (plu.cloud && Object.keys(plu.cloud).length)));
@@ -3083,7 +3100,7 @@
           if(pc.etc && (Array.isArray(pc.etc.subs)||Array.isArray(pc.etc.items))) custom.ETC={ subs:(pc.etc.subs||[]), plus:(pc.etc.plus||[]), items:(pc.etc.items||[]) };
           if(DATA&&DATA.custom){ for(var ck in DATA.custom){ if(!custom[ck]) custom[ck]=DATA.custom[ck]; } }
           var msg=(pc.msg!=null)?String(pc.msg):((DATA&&DATA.msg)||'');
-          var weekly=Array.isArray(pc.weekly)?pc.weekly:((DATA&&DATA.weekly)||[]);
+          var weekly=(Array.isArray(wkAd)&&wkAd.length)?wkAd:(Array.isArray(pc.weekly)?pc.weekly:((DATA&&DATA.weekly)||[]));
           DATA={ cloud:cloud, custom:custom, msg:msg, weekly:weekly, store:STORE, savedAt:Date.now(), schema:DATA_SCHEMA,
                  // plu-local-ver 업로드 시각 — 다음 UPDATE 때 같으면 상품 문서를 다시 읽지 않는다
                  pluSavedAt:(plu&&plu.meta&&plu.meta.savedAt)||((DATA&&DATA.pluSavedAt)||null) };
