@@ -130,6 +130,15 @@
   .guide-list li{ counter-increment:g; display:grid; grid-template-columns:30px 140px 1fr; gap:10px; align-items:start; padding:10px 4px; border-bottom:1px solid var(--border); font-size:13px; line-height:1.55; color:var(--text-dim); font-weight:600; }
   .guide-list li::before{ content:counter(g); width:24px; height:24px; border-radius:50%; background:var(--accent); color:#fff; font-weight:800; font-size:12px; display:flex; align-items:center; justify-content:center; margin-top:1px; }
   .guide-list li b{ font-weight:800; color:var(--text); }
+  .guide-h{ font-size:15px; font-weight:800; margin:18px 0 6px; padding-top:14px; border-top:2px solid var(--border-bright); }
+  .guide-step{ margin:0 0 12px; padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:var(--bg); font-size:13px; line-height:1.6; color:var(--text-dim); font-weight:600; }
+  .guide-step b{ color:var(--text); font-weight:800; }
+  .guide-step .tt{ display:block; font-weight:800; color:var(--accent); margin-bottom:4px; }
+  .guide-tb{ border-collapse:collapse; margin:6px 0; font-size:12.5px; width:100%; }
+  .guide-tb th,.guide-tb td{ border:1px solid var(--border); padding:4px 8px; text-align:center; }
+  .guide-tb th{ background:var(--bg-elev); font-weight:800; color:var(--text); }
+  .guide-tb td.l{ text-align:left; }
+  .guide-tb .em{ background:rgba(201,170,48,.22); font-weight:800; color:var(--text); }
   /* 비율 보기 모드 */
   .ratio-multi{ display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:12px; }
   .rbox{ border:1.5px solid var(--border); border-radius:14px; background:var(--bg); padding:12px; }
@@ -205,6 +214,37 @@
     <li><b>업체별 판매 비율</b><span>날짜와 상관없이 전체 데이터. <b>판매된 UPC 개수</b> 기준 (한 UPC 가 30일 팔려도 1개). 판매된 아이템 기준 = 업체별 점유율 도넛 · 등록된 아이템 기준 = 업체별 등록 대비 판매된 UPC 비율. 전체 / 매장별 / 선택 매장 보기.</span></li>
     <li><b>상품 · 업체 기준</b><span>상품과 업체(VENDER) 는 UPC MANAGER 등록 데이터 기준. 상품 목록은 변경 시 자동 갱신, ↻ 새로고침으로 즉시 다시 불러옴.</span></li>
   </ol>
+  <div class="guide-h">📐 데이터 산출 예시 — 실제로 이렇게 계산됩니다</div>
+  <div class="guide-step"><span class="tt">① POS 리포트 원본 (A=UPC · C=날짜 · D=금액)</span>
+    <table class="guide-tb"><tr><th>A (UPC)</th><th>B</th><th>C (날짜)</th><th>D (금액)</th><th>읽는 방법</th></tr>
+    <tr><td>008801007021348</td><td>신라면 5입</td><td>2026-09-01</td><td>4.99</td><td class="l">새 상품 시작 → UPC 8801007021348 (앞 0 제거)</td></tr>
+    <tr><td></td><td></td><td>2026-09-02</td><td>9.98</td><td class="l">A 비어 있음 → 위 UPC 의 9/2 판매</td></tr>
+    <tr><td></td><td></td><td>2026-09-03</td><td>14.97</td><td class="l">A 비어 있음 → 위 UPC 의 9/3 판매</td></tr>
+    <tr><td>상품별 소계</td><td></td><td></td><td>29.94</td><td class="l">UPC 아님 → 건너뜀, 이어받기 끊음</td></tr>
+    <tr><td>011152887999</td><td>미역</td><td>2026-09-01</td><td>2.99</td><td class="l">다음 상품 시작</td></tr></table></div>
+  <div class="guide-step"><span class="tt">② 판매가(단가) = 그 UPC 금액 중 가장 낮은 값</span>
+    8801007021348 의 금액 4.99 · 9.98 · 14.97 중 <b>가장 낮은 4.99 = 판매가</b>. (하루 1개만 팔린 날의 금액이 단가가 됨)</div>
+  <div class="guide-step"><span class="tt">③ 날짜별 수량 = 그날 금액 ÷ 판매가</span>
+    <table class="guide-tb"><tr><th>날짜</th><th>금액</th><th>계산</th><th>수량</th></tr>
+    <tr><td>09-01</td><td>4.99</td><td>4.99 ÷ 4.99</td><td class="em">1</td></tr>
+    <tr><td>09-02</td><td>9.98</td><td>9.98 ÷ 4.99</td><td class="em">2</td></tr>
+    <tr><td>09-03</td><td>14.97</td><td>14.97 ÷ 4.99</td><td class="em">3</td></tr>
+    <tr><td>(예) 09-04</td><td>12.00</td><td>12.00 ÷ 4.99 = 2.4 → 반올림</td><td class="em">2</td></tr></table>
+    0 이나 마이너스 금액(반품·취소)은 수량에 넣지 않음. 결과는 <b>UPC · 판매가 · 날짜 · 수량</b> 4가지로 정리되어 저장.</div>
+  <div class="guide-step"><span class="tt">④ 저장 (쌓기)</span>
+    매장 TACOMA 에 9/1~9/29 파일을 올린 뒤 10월 파일을 올리면 → 9월 데이터는 그대로, 10월이 추가됨. 9월 파일을 다시 올리면 → 9월 날짜만 새 값으로 바뀌고 10월은 유지.</div>
+  <div class="guide-step"><span class="tt">⑤ 매장별 판매 차트 (날짜별 업체 누적 막대)</span>
+    날짜마다 팔린 수량을 UPC MANAGER 의 VENDER 로 나눠 쌓음. 예) 9/3 에 STI-WA 상품 30개 · JFC 20개 · WIC 10개 팔림 → 막대 높이 60, 안쪽 비율 <b>STI-WA 50% · JFC 33% · WIC 17%</b>. UPC MANAGER 에 없는 UPC 는 세지 않음.</div>
+  <div class="guide-step"><span class="tt">⑥ 업체별 판매 비율 — 판매된 UPC 개수 기준</span>
+    팔린 수량이 아니라 <b>"팔린 적이 있는 UPC 가 몇 종류인가"</b>를 셈. 8801007021348 이 30일 내내 팔려도 1개.<br>
+    <table class="guide-tb"><tr><th>업체</th><th>등록된 UPC</th><th>판매된 UPC (종류)</th><th>판매된 아이템 기준</th><th>등록된 아이템 기준</th></tr>
+    <tr><td>STI-WA</td><td>1,000</td><td>400</td><td class="em">400 ÷ 600 = 67%</td><td class="em">400 ÷ 1,000 = 40%</td></tr>
+    <tr><td>JFC</td><td>500</td><td>150</td><td class="em">150 ÷ 600 = 25%</td><td class="em">150 ÷ 500 = 30%</td></tr>
+    <tr><td>WIC</td><td>200</td><td>50</td><td class="em">50 ÷ 600 = 8%</td><td class="em">50 ÷ 200 = 25%</td></tr>
+    <tr><td>합계</td><td>1,700</td><td>600</td><td>100% (도넛)</td><td>업체마다 따로</td></tr></table>
+    <b>판매된 아이템 기준</b> = 팔린 600종 중 업체별 점유율 (합 100%, 도넛). <b>등록된 아이템 기준</b> = 그 업체가 등록한 상품 중 실제로 팔린 상품 비율 (업체별 막대, 합계 아님). '매장별 각각 보기'는 매장마다 같은 계산, '선택한 매장만 보기'는 그 매장 데이터로만 계산.</div>
+  <div class="guide-step"><span class="tt">⑦ 상품 검색 결과</span>
+    검색한 UPC 의 <b>판매가</b>(매장별 단가 중 가장 낮은 값)와 <b>날짜 × 매장 수량표</b>. 날짜는 최근순, 맨 아래 합계. 검색 "8801007021348" · "08801007021348" · "신라면5입" 모두 같은 상품.</div>
 </div></div>
 <div class="modal-bg" id="modalBg"><div class="modal">
   <h3 id="mTitle"></h3><p id="mText"></p>
