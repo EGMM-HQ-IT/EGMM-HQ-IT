@@ -2,7 +2,7 @@
 <!--
   WEEKLY_AD_VIEW.html — WEEKLY AD (주간 광고지 보기)
   보기 전용 · 로그인 불필요 · index WEEKLY AD 카드 팝업(iframe)에서 열림
-  읽기: Firestore(the-shawn) weekly-ad/_META.current → weekly-ad/{id}-p{n}
+  읽기: Firestore egmm-hq-it(DB egmm) weekly-ad/_META.current → weekly-ad/{id}-p{n}
   등록·관리: EGMM > ADVERTISING > WEEKLY AD MANAGER (WEEKLY_AD_MANAGER.html)
 -->
 <html lang="ko">
@@ -37,20 +37,13 @@
   .hidden{ display:none !important; }
   @media (max-width:760px){ .sm-top{ padding:12px 16px; } .sm-title{ font-size:18px; } .body{ padding:10px; } }
 </style>
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-  import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-  const firebaseConfig = { apiKey:"AIzaSyC6t78BS99LX3261cRmApBG8AcZ8HPVxr0", authDomain:"the-shawn.firebaseapp.com", projectId:"the-shawn", storageBucket:"the-shawn.firebasestorage.app", messagingSenderId:"519898602513", appId:"1:519898602513:web:0f35e3dc9c29dce21665b0", measurementId:"G-NKGYGC63JN" };
-  const app=initializeApp(firebaseConfig);
-  window.fbDb=getFirestore(app);
-  window.fbFns={ doc, getDoc };
-  /* [2026-10] 익명 인증 후 fb-ready — Firestore 규칙(request.auth != null) 대응 · 3초 폴백 */
-  (function(){
-    var fired=false; function fire(){ if(fired) return; fired=true; window.fbAuthed=true; window.dispatchEvent(new Event('fb-ready')); }
-    try{ var auth=getAuth(app); onAuthStateChanged(auth,function(u){ if(u) fire(); }); signInAnonymously(auth).catch(function(e){ console.warn('[익명 인증 실패]', e&&e.code||e); fire(); }); }catch(e){ fire(); }
-    setTimeout(fire,3000);
-  })();
+<!-- [2026-10] Firebase: 예전 the-shawn 프로젝트 → egmm-hq-it(DB egmm) 공용 모듈로 이전. 익명 인증 완료 후 fb-ready -->
+<script src="../FUNCTION-FIREBASE-EGMM.js"></script>
+<script>
+  window.EgmmFB.ready.then(function(fb){
+    window.fbDb=fb.db; window.fbFns={ doc:fb.doc, getDoc:fb.getDoc }; window.fbAuthed=true;
+    window.dispatchEvent(new Event('fb-ready'));
+  }).catch(function(e){ console.error('[Firebase 연결 실패]', e); });
 </script>
 </head>
 <body>

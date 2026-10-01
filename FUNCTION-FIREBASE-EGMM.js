@@ -11,7 +11,7 @@
      <script>
        EgmmFB.ready.then(function(fb){
          // fb.db, fb.doc, fb.getDoc, fb.getDocs, fb.setDoc,
-         // fb.updateDoc, fb.deleteDoc, fb.collection, fb.onSnapshot
+         // fb.updateDoc, fb.deleteDoc, fb.collection, fb.onSnapshot, fb.writeBatch
        });
      </script>
    ===================================================================== */
@@ -69,7 +69,8 @@
       app: app, db: db,
       doc: F.doc, getDoc: F.getDoc, getDocs: F.getDocs,
       setDoc: F.setDoc, updateDoc: F.updateDoc, deleteDoc: F.deleteDoc,
-      collection: F.collection, onSnapshot: F.onSnapshot
+      collection: F.collection, onSnapshot: F.onSnapshot,
+      writeBatch: F.writeBatch   /* ADVERTISING/WEEKLY_AD_MANAGER 용 (2026-10) */
     };
     window.EgmmFB.db = db;
     window.EgmmFB.fns = fb;
