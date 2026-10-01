@@ -154,13 +154,13 @@
   <!-- ===== 관리 모드 ===== -->
   <div id="manageUI">
     <div class="grid2">
-      <!-- 좌: 아이템 마스터 (ITEM MANAGEMENT 연결 · 읽기 전용) -->
+      <!-- 좌: 아이템 마스터 (UPC LIST 연결 · 읽기 전용) -->
       <div class="card">
-        <h2>📦 ITEM MASTER <span class="tag">ITEM MANAGEMENT 연결</span> <button class="btn sm" id="masterDownloadBtn" style="margin-left:auto;background:#fff;color:#1a1a1d;border:1.5px solid #d8d3c8;">⬇ EXCEL EXPORT</button></h2>
-        <div class="hint">ITEM MANAGEMENT(ITEM ANALYZE)의 <b>ITEM MASTER</b> 자료를 그대로 사용합니다. 여기서는 업로드하지 않으며, ITEM MANAGEMENT에서 ITEM MASTER를 갱신하면 자동으로 반영됩니다.</div>
+        <h2>📦 ITEM MASTER <span class="tag">UPC LIST 연결</span> <button class="btn sm" id="masterDownloadBtn" style="margin-left:auto;background:#fff;color:#1a1a1d;border:1.5px solid #d8d3c8;">⬇ EXCEL EXPORT</button></h2>
+        <div class="hint">EGMM &gt; UPC MANAGER 의 <b>UPC LIST</b>(UPC · ITEM CODE · 상품명)를 그대로 사용합니다. 여기서는 업로드하지 않으며, UPC MANAGER 에서 저장하면 자동으로 반영됩니다.</div>
         <div class="im-linkbox" id="imLinkBox">
           <div class="im-linkrow"><span class="im-linklabel">연결 상태</span><span class="im-linkval" id="imLinkState">불러오는 중…</span></div>
-          <div class="im-linkrow"><span class="im-linklabel">ITEM MASTER 상품</span><span class="im-linkval"><b id="masterRows">0</b> 개</span></div>
+          <div class="im-linkrow"><span class="im-linklabel">UPC LIST 상품</span><span class="im-linkval"><b id="masterRows">0</b> 개</span></div>
           <div class="im-linkrow"><span class="im-linklabel">ITEMCODE ↔ UPC 매칭</span><span class="im-linkval"><b id="masterCount">0</b> 개 코드</span></div>
         </div>
         <div class="status" id="stMaster"></div>
@@ -326,11 +326,12 @@
   var $=function(id){ return document.getElementById(id); };
   var E=window.AdEngine;
   var AD_COL='advertising', MASTER_ID='STI LIST', AD_DRAFT_ID='_AD_DRAFT';
-  /* ITEM MANAGEMENT(ITEM ANALYZE)의 ITEM MASTER 자료 — 여기서 읽어와 광고 매칭에 사용 (읽기 전용) */
-  var IM_CFG_COL='app-config';
-  var IM_DOC='item-management-itemmaster';              // 메타 { rowCount, chunks, uploadedAt }
-  var IM_FIELDS_DOC='item-management-itemmaster-fields'; // 필드 정의 [{key,role,...}]
-  var imMasterRows=0, imMasterFields=[], imMasterAt=0, imLinkErr='';
+  /* [2026-10] ITEM MASTER = EGMM > UPC MANAGER 의 UPC LIST (Firestore UPC-LIST, ITEM ANALYZE 와 같은 캐시 공유) — 광고 매칭에 사용 (읽기 전용)
+       · UPC-LIST/_META { savedAt, tree:[{id,subs:[{id,name}]}] } · UPC-LIST/{대분류}/{소분류}/{UPC} { plu, r:{ v:{ ITEM_PLU, VENDER_ITEM_CODE, ITEM_ENGLISH, ITEM_KOREA, UNIT_SIZE_3, UNIT_CODE } } }
+       · 행 → { UPC, 'ITEM CODE', 'KOR DESC', 'ENG DESC', 'UNIT SIZE' } 로 바꿔 기존 매칭 인덱스에 그대로 사용 */
+  var UPC_ROOT='UPC-LIST', UPC_CACHE_KEY='iaProdCache';
+  var imMasterRows=0, imMasterAt=0, imLinkErr='';
+  var imMasterFields=[{key:'UPC',role:'upc'},{key:'ITEM CODE',role:'code'},{key:'KOR DESC',role:'name'},{key:'ENG DESC',role:'name'}];
   /* 관리 전용 — 매장 보기(view/newitem)는 advertising-viewer.html 로 분리 */
 
   var masterIndex={};            // {code:[upcs]} — 누적 임시저장 (STI LIST)
@@ -372,8 +373,8 @@
     drop.addEventListener('drop',function(e){ e.preventDefault(); drop.classList.remove('over'); var f=e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) readExcel(f,function(err,aoa){ if(err){toast('읽기 실패');return;} onLoad(aoa); }); });
   }
 
-  /* ===== 아이템 마스터 — ITEM MANAGEMENT(ITEM ANALYZE) ITEM MASTER 연결 (읽기 전용) =====
-     ITEM MANAGEMENT 마스터 행에서 코드(ITEM CODE·PLU 등 code 역할)와 UPC(upc 역할)를 뽑아
+  /* ===== 아이템 마스터 — UPC LIST 연결 (읽기 전용) =====
+     UPC LIST 행에서 코드(ITEM CODE)와 UPC 를 뽑아
      광고 매칭용 {ITEMCODE → [UPC]} 인덱스를 만든다. */
   function masterCount(){ return Object.keys(masterIndex).length; }
   function digitsOnly2(s){ return String(s==null?'':s).replace(/[^0-9]/g,''); }
@@ -386,8 +387,8 @@
     if(!box||!st) return;
     box.classList.remove('warn');
     if(imLinkErr){ box.classList.add('warn'); st.textContent='⚠ '+imLinkErr; }
-    else if(!imMasterRows){ box.classList.add('warn'); st.textContent='ITEM MASTER 없음 — ITEM MANAGEMENT에서 먼저 업로드하세요'; }
-    else if(!masterCount()){ box.classList.add('warn'); st.textContent='⚠ ITEMCODE↔UPC 매칭 0 — ITEM MASTER의 UPC·ITEM CODE 연결 확인'; }
+    else if(!imMasterRows){ box.classList.add('warn'); st.textContent='UPC LIST 없음 — UPC MANAGER 에서 먼저 저장하세요'; }
+    else if(!masterCount()){ box.classList.add('warn'); st.textContent='⚠ ITEMCODE↔UPC 매칭 0 — UPC LIST 의 UPC·ITEM CODE 확인'; }
     else st.textContent='✓ 연결됨'+(imMasterAt?(' · '+ymdShort(imMasterAt)):'');
   }
   function ymdShort(ms){ if(!ms) return ''; var d=new Date(ms); var p=function(x){return (x<10?'0':'')+x;}; return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
@@ -428,48 +429,47 @@
       var kor='', eng='';
       rk.nameKeys.forEach(function(nk){ var v=String(r[nk]==null?'':r[nk]).trim(); if(!v) return; if(/KOR|한/i.test(nk)||/[\uAC00-\uD7A3]/.test(v)){ if(!kor) kor=v; } else if(!eng) eng=v; });
       codes.forEach(function(code){ if(!idx[code]) idx[code]=[]; if(upc && idx[code].indexOf(upc)<0) idx[code].push(upc); });
-      if(upc && !meta[upc]) meta[upc]={ kor:kor, eng:eng, size:'' };
+      if(upc && !meta[upc]) meta[upc]={ kor:kor, eng:eng, size:String(r['UNIT SIZE']||'') };
     });
     return { index:idx, meta:meta };
   }
   function masterLoad(){
     if(!fbReady()) return;
     var F=window.fbFns, db=window.fbDb;
-    // 필드 정의 구독
-    try{ F.onSnapshot(F.doc(db, IM_CFG_COL, IM_FIELDS_DOC), function(s){
-      var d=(s&&s.exists&&s.exists())?(s.data()||{}):{};
-      imMasterFields=Array.isArray(d.fields)?d.fields:[];
-      reloadMasterData();
-    }, function(){ imMasterFields=[]; reloadMasterData(); }); }catch(e){}
-    // 메타 구독 → 청크 로드
-    try{ F.onSnapshot(F.doc(db, IM_CFG_COL, IM_DOC), function(s){
+    /* UPC-LIST/_META 구독 — savedAt 이 바뀌면(UPC MANAGER 저장) 다시 읽음. 같은 savedAt 이면 localStorage 캐시 사용 */
+    try{ F.onSnapshot(F.doc(db, UPC_ROOT, '_META'), function(s){
       var d=(s&&s.exists&&s.exists())?(s.data()||{}):null;
       imLinkErr='';
-      if(!d || !d.rowCount){ imMasterRows=0; imMasterAt=0; masterIndex={}; masterMeta={}; updateMasterUI(); refreshAd(); return; }
-      imMasterRows=d.rowCount||0; imMasterAt=d.uploadedAt||0; loadMasterChunks(d);
-    }, function(){ imLinkErr='ITEM MASTER 불러오기 실패 (Firestore 규칙 확인)'; masterIndex={}; masterMeta={}; updateMasterUI(); }); }catch(e){}
+      if(!d || !d.tree){ imMasterRows=0; imMasterAt=0; masterIndex={}; masterMeta={}; updateMasterUI(); refreshAd(); return; }
+      loadUpcList(d);
+    }, function(){ imLinkErr='UPC LIST 불러오기 실패 (Firestore 규칙 확인)'; masterIndex={}; masterMeta={}; updateMasterUI(); }); }catch(e){}
   }
-  var __imMeta=null;
-  function reloadMasterData(){ if(__imMeta) loadMasterChunks(__imMeta); }
-  function loadMasterChunks(meta){
-    __imMeta=meta;
-    var F=window.fbFns, db=window.fbDb; var n=meta.chunks||0, jobs=[];
-    for(var i=0;i<n;i++) jobs.push(F.getDoc(F.doc(db, IM_CFG_COL, IM_DOC+'-c'+i)));
-    Promise.all(jobs).then(function(snaps){
-      var rows=[]; snaps.forEach(function(sn){ var dd=(sn&&sn.exists&&sn.exists())?(sn.data()||{}):{}; if(Array.isArray(dd.rows)) rows=rows.concat(dd.rows); });
-      var built=buildIndexFromRows(rows);
-      masterIndex=built.index; masterMeta=built.meta;
-      imLinkErr='';
-      updateMasterUI(); refreshAd();
-    }).catch(function(){ imLinkErr='ITEM MASTER 데이터 불러오기 실패 (Firestore 규칙 확인)'; masterIndex={}; masterMeta={}; updateMasterUI(); });
+  function upcListToRows(list){
+    return list.map(function(p){ return { 'UPC':p.upc||'', 'ITEM CODE':p.code||'', 'KOR DESC':p.kor||'', 'ENG DESC':p.eng||'', 'UNIT SIZE':p.size||'' }; });
+  }
+  function applyUpcList(list, savedAt){
+    var built=buildIndexFromRows(upcListToRows(list));
+    masterIndex=built.index; masterMeta=built.meta;
+    imMasterRows=list.length; imMasterAt=Number(savedAt)||(Date.parse(String(savedAt))||0); imLinkErr='';
+    updateMasterUI(); refreshAd();
+  }
+  function loadUpcList(meta){
+    var F=window.fbFns, db=window.fbDb;
+    try{ var c=JSON.parse(localStorage.getItem(UPC_CACHE_KEY)||'null'); if(c&&c.savedAt===meta.savedAt&&Array.isArray(c.list)){ applyUpcList(c.list, meta.savedAt); return; } }catch(e){}
+    var reads=[];
+    (meta.tree||[]).forEach(function(b){ (b.subs||[]).forEach(function(sb){ reads.push(F.getDocs(F.collection(db, UPC_ROOT, b.id, sb.id)).then(function(snap){ var out=[]; snap.forEach(function(d){ var x=d.data()||{}; var v=(x.r&&x.r.v)||{}; out.push({ upc:String(x.plu||d.id), eng:String(v.ITEM_ENGLISH||''), kor:String(v.ITEM_KOREA||''), vender:String(v.VENDER_VENDER||sb.name||'').trim(), code:String(v.VENDER_ITEM_CODE||''), size:(String(v.UNIT_SIZE_3||'')+' '+String(v.UNIT_CODE||'')).trim() }); }); return out; })); }); });
+    Promise.all(reads).then(function(parts){
+      var list=[].concat.apply([],parts);
+      try{ localStorage.setItem(UPC_CACHE_KEY, JSON.stringify({ savedAt:meta.savedAt, list:list })); }catch(e){}
+      applyUpcList(list, meta.savedAt);
+    }).catch(function(){ imLinkErr='UPC LIST 데이터 불러오기 실패 (Firestore 규칙 확인)'; masterIndex={}; masterMeta={}; updateMasterUI(); });
   }
 
-  /* (ITEM MANAGEMENT 연결로 전환 — 자체 업로드/저장/중복확인 로직 제거됨)
-     다운로드는 연결된 ITEM MASTER(현재 매칭 인덱스)를 그대로 내보낸다. */
+  /* 다운로드는 연결된 UPC LIST(현재 매칭 인덱스)를 그대로 내보낸다. */
   function masterDownload(){
     if(typeof XLSX==='undefined'){ toast('엑셀 라이브러리 로드 실패'); return; }
     var keys=Object.keys(masterIndex);
-    if(!keys.length){ toast('연결된 ITEM MASTER 자료가 없습니다'); return; }
+    if(!keys.length){ toast('연결된 UPC LIST 자료가 없습니다'); return; }
     var aoa=[['UPC','ITEMCODE','KOR DESC','ENG DESC','UNIT SIZE']];
     keys.sort().forEach(function(k){
       var disp=masterCodeRaw[k]||k;
