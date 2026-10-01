@@ -3842,7 +3842,11 @@ function onImportFile(file){
     })();
     if(!sheets.length) return;
     /* [부분 업데이트] 2열 파일(1열=PLU · 2열=값) → 어떤 필드에 넣을지 선택 후 PLU 정확 매칭 갱신 */
-    if(!__listMode && sheets.length===1 && isPartialSheet(sheets[0].aoa)){ openPartialUpdate(file.name,sheets[0].aoa); return; }
+    /* [수정 2026-10-01] 2열 파일이라도 1행 두 열이 모두 필드명과 매칭되면(예: UPC · ITEM CODE) 일반 불러오기 — 새 행 추가됨.
+       부분 업데이트(기존 행만 갱신)는 2열 제목이 필드명이 아닐 때만 */
+    var __twoColMapped=false;
+    if(!__listMode && sheets.length===1){ var __mp2=buildMapping(sheets[0].headers,curLayout()).filter(function(m){ return !!m.key; }); __twoColMapped=__mp2.length>=2; }
+    if(!__listMode && sheets.length===1 && !__twoColMapped && isPartialSheet(sheets[0].aoa)){ openPartialUpdate(file.name,sheets[0].aoa); return; }
     impCtx={fname:file.name,sheets:sheets,listMode:__listMode};
     /* [요구 2026-09] 불러오기는 현재 셋팅된 필드 그대로 데이터만 채움 —
        필드 추가/변경 없음. 매칭 안 되는 열은 무시(미리보기에 표시만) */
