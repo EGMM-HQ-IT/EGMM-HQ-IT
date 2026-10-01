@@ -1222,17 +1222,18 @@ function syncSubsByVender(st,big){
   if(!vf) return 0;
   var dm=st.data[big]||(st.data[big]={}), moved=0;
   Object.keys(dm).forEach(function(sb){
-    var arr=dm[sb]||[];
-    for(var k=arr.length-1;k>=0;k--){
-      var r=arr[k]; if(!r||!r.v) continue;
+    var arr=dm[sb]||[], keep=[];
+    for(var k=0;k<arr.length;k++){ /* 앞에서부터 — 옮겨도 원래 행 순서 유지 */
+      var r=arr[k]; if(!r||!r.v){ keep.push(r); continue; }
       var vv=String(r.v[vf.key]==null?'':r.v[vf.key]).trim();
-      if(!vv||vv===sb) continue;
+      if(!vv||vv===sb){ keep.push(r); continue; }
       if(tab.subs.indexOf(vv)<0) tab.subs.push(vv);
       if(!dm[vv]) dm[vv]=[];
-      dm[vv].push(r); arr.splice(k,1); moved++;
+      dm[vv].push(r); moved++;
     }
+    if(keep.length!==arr.length){ arr.length=0; Array.prototype.push.apply(arr,keep); }
   });
-  /* [버그 수정 2026-10-01] 비어 있는 소분류를 자동 삭제하던 코드 제거 — 새로 만든(0건) 중간 카테고리가 다음 로드 때 사라지던 원인 */
+  tab.subs=tab.subs.filter(function(sb){ if((dm[sb]||[]).length) return true; if(tab.subs.length<=1) return true; delete dm[sb]; return false; });
   if(!tab.subs.length){ tab.subs=[big]; dm[big]=dm[big]||[]; }
   return moved;
 }
@@ -3436,6 +3437,11 @@ function openFillModal(f){
     });
     saveState();
     $('fillOv').classList.remove('show');
+    /* [UPC · 2026-10-01] VENDER 전체 채우기 → 중간 카테고리 = VENDER 규칙대로 즉시 그 이름의 카테고리로 이동 (비게 된 카테고리는 제거 = 이름 변경 효과) */
+    if(SUB_BY_VENDER&&normKey(fillField.key)==='VENDER_VENDER'&&!stCtx){
+      var __nv=String(val==null?'':val).trim(), __n0=rows.length;
+      if(syncSubsByVenderLive(big)){ var __si=(curTab().subs||[]).indexOf(__nv); if(__si>=0){ pluSub=__si; S.ui.sub=pluSub; } saveState(); renderSubTabs(); renderContent(); showToast('VENDER '+__nv+' → "'+__nv+'" 중간 카테고리로 이동됨 ('+__n0+'행)','success'); return; }
+    }
     renderContent();
     showToast('채움: "'+fillField.label+'" '+rows.length+'행','success');
   };
