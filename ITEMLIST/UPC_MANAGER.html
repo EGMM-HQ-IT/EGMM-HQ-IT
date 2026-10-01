@@ -1240,7 +1240,7 @@ function syncSubsByVender(st,big){
       dm[vv].push(r); arr.splice(k,1); moved++;
     }
   });
-  tab.subs=tab.subs.filter(function(sb){ if((dm[sb]||[]).length) return true; if(tab.subs.length<=1) return true; delete dm[sb]; return false; });
+  /* [버그 수정 2026-10-01] 비어 있는 소분류를 자동 삭제하던 코드 제거 — 사용자가 새로 만든(아직 0건) 중간 카테고리가 다음 로드·CLOUD 반영 때 사라지던 원인 */
   if(!tab.subs.length){ tab.subs=[big]; dm[big]=dm[big]||[]; }
   return moved;
 }
@@ -3880,7 +3880,9 @@ function renderImportModal(){
 
   if(APP_MODE==='UPC'){
     /* [요구 2026-09] 업체 지정 — 선택하면 축약어 이름의 대분류로 저장 + VENDER 필드 = 축약어 (아래 소분류 선택은 무시) */
-    var __vsel=(impCtx.vender!=null)?impCtx.vender:(( __venderList||[]).some(function(v){ return v.code===curBig(); })?curBig():'');
+    /* [버그 수정 2026-10-01] 기본 업체 = 팝업에서 고른 소분류가 업체 코드면 그 코드, 아니면 미지정(→ 고른 소분류로 들어감). 대분류 이름을 기본 업체로 잡아 선택한 소분류가 무시되던 문제 */
+    var __tSub=(first&&first.targetSub)||curSub();
+    var __vsel=(impCtx.vender!=null)?impCtx.vender:(( __venderList||[]).some(function(v){ return v.code===__tSub; })?__tSub:'');
     h+='<div class="icp-lbl">업체</div>';
     h+='<select class="icp-sel" id="impVender">'+(__venderList?venderOptionsHtml(__vsel):'<option value="">업체 목록 불러오는 중…</option>')+'</select>';
   }
@@ -3980,7 +3982,9 @@ function renderImportModal(){
 
   $('impBody').innerHTML=h;
   $('impBody').querySelectorAll('.imp-sheet-use').forEach(function(cb){ cb.onchange=function(){ impCtx.sheets[parseInt(cb.getAttribute('data-i'),10)].use=cb.checked; renderImportModal(); }; });
-  $('impBody').querySelectorAll('.imp-sheet-sub').forEach(function(sl){ sl.onchange=function(){ impCtx.sheets[parseInt(sl.getAttribute('data-i'),10)].targetSub=sl.value; }; });
+  $('impBody').querySelectorAll('.imp-sheet-sub').forEach(function(sl){ sl.onchange=function(){ impCtx.sheets[parseInt(sl.getAttribute('data-i'),10)].targetSub=sl.value;
+    /* 소분류를 바꾸면 업체도 따라감: 업체 코드면 그 코드, 아니면 미지정(→ 고른 소분류로) */
+    var __ve=$('impVender'); if(__ve&&APP_MODE==='UPC'){ var __nv=(( __venderList||[]).some(function(v){ return v.code===sl.value; })?sl.value:''); __ve.value=__nv; impCtx.vender=__ve.value; } }; });
   $('impCancel').onclick=function(){ $('impOv').classList.remove('show'); };
   Array.prototype.forEach.call($('impBody').querySelectorAll('input[name="impMode"]'),function(r){ r.onchange=function(){ impCtx.listMode=(r.value==='list'); renderImportModal(); }; });
   if($('impDupUpc')) $('impDupUpc').onchange=function(){ impCtx.allowDupUpc=$('impDupUpc').checked; };
@@ -3989,7 +3993,7 @@ function renderImportModal(){
     var __vs=$('impVender');
     if(__vs){
       __vs.onchange=function(){ impCtx.vender=__vs.value; };
-      if(!__venderList){ fbLoadVenders().then(function(){ var el=$('impVender'); if(!el) return; var cur=(impCtx.vender!=null)?impCtx.vender:(( __venderList||[]).some(function(v){ return v.code===curBig(); })?curBig():''); el.innerHTML=venderOptionsHtml(cur); impCtx.vender=el.value; })
+      if(!__venderList){ fbLoadVenders().then(function(){ var el=$('impVender'); if(!el) return; var __ts=(impCtx.sheets[0]&&impCtx.sheets[0].targetSub)||curSub(); var cur=(impCtx.vender!=null)?impCtx.vender:(( __venderList||[]).some(function(v){ return v.code===__ts; })?__ts:''); el.innerHTML=venderOptionsHtml(cur); impCtx.vender=el.value; })
         .catch(function(e){ var el=$('impVender'); if(el) el.innerHTML='<option value="">업체 목록 없음</option>'; }); }
       else impCtx.vender=__vs.value;
     }
@@ -4019,7 +4023,7 @@ function confirmImportThenRun(){
   if(APP_MODE==='UPC'){
     var __vc=$('impVender')?$('impVender').value:'';
     if(__vc){ var __vo=(__venderList||[]).filter(function(v){ return v.code===__vc; })[0]; lines.push('업체: '+__vc+(__vo&&__vo.name?' ('+__vo.name+')':'')); }
-    else lines.push('업체: 행의 VENDER 값'+(VENDOR_BY_BIG[big]?' (없으면 '+VENDOR_BY_BIG[big]+')':''));
+    else { var __defV=(SUB_BY_VENDER&&use[0]&&use[0].targetSub)?use[0].targetSub:VENDOR_BY_BIG[big]; lines.push('업체: 행의 VENDER 값'+(__defV?' (없으면 '+__defV+')':'')); }
     lines.push('기본값: '+Object.keys(ROW_DEFAULTS).map(function(k){ var f=fieldByKey(big,k); return (f?f.label:k)+' = '+ROW_DEFAULTS[k]; }).join(' · '));
   }
   lines.push('매장: '+(st||'전체 매장'));
@@ -4251,7 +4255,9 @@ function applyImport(opts){
       }
       /* [UPC MANAGER 연계] 대분류 기본 VENDER — 파일에 VENDER 값이 없으면 자동 기입 (예: STI 영역 → STI-WA) */
       var __fileVend=!!vals.VENDER_VENDER;
-      if(VENDOR_BY_BIG[big] && !vals.VENDER_VENDER && fieldByKey(big,'VENDER_VENDER')) vals.VENDER_VENDER=VENDOR_BY_BIG[big];
+      /* [버그 수정 2026-10-01] 업체 미지정 + 파일에 VENDER 없음 → 팝업에서 고른 소분류(중간 카테고리 = VENDER)를 VENDER 로. 그래야 새로 만든 중간 카테고리로 들어감 (없을 때만 대분류 기본 STI-WA) */
+      var __defVend=(SUB_BY_VENDER&&!venderBig&&sh.targetSub&&((tabOf(big)||{}).subs||[]).indexOf(sh.targetSub)>=0)?sh.targetSub:VENDOR_BY_BIG[big];
+      if(__defVend && !vals.VENDER_VENDER && fieldByKey(big,'VENDER_VENDER')) vals.VENDER_VENDER=__defVend;
 
       /* [MODULE 22] 행별 대분류 결정 — DEPARTMENT 값이 설정된 대분류와 일치하면 그쪽으로 */
       var rowBig=big, deptMatched=false;
