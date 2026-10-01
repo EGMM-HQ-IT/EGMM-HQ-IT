@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<!--
+  ITEM_ANALYZE.html — ITEM ANALYZE (품목 분석) · EGMM > MART
+  ---------------------------------------------------------------------
+  · 상품 기준: UPC MANAGER(Firestore UPC-LIST) 에 등록된 상품 — UPC · 상품명 · VENDER
+  · 매장: Firestore STORE 컬렉션 (EGMM > SYSTEM > STORE)
+  · 판매 데이터: 매장별 · 날짜별 엑셀 업로드 (드래그 앤 드롭) — A열 = UPC, C열 = 판매수량만 사용
+      저장: DATA/ITEM-ANALYZE/SALES/{매장코드}_{YYYY-MM-DD} = { store, date, rows:{UPC:수량}, count, total, fileName, uploadedAt }
+  · UPC 비교 규칙: 숫자만 남기고 앞의 0 전부 제거 후 비교 (중간 0 은 유지)
+  · 검색: UPC 또는 상품명 (상품명은 빈칸 전부 무시) → 매장별 · 날짜별 판매 수량
+  · 업체별 판매 비율: 선택 날짜(또는 전체) 판매 수량을 UPC 로 상품에 연결해 VENDER 별 합계 → 도넛 차트(100%)
+-->
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ITEM ANALYZE · 품목 분석</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#EDEAE3; --bg-elev:#FFFDFA; --bg-elev-2:#F7F4ED;
+    --border:#E4DFD4; --border-bright:#D6CFC0;
+    --text:#1E1B16; --text-dim:#4C463C; --text-faint:#8C8578;
+    --accent-soft:#E9EFEA; --accent-warm:#2F5D46; --accent:#2E4A6E;
+    --danger:#9C3327; --danger-soft:#F5EAE7; --success:#2a8a4a;
+    --mono:'Pretendard','Malgun Gothic','맑은 고딕',system-ui,sans-serif;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ background:var(--bg); color:var(--text); font-family:var(--mono); min-height:100vh; }
+  .wrap{ max-width:1280px; margin:0 auto; padding:18px 20px 60px; }
+  .topbar{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding-bottom:12px; border-bottom:1px solid var(--border); margin-bottom:14px; }
+  .topbar h1{ font-size:21px; font-weight:800; }
+  .topbar h1 small{ display:block; font-size:11px; font-weight:800; letter-spacing:.16em; color:var(--text-faint); margin-top:3px; text-transform:uppercase; }
+  .chips{ margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+  .chip{ font-size:11.5px; font-weight:800; padding:6px 11px; border-radius:999px; border:1.5px solid var(--border); background:var(--bg-elev); color:var(--text-dim); }
+  .chip.ok{ border-color:#bfe0cc; color:#1e7a46; background:#eef8f1; }
+  .chip.err{ border-color:#e5b5ad; color:var(--danger); background:var(--danger-soft); }
+  .btn{ border:none; border-radius:10px; padding:10px 15px; font:inherit; font-size:13px; font-weight:800; cursor:pointer; background:var(--accent-warm); color:#fff; white-space:nowrap; }
+  .btn:active{ transform:scale(.97); }
+  .btn.ghost{ background:var(--bg-elev); color:var(--text-dim); border:1.5px solid var(--border); }
+  .btn.danger{ background:var(--bg-elev); color:var(--danger); border:1.5px solid var(--danger); }
+  .btn.sm{ padding:6px 10px; font-size:12px; border-radius:8px; }
+  .panel{ background:var(--bg-elev); border:1.5px solid var(--border); border-radius:16px; padding:16px; margin-bottom:16px; }
+  .panel h2{ font-size:15px; font-weight:800; display:flex; align-items:center; gap:8px; padding-bottom:10px; border-bottom:1px solid var(--border); margin-bottom:12px; }
+  .panel h2 .ico{ width:28px; height:28px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:15px; background:#d9f5ec; }
+  .panel h2 .sub{ font-size:11.5px; font-weight:700; color:var(--text-faint); margin-left:4px; }
+  .panel h2 .right{ margin-left:auto; display:flex; gap:6px; align-items:center; }
+  .hint{ font-size:11.5px; color:var(--text-faint); font-weight:600; line-height:1.55; margin-top:8px; }
+
+  /* 매장 업로드 카드 */
+  .stores{ display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:10px; }
+  .st{ border:1.5px solid var(--border); border-radius:14px; background:var(--bg); padding:12px; display:flex; flex-direction:column; gap:8px; }
+  .st .nm{ font-size:15px; font-weight:800; display:flex; align-items:center; gap:6px; }
+  .st .nm small{ font-size:11px; color:var(--text-faint); font-weight:700; }
+  .st .nm .cnt{ margin-left:auto; font-size:11px; font-weight:800; color:var(--accent-warm); }
+  .st input[type=date]{ border:1.5px solid var(--border); border-radius:9px; padding:7px 9px; font:inherit; font-size:13px; font-weight:700; background:var(--bg-elev); color:var(--text); width:100%; }
+  .drop{ border:2px dashed var(--border-bright); border-radius:12px; padding:16px 10px; text-align:center; font-size:12.5px; font-weight:700; color:var(--text-faint); cursor:pointer; background:var(--bg-elev); transition:all .12s; }
+  .drop:hover, .drop.over{ border-color:var(--accent-warm); color:var(--accent-warm); background:var(--accent-soft); }
+  .drop b{ display:block; font-size:13px; color:var(--text-dim); margin-bottom:2px; }
+  .dates{ display:flex; flex-direction:column; gap:4px; max-height:150px; overflow:auto; }
+  .dt{ display:flex; align-items:center; gap:6px; font-size:12px; font-weight:700; padding:5px 8px; border-radius:8px; background:var(--bg-elev); border:1px solid var(--border); }
+  .dt .d{ font-weight:800; color:var(--text); }
+  .dt .n{ color:var(--text-faint); margin-left:auto; }
+  .dt button{ border:none; background:transparent; color:var(--danger); font-weight:800; cursor:pointer; font-size:12px; padding:0 2px; }
+
+  /* 검색 */
+  .srch{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .srch input{ flex:1 1 320px; border:1.5px solid var(--border); border-radius:10px; padding:11px 13px; font:inherit; font-size:15px; font-weight:700; background:var(--bg); color:var(--text); }
+  .srch input:focus{ outline:none; border-color:var(--accent-warm); background:#fff; }
+  .prod{ border:1.5px solid var(--border); border-radius:12px; background:var(--bg); padding:12px; margin-top:12px; }
+  .prod .ph{ display:flex; gap:10px; align-items:baseline; flex-wrap:wrap; margin-bottom:8px; }
+  .prod .ph .upc{ font-family:ui-monospace,Menlo,Consolas,monospace; font-weight:800; color:#c83a3a; font-size:15px; }
+  .prod .ph .nm{ font-weight:800; font-size:14px; }
+  .prod .ph .ko{ color:var(--text-dim); font-weight:700; font-size:13px; }
+  .prod .ph .vd{ margin-left:auto; font-size:11.5px; font-weight:800; color:#fff; background:var(--accent); border-radius:999px; padding:3px 10px; }
+  .prod .ph .vd.none{ background:var(--text-faint); }
+  table.tb{ width:100%; border-collapse:collapse; font-size:13px; }
+  table.tb th, table.tb td{ border-bottom:1px solid var(--border); padding:7px 9px; text-align:right; white-space:nowrap; }
+  table.tb th{ background:#e8f0fb; color:#3b5b8c; font-size:11px; text-transform:uppercase; letter-spacing:.03em; }
+  table.tb th:first-child, table.tb td:first-child{ text-align:left; font-weight:800; }
+  table.tb td.z{ color:var(--text-faint); }
+  table.tb tr.tot td{ font-weight:800; background:var(--bg-elev-2); }
+  .empty{ text-align:center; color:var(--text-faint); font-size:13px; font-weight:700; padding:22px 6px; border:2px dashed var(--border); border-radius:12px; }
+
+  /* 업체별 비율 */
+  .ratio{ display:grid; grid-template-columns:320px 1fr; gap:18px; align-items:start; }
+  .ratio canvas{ width:300px; height:300px; display:block; }
+  .legend{ display:flex; flex-direction:column; gap:6px; }
+  .lg{ display:grid; grid-template-columns:16px 1fr auto auto; gap:10px; align-items:center; font-size:13.5px; font-weight:700; padding:7px 10px; border-radius:10px; background:var(--bg); border:1px solid var(--border); }
+  .lg .sw{ width:14px; height:14px; border-radius:4px; }
+  .lg .pct{ font-weight:800; min-width:64px; text-align:right; }
+  .lg .qty{ color:var(--text-faint); min-width:90px; text-align:right; }
+  .ctrl{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+  .ctrl select{ border:1.5px solid var(--border); border-radius:9px; padding:8px 10px; font:inherit; font-size:13px; font-weight:700; background:var(--bg); color:var(--text); }
+  .ctrl label{ font-size:12px; font-weight:800; color:var(--text-dim); }
+  .toast{ position:fixed; top:22px; left:50%; transform:translateX(-50%) translateY(-16px); background:var(--text); color:#fff; padding:12px 22px; border-radius:12px; font-size:14px; font-weight:800; opacity:0; pointer-events:none; transition:all .25s; z-index:9999; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  .toast.success{ background:var(--success); } .toast.error{ background:var(--danger); }
+  .modal-bg{ position:fixed; inset:0; background:rgba(30,27,22,.45); backdrop-filter:blur(4px); z-index:500; display:none; align-items:center; justify-content:center; padding:20px; }
+  .modal-bg.show{ display:flex; }
+  .modal{ background:var(--bg-elev); border:1px solid var(--border-bright); border-radius:16px; padding:24px; max-width:440px; width:100%; }
+  .modal h3{ font-size:18px; font-weight:800; margin-bottom:10px; }
+  .modal p{ color:var(--text-dim); font-size:13.5px; font-weight:600; line-height:1.6; margin-bottom:16px; white-space:pre-wrap; }
+  .modal .macts{ display:flex; gap:8px; justify-content:flex-end; }
+  @media (max-width:820px){ .ratio{ grid-template-columns:1fr; } .ratio canvas{ margin:0 auto; } }
+</style>
+</head>
+<body>
+<div class="toast" id="toast"></div>
+<div class="wrap">
+  <div class="topbar">
+    <h1>📊 ITEM ANALYZE<small>품목 분석 · UPC MANAGER 상품 기준 · 매장별 판매 데이터</small></h1>
+    <div class="chips">
+      <span class="chip" id="chipProd">상품 불러오는 중…</span>
+      <span class="chip" id="chipSales">판매 데이터 —</span>
+      <button class="btn ghost sm" id="btnReload" type="button">↻ 새로고침</button>
+    </div>
+  </div>
+
+  <!-- ① 매장별 업로드 -->
+  <div class="panel">
+    <h2><span class="ico">⬆</span> 매장별 판매 데이터 업로드 <span class="sub">날짜를 고르고 엑셀을 드래그 — A열 = UPC · C열 = 판매수량만 사용</span></h2>
+    <div class="stores" id="stores"><div class="empty">매장 목록 불러오는 중…</div></div>
+    <div class="hint">같은 매장·같은 날짜에 다시 올리면 덮어씁니다. 1행이 제목이면 자동으로 건너뜁니다. UPC는 숫자만 남기고 앞의 0을 뺀 값으로 저장·비교합니다 (중간 0 유지).</div>
+  </div>
+
+  <!-- ② 검색 -->
+  <div class="panel">
+    <h2><span class="ico">🔍</span> 상품 검색 <span class="sub">UPC 또는 상품명 (앞 0 무시 · 상품명 빈칸 무시) → 매장별 · 날짜별 판매 수량</span></h2>
+    <div class="srch">
+      <input type="text" id="q" placeholder="UPC 또는 상품명 입력 후 Enter" autocomplete="off">
+      <button class="btn" id="btnSearch" type="button">검색</button>
+      <button class="btn ghost" id="btnClear" type="button">지우기</button>
+    </div>
+    <div id="results"></div>
+  </div>
+
+  <!-- ③ 업체별 판매 비율 -->
+  <div class="panel">
+    <h2><span class="ico">◔</span> 업체별 판매 비율 <span class="sub">판매 수량을 UPC로 상품에 연결 → VENDER 별 합계 (100%)</span></h2>
+    <div class="ctrl">
+      <label>날짜</label><select id="rDate"><option value="">전체</option></select>
+      <label>매장</label><select id="rStore"><option value="">전체 매장</option></select>
+      <button class="btn sm" id="btnRatio" type="button">보기</button>
+    </div>
+    <div class="ratio">
+      <canvas id="donut" width="600" height="600"></canvas>
+      <div class="legend" id="legend"><div class="empty">판매 데이터를 올리고 [보기]를 누르세요</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalBg"><div class="modal">
+  <h3 id="mTitle"></h3><p id="mText"></p>
+  <div class="macts"><button class="btn ghost sm" id="mCancel" type="button">취소</button><button class="btn sm" id="mOk" type="button">확인</button></div>
+</div></div>
+
+<script src="../FUNCTION-FIREBASE-EGMM.js"></script>
+<script src="../FUNCTION-ACCESS-GATE.js"></script>
+<script>
+(function(){
+  'use strict';
+  var $=function(id){ return document.getElementById(id); };
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+  var toastTimer; function toast(m,t){ var el=$('toast'); clearTimeout(toastTimer); el.textContent=m; el.className='toast show '+(t||''); toastTimer=setTimeout(function(){ el.className='toast '+(t||''); },2600); }
+  var modalCb=null;
+  function askConfirm(title,text,cb,okLabel){ $('mTitle').textContent=title; $('mText').textContent=text; $('mCancel').style.display=''; $('mOk').textContent=okLabel||'확인'; modalCb=cb; $('modalBg').classList.add('show'); }
+  function alertPop(title,text){ $('mTitle').textContent=title; $('mText').textContent=text; $('mCancel').style.display='none'; $('mOk').textContent='닫기'; modalCb=null; $('modalBg').classList.add('show'); }
+  $('mOk').onclick=function(){ $('modalBg').classList.remove('show'); if(modalCb){ var cb=modalCb; modalCb=null; cb(); } };
+  $('mCancel').onclick=function(){ $('modalBg').classList.remove('show'); modalCb=null; };
+
+  /* ── 규칙 ── */
+  var UPC_ROOT='UPC-LIST', DATA_DOC='ITEM-ANALYZE', SALES_COL='SALES';
+  function normUpc(v){ return String(v==null?'':v).replace(/\D/g,'').replace(/^0+/,''); }   /* 숫자만 · 앞 0 제거 */
+  function normName(v){ return String(v==null?'':v).replace(/\s+/g,'').toUpperCase(); }     /* 빈칸 전부 무시 */
+  function todayStr(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  function fmtN(n){ return Number(n||0).toLocaleString('en-US'); }
+
+  var fb=null, stores=[], products={}, prodList=[], prodMeta=null, sales=[]; /* sales: [{id,store,date,rows:{upc:qty},count,total,fileName}] */
+
+  /* ── 상품 (UPC MANAGER) — _META.savedAt 기준 로컬 캐시 ── */
+  var CACHE_KEY='iaProdCache';
+  function loadProducts(){
+    return fb.getDoc(fb.doc(fb.db,UPC_ROOT,'_META')).then(function(ms){
+      var meta=(ms.exists()&&ms.data())||null;
+      if(!meta||!meta.tree){ $('chipProd').textContent='UPC MANAGER 상품 없음'; $('chipProd').className='chip err'; return; }
+      prodMeta=meta;
+      try{ var c=JSON.parse(localStorage.getItem(CACHE_KEY)||'null'); if(c&&c.savedAt===meta.savedAt&&Array.isArray(c.list)){ applyProducts(c.list); return; } }catch(e){}
+      var reads=[];
+      (meta.tree||[]).forEach(function(b){ (b.subs||[]).forEach(function(s){ reads.push(fb.getDocs(fb.collection(fb.db,UPC_ROOT,b.id,s.id)).then(function(snap){ var out=[]; snap.forEach(function(d){ var x=d.data()||{}; var v=(x.r&&x.r.v)||{}; out.push({upc:String(x.plu||d.id),eng:String(v.ITEM_ENGLISH||''),kor:String(v.ITEM_KOREA||''),vender:String(v.VENDER_VENDER||s.name||'').trim(),code:String(v.VENDER_ITEM_CODE||''),big:b.name,sub:s.name}); }); return out; })); }); });
+      return Promise.all(reads).then(function(parts){
+        var list=[].concat.apply([],parts);
+        try{ localStorage.setItem(CACHE_KEY,JSON.stringify({savedAt:meta.savedAt,list:list})); }catch(e){}
+        applyProducts(list);
+      });
+    });
+  }
+  function applyProducts(list){
+    prodList=list; products={};
+    list.forEach(function(p){ var k=normUpc(p.upc); if(!k) return; p.key=k; p.n=normName(p.eng+' '+p.kor); if(!products[k]) products[k]=[]; products[k].push(p); });
+    $('chipProd').textContent='상품 '+fmtN(list.length)+'개 (UPC MANAGER)'; $('chipProd').className='chip ok';
+  }
+  function vendorOf(key){ var ps=products[key]; if(!ps||!ps.length) return ''; var v=ps[0].vender; for(var i=1;i<ps.length&&!v;i++) v=ps[i].vender; return v||''; }
+
+  /* ── 매장 ── */
+  function loadStores(){
+    return fb.getDocs(fb.collection(fb.db,'STORE')).then(function(snap){
+      stores=[]; snap.forEach(function(d){ if(d.id.charAt(0)==='_') return; var x=d.data()||{}; stores.push({code:d.id,name:String(x.name||d.id),nameKo:String(x.nameKo||''),order:(x.order!=null?x.order:9999)}); });
+      stores.sort(function(a,b){ return (a.order-b.order)||a.name.localeCompare(b.name); });
+      renderStores();
+    });
+  }
+  /* ── 판매 데이터 ── */
+  function loadSales(){
+    return fb.getDocs(fb.collection(fb.db,'DATA',DATA_DOC,SALES_COL)).then(function(snap){
+      sales=[]; snap.forEach(function(d){ var x=d.data()||{}; sales.push({id:d.id,store:String(x.store||''),date:String(x.date||''),rows:x.rows||{},count:x.count||0,total:x.total||0,fileName:x.fileName||''}); });
+      sales.sort(function(a,b){ return a.date<b.date?1:(a.date>b.date?-1:a.store.localeCompare(b.store)); });
+      $('chipSales').textContent='판매 데이터 '+sales.length+'건 (매장·날짜)'; $('chipSales').className='chip'+(sales.length?' ok':'');
+      renderStores(); renderDateOptions();
+    });
+  }
+  function salesOf(store){ return sales.filter(function(s){ return s.store===store; }); }
+  function allDates(){ var m={}; sales.forEach(function(s){ m[s.date]=1; }); return Object.keys(m).sort().reverse(); }
+
+  /* ── ① 매장 카드 + 드래그 업로드 ── */
+  function renderStores(){
+    if(!stores.length){ $('stores').innerHTML='<div class="empty">등록된 매장이 없습니다 — EGMM > SYSTEM > STORE 에서 매장을 만드세요</div>'; return; }
+    var h='';
+    stores.forEach(function(st){
+      var ds=salesOf(st.code);
+      h+='<div class="st" data-store="'+esc(st.code)+'">'
+        +'<div class="nm">'+esc(st.name)+(st.nameKo?'<small>'+esc(st.nameKo)+'</small>':'')+'<span class="cnt">'+(ds.length?ds.length+'일':'')+'</span></div>'
+        +'<input type="date" class="dtIn" value="'+todayStr()+'">'
+        +'<div class="drop"><b>엑셀 드래그 또는 클릭</b>A열 UPC · C열 판매수량</div>'
+        +'<input type="file" class="fIn" accept=".xlsx,.xls,.csv" style="display:none">'
+        +'<div class="dates">'+ds.map(function(s){ return '<div class="dt"><span class="d">'+esc(s.date)+'</span><span class="n">'+fmtN(s.count)+'품목 · '+fmtN(s.total)+'개</span><button type="button" data-del="'+esc(s.id)+'" title="삭제">✕</button></div>'; }).join('')+'</div>'
+        +'</div>';
+    });
+    $('stores').innerHTML=h;
+    Array.prototype.forEach.call($('stores').querySelectorAll('.st'),function(card){
+      var code=card.getAttribute('data-store'), drop=card.querySelector('.drop'), fin=card.querySelector('.fIn'), din=card.querySelector('.dtIn');
+      drop.onclick=function(){ fin.value=''; fin.click(); };
+      fin.onchange=function(){ if(fin.files&&fin.files[0]) uploadFile(code,din.value,fin.files[0]); };
+      ['dragenter','dragover'].forEach(function(ev){ drop.addEventListener(ev,function(e){ e.preventDefault(); e.stopPropagation(); drop.classList.add('over'); }); });
+      ['dragleave','drop'].forEach(function(ev){ drop.addEventListener(ev,function(e){ e.preventDefault(); e.stopPropagation(); drop.classList.remove('over'); }); });
+      drop.addEventListener('drop',function(e){ var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) uploadFile(code,din.value,f); });
+      Array.prototype.forEach.call(card.querySelectorAll('button[data-del]'),function(b){ b.onclick=function(){ delSales(b.getAttribute('data-del')); }; });
+    });
+  }
+  /* 엑셀 → {UPC:수량} (A열=UPC · C열=수량 · 그 외 열 무시 · 제목/비숫자 행 건너뜀) */
+  function parseSales(file){
+    return new Promise(function(res,rej){
+      if(typeof XLSX==='undefined'){ rej(new Error('엑셀 모듈(XLSX)을 불러오지 못했습니다 — 인터넷 확인 후 새로고침')); return; }
+      var rd=new FileReader();
+      rd.onload=function(e){
+        try{
+          var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+          var ws=wb.Sheets[wb.SheetNames[0]]; var aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true});
+          var rows={}, n=0, total=0, skipped=0;
+          aoa.forEach(function(r){
+            var u=normUpc(r[0]), q=r[2];
+            if(typeof q==='string') q=q.replace(/[,\s]/g,'');
+            q=Number(q);
+            if(!u||!isFinite(q)){ skipped++; return; }
+            rows[u]=(rows[u]||0)+q; total+=q;
+          });
+          n=Object.keys(rows).length;
+          res({rows:rows,count:n,total:Math.round(total*100)/100,skipped:skipped});
+        }catch(err){ rej(err); }
+      };
+      rd.onerror=function(){ rej(new Error('파일을 읽지 못했습니다')); };
+      rd.readAsArrayBuffer(file);
+    });
+  }
+  function uploadFile(store,date,file){
+    if(!date){ toast('날짜를 먼저 선택하세요','error'); return; }
+    parseSales(file).then(function(p){
+      if(!p.count){ alertPop('데이터 없음','A열(UPC) · C열(판매수량)에서 읽을 수 있는 행이 없습니다.\n파일: '+file.name); return; }
+      var id=store+'_'+date, exists=sales.some(function(s){ return s.id===id; });
+      var stName=(stores.filter(function(s){ return s.code===store; })[0]||{}).name||store;
+      function write(){
+        fb.setDoc(fb.doc(fb.db,'DATA',DATA_DOC,SALES_COL,id),{store:store,date:date,rows:p.rows,count:p.count,total:p.total,fileName:file.name,uploadedAt:Date.now()})
+          .then(function(){ toast(stName+' · '+date+' 저장 — '+fmtN(p.count)+'품목 · '+fmtN(p.total)+'개','success'); return loadSales(); })
+          .catch(function(e){ console.error(e); toast('저장 실패 — 권한/네트워크 확인','error'); });
+      }
+      var msg=stName+' · '+date+'\n'+fmtN(p.count)+'품목 · 판매 '+fmtN(p.total)+'개'+(p.skipped?' · 건너뜀 '+p.skipped+'행':'')+'\n파일: '+file.name;
+      if(exists) askConfirm('같은 날짜 데이터 덮어쓰기','이미 올린 데이터가 있습니다. 덮어쓸까요?\n\n'+msg,write,'덮어쓰기');
+      else askConfirm('업로드 확인',msg,write,'업로드');
+    }).catch(function(e){ alertPop('읽기 오류',String(e&&e.message||e)); });
+  }
+  function delSales(id){
+    var s=sales.filter(function(x){ return x.id===id; })[0]; if(!s) return;
+    askConfirm('삭제',s.store+' · '+s.date+' 판매 데이터를 삭제할까요?',function(){
+      fb.deleteDoc(fb.doc(fb.db,'DATA',DATA_DOC,SALES_COL,id)).then(function(){ toast('삭제됨','success'); return loadSales(); }).catch(function(e){ console.error(e); toast('삭제 실패','error'); });
+    },'삭제');
+  }
+
+  /* ── ② 검색 ── */
+  function search(){
+    var q=$('q').value.trim(); if(!q){ $('results').innerHTML=''; return; }
+    var hits=[];
+    if(/^[\d\s\-]+$/.test(q)){ var k=normUpc(q); hits=(products[k]||[]).slice(); if(!hits.length&&k) hits=[{upc:q,key:k,eng:'(UPC MANAGER 미등록)',kor:'',vender:''}]; }
+    else { var nq=normName(q); if(nq){ for(var i=0;i<prodList.length&&hits.length<30;i++){ if(prodList[i].n.indexOf(nq)>=0) hits.push(prodList[i]); } } }
+    if(!hits.length){ $('results').innerHTML='<div class="empty">일치하는 상품이 없습니다</div>'; return; }
+    var seen={}, h='';
+    hits.forEach(function(p){ if(seen[p.key]) return; seen[p.key]=1; h+=productBlock(p); });
+    if(hits.length>=30) h+='<div class="hint">검색 결과가 많아 30개까지만 표시합니다 — 더 구체적으로 입력하세요.</div>';
+    $('results').innerHTML=h;
+  }
+  function productBlock(p){
+    var dates=allDates();
+    var h='<div class="prod"><div class="ph"><span class="upc">'+esc(p.upc)+'</span><span class="nm">'+esc(p.eng)+'</span>'+(p.kor?'<span class="ko">'+esc(p.kor)+'</span>':'')+'<span class="vd'+(p.vender?'':' none')+'">'+esc(p.vender||'업체 없음')+'</span></div>';
+    if(!dates.length||!stores.length){ return h+'<div class="empty">판매 데이터가 없습니다</div></div>'; }
+    h+='<table class="tb"><thead><tr><th>날짜</th>'+stores.map(function(s){ return '<th>'+esc(s.name)+'</th>'; }).join('')+'<th>합계</th></tr></thead><tbody>';
+    var colTot={}, grand=0, anyRow=false;
+    dates.forEach(function(d){
+      var rowTot=0, cells='', has=false;
+      stores.forEach(function(s){
+        var doc=sales.filter(function(x){ return x.store===s.code&&x.date===d; })[0];
+        var q=doc?(doc.rows[p.key]||0):null;
+        if(doc&&q){ has=true; rowTot+=q; colTot[s.code]=(colTot[s.code]||0)+q; }
+        cells+='<td class="'+(q?'':'z')+'">'+(doc?fmtN(q||0):'-')+'</td>';
+      });
+      if(!has) return; anyRow=true; grand+=rowTot;
+      h+='<tr><td>'+esc(d)+'</td>'+cells+'<td><b>'+fmtN(rowTot)+'</b></td></tr>';
+    });
+    if(!anyRow) return h+'</tbody></table><div class="empty" style="margin-top:8px;">이 상품의 판매 기록이 없습니다</div></div>';
+    h+='<tr class="tot"><td>합계</td>'+stores.map(function(s){ return '<td>'+fmtN(colTot[s.code]||0)+'</td>'; }).join('')+'<td>'+fmtN(grand)+'</td></tr></tbody></table></div>';
+    return h;
+  }
+  $('btnSearch').onclick=search;
+  $('btnClear').onclick=function(){ $('q').value=''; $('results').innerHTML=''; $('q').focus(); };
+  $('q').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); search(); } });
+
+  /* ── ③ 업체별 판매 비율 (도넛) ── */
+  var COLORS=['#2F5D46','#2E4A6E','#B9772E','#8C3A6B','#3F7F8C','#A64B3A','#6B7A2E','#5D4B8C','#C7A23A','#4E6B5C','#8C6B4B','#3A6BA6'];
+  function renderDateOptions(){
+    var cur=$('rDate').value; var ds=allDates();
+    $('rDate').innerHTML='<option value="">전체</option>'+ds.map(function(d){ return '<option value="'+esc(d)+'">'+esc(d)+'</option>'; }).join('');
+    if(ds.indexOf(cur)>=0) $('rDate').value=cur;
+    var cs=$('rStore').value;
+    $('rStore').innerHTML='<option value="">전체 매장</option>'+stores.map(function(s){ return '<option value="'+esc(s.code)+'">'+esc(s.name)+'</option>'; }).join('');
+    if(stores.some(function(s){ return s.code===cs; })) $('rStore').value=cs;
+  }
+  function renderRatio(){
+    var d=$('rDate').value, st=$('rStore').value;
+    var by={}, total=0, unreg=0;
+    sales.forEach(function(s){
+      if(d&&s.date!==d) return; if(st&&s.store!==st) return;
+      for(var k in s.rows){ var q=Number(s.rows[k])||0; if(!q) continue; var v=vendorOf(k); if(!v){ unreg+=q; } else { by[v]=(by[v]||0)+q; } total+=q; }
+    });
+    var list=Object.keys(by).map(function(v){ return {v:v,q:by[v]}; }).sort(function(a,b){ return b.q-a.q; });
+    if(unreg) list.push({v:'미등록 (UPC MANAGER 에 없음)',q:unreg,unreg:true});
+    var cv=$('donut'), ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+    if(!total){ $('legend').innerHTML='<div class="empty">'+(sales.length?'선택한 조건에 판매 데이터가 없습니다':'판매 데이터를 먼저 올리세요')+'</div>'; return; }
+    var cx=300, cy=300, R=250, r=150, a=-Math.PI/2;
+    list.forEach(function(it,i){
+      var ang=it.q/total*Math.PI*2;
+      ctx.beginPath(); ctx.moveTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r); ctx.arc(cx,cy,R,a,a+ang); ctx.arc(cx,cy,r,a+ang,a,true); ctx.closePath();
+      ctx.fillStyle=it.unreg?'#B8B2A6':COLORS[i%COLORS.length]; ctx.fill(); ctx.strokeStyle='#FFFDFA'; ctx.lineWidth=4; ctx.stroke();
+      if(ang>0.25){ var m=a+ang/2, tx=cx+Math.cos(m)*(R+r)/2, ty=cy+Math.sin(m)*(R+r)/2; ctx.fillStyle='#fff'; ctx.font='800 26px Pretendard,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(Math.round(it.q/total*1000)/10+'%',tx,ty); }
+      a+=ang;
+    });
+    ctx.fillStyle='#1E1B16'; ctx.font='800 30px Pretendard,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(fmtN(total),cx,cy-14);
+    ctx.fillStyle='#8C8578'; ctx.font='700 20px Pretendard,sans-serif'; ctx.fillText('판매 개수 · '+(d||'전체')+(st?' · '+((stores.filter(function(s){ return s.code===st; })[0]||{}).name||st):''),cx,cy+24);
+    $('legend').innerHTML=list.map(function(it,i){ return '<div class="lg"><span class="sw" style="background:'+(it.unreg?'#B8B2A6':COLORS[i%COLORS.length])+'"></span><span>'+esc(it.v)+'</span><span class="qty">'+fmtN(it.q)+'개</span><span class="pct">'+(Math.round(it.q/total*1000)/10)+'%</span></div>'; }).join('')
+      +'<div class="lg" style="background:var(--bg-elev-2);"><span class="sw" style="background:transparent"></span><span>합계</span><span class="qty">'+fmtN(total)+'개</span><span class="pct">100%</span></div>';
+  }
+  $('btnRatio').onclick=renderRatio;
+  $('rDate').onchange=renderRatio; $('rStore').onchange=renderRatio;
+
+  /* ── 시작 ── */
+  function boot(){
+    return Promise.all([loadStores(),loadProducts(),loadSales()]).then(function(){ renderDateOptions(); if(sales.length) renderRatio(); })
+      .catch(function(e){ console.error(e); $('chipProd').textContent='불러오기 오류: '+String(e&&e.message||e); $('chipProd').className='chip err'; });
+  }
+  $('btnReload').onclick=function(){ try{ localStorage.removeItem(CACHE_KEY); }catch(e){} $('chipProd').textContent='상품 불러오는 중…'; $('chipProd').className='chip'; boot(); };
+  if(!window.EgmmFB||!window.AccessGate){ $('chipProd').textContent='공용 모듈 로드 실패'; $('chipProd').className='chip err'; return; }
+  window.AccessGate.require({ title:'ITEM ANALYZE' }).then(function(){
+    window.EgmmFB.ready.then(function(f){ fb=f; boot(); }).catch(function(){ $('chipProd').textContent='Firebase 설정 없음'; $('chipProd').className='chip err'; });
+  });
+  window.__IA={ normUpc:normUpc, normName:normName, parseSales:parseSales, search:search, renderRatio:renderRatio, _set:function(o){ if(o.stores){ stores=o.stores; renderStores(); } if(o.products) applyProducts(o.products); if(o.sales){ sales=o.sales; renderStores(); renderDateOptions(); } } };
+})();
+</script>
+</body>
+</html>
