@@ -251,8 +251,8 @@
       <tr><td>JFC</td><td>30</td><td class="em">30 ÷ 100 = 30%</td></tr>
       <tr><td>WIC</td><td>20</td><td class="em">20 ÷ 100 = 20%</td></tr>
       <tr><td>전체</td><td>100</td><td>100%</td></tr></table></span></li>
-    <li><b>업체별 판매 비율 — 업체별 아이템 등록(판매)비율 (도넛)</b><span>30일 동안 한 번이라도 팔린 <b>상품 종류 수</b>(같은 UPC 가 여러 번·여러 날 팔려도 1개) 전체를 100% 로 놓고 업체별 비율. 등록 수와 비교하지 않습니다. 도넛 가운데 = 전체 판매 아이템 수(품목). 합계 100%.
-      <table class="guide-tb"><tr><th>업체</th><th>판매 아이템 수 (종류)</th><th>업체별 아이템 등록(판매)비율</th></tr>
+    <li><b>업체별 판매 비율 — 업체별 아이템 등록(판매)비율 (도넛)</b><span>30일 동안 한 번이라도 팔린 <b>상품 종류 수</b>(같은 UPC 가 여러 번·여러 날 팔려도 1개) 전체를 100% 로 놓고 업체별 비율. 등록 수와 비교하지 않습니다. 도넛 가운데 = 전체 등록 아이템 수량(품목). 합계 100%.
+      <table class="guide-tb"><tr><th>업체</th><th>등록 아이템 수량 (종류)</th><th>업체별 아이템 등록(판매)비율</th></tr>
       <tr><td>STI-WA</td><td>6,177</td><td class="em">6,177 ÷ 8,153 = 75.8%</td></tr>
       <tr><td>JFC</td><td>1,208</td><td class="em">1,208 ÷ 8,153 = 14.8%</td></tr>
       <tr><td>WIC</td><td>768</td><td class="em">768 ÷ 8,153 = 9.4%</td></tr>
@@ -558,8 +558,8 @@
   function regCol(storeFilter,big){
     var by=soldUpcsByVendor(storeFilter), list=sortVendors(Object.keys(by)).map(function(v){ return {v:v,q:by[v]}; }).sort(function(a,b){ return b.q-a.q; }), total=0;
     list.forEach(function(x){ total+=x.q; }); list.forEach(function(x){ x.lbl=Math.round(x.q/total*1000)/10+'%'; });
-    var cv=mkCanvas(); drawDonut(cv,list,total,fmtN(total),'판매 아이템 수',big?220:150);
-    var lg=total?list.map(function(it,i){ return '<div class="lg"><span class="sw" style="background:'+colorFor(it.v,i)+'"></span><span>'+esc(it.v)+'</span><span class="qty">'+fmtN(it.q)+'품목</span><span class="pct">'+it.lbl+'</span></div>'; }).join('')+'<div class="lg sum"><span class="sw" style="background:transparent"></span><span>전체 판매 아이템</span><span class="qty">'+fmtN(total)+'품목</span><span class="pct">100%</span></div>':'<div class="empty">판매 데이터가 없습니다</div>';
+    var cv=mkCanvas(); drawDonut(cv,list,total,fmtN(total),'등록 아이템 수량',big?220:150);
+    var lg=total?list.map(function(it,i){ return '<div class="lg"><span class="sw" style="background:'+colorFor(it.v,i)+'"></span><span>'+esc(it.v)+'</span><span class="qty">'+fmtN(it.q)+'품목</span><span class="pct">'+it.lbl+'</span></div>'; }).join('')+'<div class="lg sum"><span class="sw" style="background:transparent"></span><span>전체 등록 아이템 수량</span><span class="qty">'+fmtN(total)+'품목</span><span class="pct">100%</span></div>':'<div class="empty">판매 데이터가 없습니다</div>';
     return {title:'업체별 아이템 등록(판매)비율',cv:cv,lg:lg};
   }
   /* ── 업체별 아이템 총판매비율 ──
