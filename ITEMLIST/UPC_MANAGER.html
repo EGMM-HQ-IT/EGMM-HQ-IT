@@ -1197,7 +1197,8 @@ var VENDOR_BY_BIG={'STI':'STI-WA'};
 /* [UPC MANAGER 연계 2026-09] 로컬 전용 모드 — true 면 Firebase 자동 접속·동기화 전부 끔 (로컬 저장만) */
 var FB_LOCAL_ONLY=false;
 var SYNC_LATEST_WINS=true; /* [UPC 2026-10] 동기화: 가장 최근 수정본이 항상 우선(충돌 팝업 없음) + 실시간 반영 + 동기화 로그 */
-var TRASH_ENABLED=true;    /* [UPC 2026-10] 삭제 행 → TRASH(UPC·ITEM CODE·VENDER) 보관 · 불러오기 시 TRASH 와 UPC+ITEM CODE 일치 행 무시 */
+var TRASH_ENABLED=true;
+var SYNC_NO_GATES=true;    /* [UPC 2026-10] 전송 조건 없음 — 한글 이름은 자동 ID, 중복 이름은 자동 접미, 0건도 전송 (묻지 않음) */    /* [UPC 2026-10] 삭제 행 → TRASH(UPC·ITEM CODE·VENDER) 보관 · 불러오기 시 TRASH 와 UPC+ITEM CODE 일치 행 무시 */
 /* [UPC MANAGER 연계 2026-09] 앱 모드 — 'PLU' | 'UPC'. UPC 모드 전용 기능:
    ④ 같은 UPC 값 행의 UPC 셀을 같은 바탕색으로 표시 ⑤ USE 열 불러오기 값 정규화(1=사용중 · 0=사용중지) */
 var APP_MODE='UPC';
@@ -2493,7 +2494,7 @@ var GUIDE_UPC=[
   ['업데이트 규칙','같은 업체(중간 카테고리) 안에서 UPC가 같은 행은 업데이트, 없으면 새 행. 같은 상품이 STI-WA 에도 JFC 에도 있어도 됨 — 다른 업체의 같은 UPC 는 건드리지 않고 각각 등록(중복 UPC 는 바탕색으로 표시, 쓸모없는 쪽은 직접 삭제 → TRASH). UPC와 ITEM CODE가 모두 같은 행은 무시. UPC가 빈 행은 건너뜀.'],
   ['표시','같은 UPC 행은 UPC 칸이 같은 색. USE 미체크 행은 회색 취소선. 검색은 Enter, 번호는 쉼표로 여러 개.'],
   ['저장','모든 변경은 즉시 자동 저장되고 Firebase(UPC-LIST)에 자동 동기화됩니다. 상단 칩에서 상태 확인.'],
-  ['동기화 규칙','기본 데이터는 없고 모든 데이터(상품 + 필드 설정값)는 Firebase 에서 가져옵니다. 열면 먼저 Firebase 를 불러오고, 끝나기 전에는 수정·저장이 잠깁니다. 여러 컴퓨터에서 쓸 때 가장 최근에 수정된 쪽이 항상 기준(충돌 선택 없음). 다른 컴퓨터가 저장하면 이 화면에도 바로 반영되고, 메뉴 > 동기화 로그에 날짜·시간·방향(전송/반영)·컴퓨터가 기록됩니다.'],
+  ['동기화 규칙','수정하면 조건 없이 무조건 Firebase 로 전송됩니다(업체 이름이 한글이어도 자동 ID, 0건도 전송). 기본 데이터는 없고 모든 데이터(상품 + 필드 설정값)는 Firebase 에서 가져옵니다. 열면 먼저 Firebase 를 불러오고, 끝나기 전에는 수정·저장이 잠깁니다. 여러 컴퓨터에서 쓸 때 가장 최근에 수정된 쪽이 항상 기준(충돌 선택 없음). 다른 컴퓨터가 저장하면 이 화면에도 바로 반영되고, 메뉴 > 동기화 로그에 날짜·시간·방향(전송/반영)·컴퓨터가 기록됩니다.'],
   ['TRASH','리스트에서 삭제한 행은 UPC · ITEM CODE · VENDER 3개만 TRASH 에 보관됩니다(메뉴 > TRASH). 엑셀 불러오기 때 TRASH 와 UPC·ITEM CODE 가 모두 같은 행은 무조건 무시되어 쓰레기가 다시 쌓이지 않습니다. TRASH 에서 제거하면 다시 등록 가능.']
 ];
 function openGuide(){
@@ -5723,8 +5724,11 @@ function fbNameFor(kind,label,tab){
   if(kind==='big'&&tab&&tab.doc&&String(tab.doc).trim()) return fbNorm(tab.doc)||null;
   if(FB_DICT[raw]) return FB_DICT[raw];
   if(!fbHasHangul(raw)){ var n=fbNorm(raw); if(n) return n; }
+  if(SYNC_NO_GATES&&raw) return fbAutoId(raw); /* [무조건 전송] 한글·기호 이름도 묻지 않고 고정 ID 로 */
   return null;
 }
+/* 결정적 자동 ID: 같은 이름 → 항상 같은 ID (N-XXXXXXXX, FNV-1a 32bit) */
+function fbAutoId(raw){ var h=0x811c9dc5, s=String(raw); for(var i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,0x01000193)>>>0; } var a=fbNorm(s); return (a?a.slice(0,12)+'-':'N-')+('0000000'+h.toString(16)).slice(-8).toUpperCase(); }
 /* 상품 문서 ID (결정적): PLU 그대로 → 빈값 R-{내부id} → 소분류 내 중복 {PLU}-D2… */
 function fbItemId(pluVal,row,used){
   var id=String(pluVal==null?'':pluVal).trim().replace(/[\/\s]+/g,'-');
@@ -5745,6 +5749,7 @@ function fbBuildPlan(st){
     var bigId=fbNameFor('big',t.label,t);
     function needSubs(){ (t.subs||[]).forEach(function(sb){ if(!fbNameFor('sub',sb,null)) needNames.push({kind:'sub',label:sb,big:t.label}); }); }
     if(!bigId){ needNames.push({kind:'big',label:t.label}); needSubs(); return; }
+    if(bigUsed[bigId]&&SYNC_NO_GATES){ bigId=fbAutoId(t.label); }
     if(bigUsed[bigId]){ errs.push('대분류 영어 이름 중복: '+bigId+' ('+bigUsed[bigId]+' ↔ '+t.label+') — 팝업에서 다른 이름 지정 필요'); needNames.push({kind:'big',label:t.label,dup:1}); needSubs(); return; }
     bigUsed[bigId]=t.label;
     var node={id:bigId,name:t.label,order:bi,dept:(st.deptMap&&st.deptMap[t.label]!=null)?st.deptMap[t.label]:null,subs:[]};
@@ -5752,6 +5757,7 @@ function fbBuildPlan(st){
     (t.subs||[]).forEach(function(sb,si){
       var subId=fbNameFor('sub',sb,null);
       if(!subId){ needNames.push({kind:'sub',label:sb,big:t.label}); return; }
+      if(subUsed[subId]&&SYNC_NO_GATES){ subId=fbAutoId(sb); }
       if(subUsed[subId]){ errs.push('소분류 영어 이름 중복 ('+t.label+'): '+subId+' — 팝업에서 다른 이름 지정 필요'); needNames.push({kind:'sub',label:sb,big:t.label,dup:1}); return; }
       subUsed[subId]=sb;
       var rows=((st.data&&st.data[t.label])||{})[sb]||[], used={};
@@ -6245,7 +6251,7 @@ async function fbSyncRun(){
       return;
     }
     if(plan.errs.length){ __fbState='err'; __fbErrMsg=plan.errs[0]; return; }
-    if(plan.total===0&&((meta&&meta.total>0)||(__fbLast&&Object.keys(__fbLast).some(function(k){return k.split('/').length===4;})))){
+    if(!SYNC_NO_GATES&&plan.total===0&&((meta&&meta.total>0)||(__fbLast&&Object.keys(__fbLast).some(function(k){return k.split('/').length===4;})))){
       __fbState='hold'; return; /* 전체 0건은 자동 전송 금지 — 실수로 Firebase 를 비우는 사고 방지 */
     }
     var m=fbDocsMap(plan), writes=[], dels=[], k;
