@@ -1539,6 +1539,7 @@ function migrate(st){
   if(!Array.isArray(st.trash)) st.trash=[];       /* [TRASH] {upc,code,vender,at} */
   if(!Array.isArray(st.syncLog)) st.syncLog=[];   /* [SYNC LOG] {at,dir,n,by,note} — 로컬 사본 */
   if(st.dirtyAt===undefined) st.dirtyAt=null;
+  if(st.seeded===undefined) st.seeded=false;    /* 내장 데이터만 들어 있고 Firebase 와 한 번도 맞춘 적 없음 */
   if(!st.flags.store99v1){ st.flags.store99v1=1; try{ collectStoresFromData(st); }catch(e){} } /* LOCATION 99 행 → EGMM 매장 자동 등록 */
   /* [요구 2026-09] item_type 값 매핑 기본값 — 넘어오는 1 → 10(Weight Item), 2 → 0(Normal Item) */
   if(!st.flags.vmapV1){
@@ -5522,13 +5523,15 @@ function applySeedData(st){
       st.data[big][sb].push(r);
     });
     if(SUB_BY_VENDER){ tab.subs=tab.subs.filter(function(x){ if((st.data[big][x]||[]).length) return true; if(tab.subs.length<=1) return true; delete st.data[big][x]; return false; }); }
-    st.dirtySinceSync=true;
+    /* [수정 2026-10-01] 내장 데이터는 '사용자 수정'이 아님 — Firebase 에 데이터가 있으면 시작 시 무조건 Firebase 를 가져온다 (seeded 플래그).
+       예전엔 dirty 로 표시해 충돌 팝업/덮어쓰기 전송이 일어났음 */
+    st.seeded=true; st.dirtySinceSync=false; st.dirtyAt=null;
     return true;
   }catch(e){ return false; }
 }
 function init(){
   S=migrate(loadState()||freshState()); /* fresh 도 migrate 경유 — 사양(필드·수식·flags) 일원화 */
-  if(applySeedData(S)){ S.tabs.forEach(function(t){ calcAll(t.label); }); saveState(); } /* 내장 초기 데이터 1회 적재 */
+  if(applySeedData(S)){ S.tabs.forEach(function(t){ calcAll(t.label); }); __fbMuting=true; saveState(); __fbMuting=false; } /* 내장 초기 데이터 1회 적재 (동기화 dirty 아님) */
   pluBig=Math.min(Math.max(0,S.ui.big|0),S.tabs.length-1);
   pluSub=Math.min(Math.max(0,S.ui.sub|0),(S.tabs[pluBig].subs||[]).length-1); if(pluSub<0) pluSub=0;
   if(S.curStore&&S.stores.indexOf(S.curStore)<0) S.curStore='';
@@ -6126,7 +6129,7 @@ function openSyncLog(){
 }
 /* [최신본 우선] 원격 savedAt 과 이 컴퓨터 마지막 수정 시각 비교 — 원격이 더 최근이면 true (원격 반영) */
 function fbRemoteNewer(remoteSavedAt){
-  if(!S.dirtySinceSync) return true;
+  if(!S.dirtySinceSync||!S.dirtyAt||S.seeded) return true;
   var r=Date.parse(remoteSavedAt||'')||0, l=Date.parse(S.dirtyAt||'')||0;
   return r>=l;
 }
@@ -6203,6 +6206,7 @@ async function fbSyncRun(){
     var conn=await fbConnect(), M=conn.M, db=conn.db;
     var ms=await M.fs.getDoc(M.fs.doc(db,FB_ROOT,'_META'));
     var meta=(ms.exists()&&ms.data()&&ms.data().ver==='v3')?ms.data():null;
+    if(meta&&meta.savedAt&&S.seeded&&!S.fbLastSync){ /* 내장 데이터로 Firebase 를 덮지 않음 → 가져오기 */ var rs=await fbPullApply(conn); fbLogSync('pull',rs.got,'내장 데이터 → Firebase 데이터로 교체'); return; }
     if(meta&&meta.savedAt&&S.fbLastSync!==meta.savedAt){
       if(SYNC_LATEST_WINS){
         /* [최신본 우선] 원격이 더 최근이면 원격 반영(이 컴퓨터의 더 오래된 수정은 버림), 아니면 계보 승계 후 전체 덮어쓰기 */
@@ -6291,7 +6295,7 @@ async function fbPullApply(conn){
   var r=await fbReadAll(conn);
   __fbMuting=true;
   S=migrate(r.st); pluBig=0; pluSub=0;
-  S.fbLastSync=r.meta.savedAt||null; S.dirtySinceSync=false;
+  S.fbLastSync=r.meta.savedAt||null; S.dirtySinceSync=false; S.seeded=false;
   saveState();
   __fbMuting=false;
   renderAll();
@@ -6336,8 +6340,9 @@ async function fbAutoStart(){
     if(!meta){
       if(localRows>0){ __fbLast=null; fbSyncQueue(300); }
       else { __fbLast={}; __fbState='ok'; }
-    } else if(localRows===0){
-      var r=await fbPullApply(conn);
+    } else if(localRows===0||(S.seeded&&!S.fbLastSync)){
+      var __wasSeed=!!S.seeded; var r=await fbPullApply(conn);
+      fbLogSync('pull',r.got,__wasSeed?'내장 데이터 → Firebase 데이터로 교체':'빈 상태 → 불러오기');
       showToast('Firebase 자동 불러오기 — 상품 '+r.got+'건','success');
     } else if(meta.savedAt===S.fbLastSync){
       __fbLast=null; /* 같은 계보 — 다음 전송은 전체 기준 재확립 */
