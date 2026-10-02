@@ -1499,6 +1499,17 @@
     if(cachedSavedAt && meta.savedAt && meta.savedAt===cachedSavedAt)
       return { unchanged:true, meta };                       // 변경 없음 — 상품 문서 안 읽음
 
+    let packOn=false; try{ const pm=await getDoc(doc(pluDb, PLU_ROOT, '_PACKMETA')); packOn=!!(pm.exists()&&pm.data()&&pm.data().on); }catch(e){ packOn=false; }
+    async function packReadSub(bigId, subId){
+      const sn=await getDoc(doc(pluDb, PLU_ROOT, '_PACK', bigId, subId)); if(!sn.exists()) return null;
+      const d0=sn.data()||{}, n=parseInt(d0.parts||1,10)||1; let payload=String(d0.d||'');
+      for(let p=2;p<=n;p++){ const x=await getDoc(doc(pluDb, PLU_ROOT, '_PACK', bigId, subId+'__P'+p)); payload+=x.exists()?String((x.data()||{}).d||''):''; }
+      let json=payload;
+      if(d0.fmt==='GZ'){ const bin=atob(payload), u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i);
+        if(typeof pako!=='undefined'&&pako.ungzip) json=new TextDecoder().decode(pako.ungzip(u8));
+        else { const ds=new DecompressionStream('gzip'); const w=ds.writable.getWriter(); w.write(u8); w.close(); json=await new Response(ds.readable).text(); } }
+      const o=JSON.parse(json); return Array.isArray(o)?o:((o&&Array.isArray(o.rows))?o.rows:[]);
+    }
     const bigs=(meta.tree||[]).filter(function(b){ return isProduceBig(b)||isFishBig(b)||isDeliBig(b); });
     if(!bigs.some(isProduceBig))
       throw new Error('청과 대분류를 찾지 못했습니다 — 현재 대분류: '+(meta.tree||[]).map(function(b){return b.name||b.id;}).join(', '));
@@ -1510,11 +1521,19 @@
       const rows=[];
       const bigKey = isFishBig(b) ? 'FISH' : (isDeliBig(b) ? 'DELI' : 'PRODUCE');
       for(const sb of (b.subs||[])){
-        let snap;
-        try{ snap = await getDocs(collection(pluDb, PLU_ROOT, b.id, sb.id)); }
-        catch(e){ throw new Error(pluErrText(e)); }
+        /* [CLOUD 압축 묶음 · 2026-10-02] PLU MANAGER 가 업체(소분류)별 gzip 묶음으로 저장했으면 묶음 1개만 읽음 (행 수만큼 읽던 것 → 소분류 수만큼) */
+        let docsArr=[];
+        if(packOn){
+          let rows=null; try{ rows = await packReadSub(b.id, sb.id); }catch(e){ throw new Error(pluErrText(e)); }
+          docsArr=(rows||[]).map(function(r,i){ return { id:'', data:function(){ return { plu:'', order:i, r:r }; } }; });
+        } else {
+          let snap;
+          try{ snap = await getDocs(collection(pluDb, PLU_ROOT, b.id, sb.id)); }
+          catch(e){ throw new Error(pluErrText(e)); }
+          snap.forEach(function(ds){ docsArr.push(ds); });
+        }
         const part=[];
-        snap.forEach(function(ds){
+        docsArr.forEach(function(ds){
           const dd=ds.data(); if(!dd || !dd.r) return;      // _META 등 색인 문서 제외
           const v0=(dd.r&&dd.r.v)||{};
           /* 매장별 값(sv) 덮어쓰기 — 매장 이름 정규화(대문자·공백 제거) 매칭 */

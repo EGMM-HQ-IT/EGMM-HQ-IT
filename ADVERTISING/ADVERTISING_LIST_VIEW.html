@@ -184,6 +184,18 @@
   function loadUpcList(meta){
     var F=window.fbFns, db=window.fbDb;
     try{ var c=JSON.parse(localStorage.getItem(UPC_CACHE_KEY)||'null'); if(c&&c.savedAt===meta.savedAt&&Array.isArray(c.list)){ applyUpcIndex(c.list); return; } }catch(e){}
+    /* [CLOUD 압축 묶음 · 2026-10-02] 업체별 묶음이 있으면 묶음만 읽고 바뀐 업체만 다시 받음 */
+    var __pc=null; try{ __pc=JSON.parse(localStorage.getItem(UPC_CACHE_KEY+':pack')||'null'); }catch(e){}
+    window.EgmmFB.loadProductRows(F,db,UPC_ROOT,meta,__pc).then(function(res){
+      if(!res){ loadUpcListLegacy(meta); return; }
+      var list=[], store={};
+      Object.keys(res.parts).forEach(function(k){ var pt=res.parts[k]; store[k]={pv:pt.pv,rows:pt.rows}; (pt.rows||[]).forEach(function(r){ var v=(r&&r.v)||{}; var pl=(v.ITEM_PLU!=null&&v.ITEM_PLU!=='')?v.ITEM_PLU:v.PLU; list.push({ upc:String(pl==null?'':pl), eng:String(v.ITEM_ENGLISH||''), kor:String(v.ITEM_KOREA||''), vender:String(v.VENDER_VENDER||pt.sub.name||'').trim(), code:String(v.VENDER_ITEM_CODE||''), size:(String(v.UNIT_SIZE_3||'')+' '+String(v.UNIT_CODE||'')).trim() }); }); });
+      try{ localStorage.setItem(UPC_CACHE_KEY+':pack',JSON.stringify({parts:store})); localStorage.setItem(UPC_CACHE_KEY, JSON.stringify({ savedAt:meta.savedAt, list:list })); }catch(e){}
+      applyUpcIndex(list);
+    }).catch(function(){ loadUpcListLegacy(meta); });
+  }
+  function loadUpcListLegacy(meta){
+    var F=window.fbFns, db=window.fbDb;
     var reads=[];
     (meta.tree||[]).forEach(function(b){ (b.subs||[]).forEach(function(sb){ reads.push(F.getDocs(F.collection(db, UPC_ROOT, b.id, sb.id)).then(function(snap){ var out=[]; snap.forEach(function(d){ var x=d.data()||{}; var v=(x.r&&x.r.v)||{}; out.push({ upc:String(x.plu||d.id), eng:String(v.ITEM_ENGLISH||''), kor:String(v.ITEM_KOREA||''), vender:String(v.VENDER_VENDER||sb.name||'').trim(), code:String(v.VENDER_ITEM_CODE||''), size:(String(v.UNIT_SIZE_3||'')+' '+String(v.UNIT_CODE||'')).trim() }); }); return out; })); }); });
     Promise.all(reads).then(function(parts){ var list=[].concat.apply([],parts); try{ localStorage.setItem(UPC_CACHE_KEY, JSON.stringify({ savedAt:meta.savedAt, list:list })); }catch(e){} applyUpcIndex(list); }).catch(function(){});

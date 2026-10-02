@@ -303,10 +303,21 @@
       var meta=(ms.exists()&&ms.data())||null;
       if(!meta||!meta.tree){ $('chipProd').textContent='UPC MANAGER 상품 없음'; $('chipProd').className='chip err'; return; }
       try{ var c=JSON.parse(localStorage.getItem(CACHE_KEY)||'null'); if(c&&c.savedAt===meta.savedAt&&Array.isArray(c.list)){ applyProducts(c.list); return; } }catch(e){}
+      /* [CLOUD 압축 묶음 · 2026-10-02] UPC MANAGER 가 업체별 묶음으로 저장하면 묶음만 읽고(업체 수만큼), 바뀐 업체만 다시 받음 */
+      var __pc=null; try{ __pc=JSON.parse(localStorage.getItem(CACHE_KEY+':pack')||'null'); }catch(e){}
+      return window.EgmmFB.loadProductRows(fb,fb.db,UPC_ROOT,meta,__pc).then(function(res){
+        if(!res) return loadProductsLegacy(meta);
+        var list=[], store={};
+        Object.keys(res.parts).forEach(function(k){ var pt=res.parts[k]; store[k]={pv:pt.pv,rows:pt.rows}; (pt.rows||[]).forEach(function(r){ var v=(r&&r.v)||{}; var pl=(v.ITEM_PLU!=null&&v.ITEM_PLU!=='')?v.ITEM_PLU:v.PLU; list.push({upc:String(pl==null?'':pl),eng:String(v.ITEM_ENGLISH||''),kor:String(v.ITEM_KOREA||''),vender:String(v.VENDER_VENDER||pt.sub.name||'').trim(),code:String(v.VENDER_ITEM_CODE||'')}); }); });
+        try{ localStorage.setItem(CACHE_KEY+':pack',JSON.stringify({parts:store})); localStorage.setItem(CACHE_KEY,JSON.stringify({savedAt:meta.savedAt,list:list})); }catch(e){}
+        applyProducts(list);
+      });
+    });
+  }
+  function loadProductsLegacy(meta){
       var reads=[];
       (meta.tree||[]).forEach(function(b){ (b.subs||[]).forEach(function(s){ reads.push(fb.getDocs(fb.collection(fb.db,UPC_ROOT,b.id,s.id)).then(function(snap){ var out=[]; snap.forEach(function(d){ var x=d.data()||{}; var v=(x.r&&x.r.v)||{}; out.push({upc:String(x.plu||d.id),eng:String(v.ITEM_ENGLISH||''),kor:String(v.ITEM_KOREA||''),vender:String(v.VENDER_VENDER||s.name||'').trim(),code:String(v.VENDER_ITEM_CODE||'')}); }); return out; })); }); });
       return Promise.all(reads).then(function(parts){ var list=[].concat.apply([],parts); try{ localStorage.setItem(CACHE_KEY,JSON.stringify({savedAt:meta.savedAt,list:list})); }catch(e){} applyProducts(list); });
-    });
   }
   function applyProducts(list){
     prodList=list; products={};

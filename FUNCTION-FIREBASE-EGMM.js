@@ -49,6 +49,43 @@
     db: null, fns: null
   };
 
+
+  /* ═══ [CLOUD 압축 묶음 읽기 · 2026-10-02] PLU/UPC MANAGER 가 업체(중간 카테고리)별 gzip 묶음으로 저장한 상품 데이터를 읽는 공용 함수
+     · packOn(F,db,root): FB_ROOT/_PACKMETA.on 여부
+     · packReadSub(F,db,root,bigId,subId): 묶음 문서(+조각) → rows 배열 [{id,v,sv,m}] (없으면 null)
+     · loadProductRows(F,db,root,meta,cache): meta.tree 의 모든 업체 묶음을 읽되, cache.parts[big/sub].pv 가 meta 의 pv 와 같으면 다시 읽지 않음
+       → { parts:{key:{pv,rows}}, changed:[key..] }   (묶음 방식이 아니면 null → 각 페이지의 기존 행 문서 읽기로) */
+  function gunzipB64(b64){
+    var bin=atob(b64), u8=new Uint8Array(bin.length); for(var i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i);
+    if(typeof pako!=='undefined'&&pako.ungzip) return Promise.resolve(new TextDecoder().decode(pako.ungzip(u8)));
+    if(typeof DecompressionStream!=='undefined'){ var ds=new DecompressionStream('gzip'); var w=ds.writable.getWriter(); w.write(u8); w.close(); return new Response(ds.readable).text(); }
+    return Promise.reject(new Error('gzip 해제 불가 (브라우저가 오래됨)'));
+  }
+  function packOn(F,db,root){ return F.getDoc(F.doc(db,root,'_PACKMETA')).then(function(sn){ return !!(sn.exists()&&sn.data()&&sn.data().on); }).catch(function(){ return false; }); }
+  function packReadSub(F,db,root,bigId,subId){
+    return F.getDoc(F.doc(db,root,'_PACK',bigId,subId)).then(function(sn){
+      if(!sn.exists()) return null;
+      var d0=sn.data()||{}, n=parseInt(d0.parts||1,10)||1, ps=[];
+      for(var p=2;p<=n;p++) ps.push(F.getDoc(F.doc(db,root,'_PACK',bigId,subId+'__P'+p)).then(function(x){ return x.exists()?String((x.data()||{}).d||''):''; }));
+      return Promise.all(ps).then(function(parts){ var payload=String(d0.d||'')+parts.join('');
+        var txt=(d0.fmt==='GZ')?gunzipB64(payload):Promise.resolve(payload);
+        return txt.then(function(json){ var o=JSON.parse(json); return Array.isArray(o)?o:((o&&Array.isArray(o.rows))?o.rows:[]); }); });
+    });
+  }
+  function loadProductRows(F,db,root,meta,cache){
+    return packOn(F,db,root).then(function(on){
+      if(!on) return null;
+      var old=(cache&&cache.parts)||{}, parts={}, changed=[], jobs=[];
+      (meta.tree||[]).forEach(function(b){ (b.subs||[]).forEach(function(sb){
+        var key=b.id+'/'+sb.id, pv=sb.pv||meta.savedAt||'';
+        if(old[key]&&old[key].pv===pv&&Array.isArray(old[key].rows)){ parts[key]={pv:pv,rows:old[key].rows,big:b,sub:sb}; return; }
+        jobs.push(packReadSub(F,db,root,b.id,sb.id).then(function(rows){ parts[key]={pv:pv,rows:rows||[],big:b,sub:sb}; changed.push(key); }));
+      }); });
+      return Promise.all(jobs).then(function(){ return { parts:parts, changed:changed }; });
+    });
+  }
+  window.EgmmFB.gunzipB64=gunzipB64; window.EgmmFB.packOn=packOn; window.EgmmFB.packReadSub=packReadSub; window.EgmmFB.loadProductRows=loadProductRows;
+
   if (!configOk()) {
     rejectReady(new Error("EGMM_FB_CONFIG_MISSING"));
     try { window.dispatchEvent(new Event("egmm-fb-config-missing")); } catch(e){}
