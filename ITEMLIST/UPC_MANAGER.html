@@ -596,6 +596,8 @@ try{ document.documentElement.setAttribute('data-theme', localStorage.getItem('p
   .plu-table.hasgr thead tr.plu-th-frow th { height:26px; box-sizing:border-box; padding-top:0; padding-bottom:0; top:26px; }
   .plu-table.hasgr thead tr.plu-th-frow th .plu-th-in { height:100%; }
   .plu-table th.plu-gbs, .plu-table td.plu-gbs { border-left:2px solid #000 !important; }
+  /* [요구 2026-10-02] 선택 체크박스 열과 그 다음 열 사이 굵은 구분선 (어떤 필드가 와도) */
+  .plu-table th.plu-c-sel, .plu-table td.plu-c-sel { border-right:2px solid #000 !important; }
   .plu-table th.plu-gbe, .plu-table td.plu-gbe { border-right:2px solid #000 !important; }
   .plu-table td.plu-c-sel, .plu-table th.plu-c-sel { text-align:center !important; padding-left:4px !important; padding-right:4px !important; }
   .plu-table td.plu-c-sel input { display:inline-block; margin:0 auto; vertical-align:middle; }
@@ -757,6 +759,7 @@ html[data-theme=night] .plu-table thead th.plu-th-group.empty { background:#2029
 html[data-theme=night] .plu-table tbody tr:nth-child(even) { background:rgba(255,255,255,0.028); }
 html[data-theme=night] .plu-table tbody tr:hover { background:#242c3d; }
 html[data-theme=night] .plu-table th.plu-gbs, html[data-theme=night] .plu-table td.plu-gbs { border-left-color:#5a6580 !important; }
+html[data-theme=night] .plu-table th.plu-c-sel, html[data-theme=night] .plu-table td.plu-c-sel { border-right-color:#5a6580 !important; }
 html[data-theme=night] .plu-table th.plu-gbe, html[data-theme=night] .plu-table td.plu-gbe { border-right-color:#5a6580 !important; }
 html[data-theme=night] .plu-table tbody td.plu-c-no { color:#ef7a7a; }
 html[data-theme=night] .plu-table tbody td.plu-c-calc { background:#171c26; color:#8b93a5; }
