@@ -2496,7 +2496,7 @@ var GUIDE_UPC=[
   ['업데이트 규칙','같은 업체(중간 카테고리) 안에서 UPC 와 ITEM CODE 가 모두 같은 행만 업데이트, 그 외는 전부 새 행(파일의 모든 행이 그대로 들어감 — 같은 UPC 에 ITEM CODE 가 다르면 각각 등록). 같은 상품이 STI-WA 에도 JFC 에도 있어도 됨 — 다른 업체의 같은 UPC 는 건드리지 않고 각각 등록(중복 UPC 는 바탕색으로 표시, 쓸모없는 쪽은 직접 삭제 → TRASH). 제외 규칙은 UPC 숫자 6자리 이하(와 TRASH 일치)뿐. UPC가 빈 행은 건너뜀.'],
   ['표시','같은 UPC 행은 UPC 칸이 같은 색. USE 미체크 행은 회색 취소선. 검색은 Enter, 번호는 쉼표로 여러 개.'],
   ['저장','모든 변경은 즉시 자동 저장되고 CLOUD(UPC-LIST)에 자동 동기화됩니다. 상단 칩에서 상태 확인.'],
-  ['동기화 규칙','수정하면 조건 없이 무조건 CLOUD 로 전송됩니다(업체 이름이 한글이어도 자동 ID, 0건도 전송). 기본 데이터는 없고 모든 데이터(상품 + 필드 설정값)는 CLOUD 에서 가져옵니다. 열면 먼저 CLOUD 를 불러오고, 끝나기 전에는 수정·저장이 잠깁니다. 여러 컴퓨터에서 쓸 때 가장 최근에 수정된 쪽이 항상 기준(충돌 선택 없음). 다른 컴퓨터가 저장하면 이 화면에도 바로 반영되고, 메뉴 > 동기화 로그에 날짜·시간·방향(전송/반영)·컴퓨터가 기록됩니다.'],
+  ['동기화 규칙','수정하면 조건 없이 무조건 CLOUD 로 전송됩니다(업체 이름이 한글이어도 자동 ID, 0건도 전송). 기본 데이터는 없고 모든 데이터(상품 + 필드 설정값)는 CLOUD 에서 가져옵니다. 열 때마다 무조건 CLOUD 의 최신 기록을 먼저 가져오고(이 컴퓨터 사본보다 CLOUD 가 기준), 끝나기 전에는 수정·저장이 잠깁니다. 다른 컴퓨터가 CLOUD 에 새로 기록하면 바로 CLOUD 기준으로 반영됩니다. 단, 이 컴퓨터에만 있던 행(아직 전송 못 한 추가분)은 버리지 않고 합쳐서 CLOUD 로 보내고, CLOUD 에만 있는 상품은 TRASH 에 있는 것 외에는 지우지 않습니다. 동기화 날짜·시간은 메뉴 > 동기화 로그.'],
   ['데이터 편집','상단 「데이터 편집」 버튼: 현재 보고 있는 중간 카테고리 안에서 ① 중복 데이터 보기 — UPC / ITEM CODE 기준 체크 후 검색(표시 필드는 오른쪽 칸에서 선택), 별도 팝업에 그룹별로 구분 표시, 그룹 안 번호(NO)와 COST·SRP 높은/낮은순 정렬, 「1번만·2번만·3번만·중복 체크(1번 빼고 전부)」 버튼으로 한 번에 체크 후 삭제. ② 중복 데이터 삭제 — UPC / ITEM CODE 기준(둘 다 체크 = 둘 다 같아야 중복), SRP 또는 COST 높은/낮은 순으로 1개 또는 2개만 남기고 나머지 삭제. 삭제한 행은 모두 TRASH 보관, 사용중(체크) 상품은 보호.'],
   ['UPC 기준만 업데이트','불러오는 파일에 ITEM CODE 열이 없으면 UPC 기준으로만 매칭합니다: 같은 업체(중간 카테고리)에서 UPC 가 같은 기존 행 전부에 파일에 있는 필드만 덮어쓰고(예: UPC · SRP 2열 파일 → SRP 만 갱신), 새 행은 만들지 않습니다(UPC 가 없을 때만 새 행). ITEM CODE 열이 있으면 업체 + UPC + ITEM CODE 규칙 그대로.'],
   ['히스토리','상단 「히스토리」 버튼: 불러오기·행 추가·셀 수정·전체 채우기·삭제·중복 삭제를 날짜·시간(분 단위)·카테고리·행수로 기록합니다(두 컴퓨터 공유). 항목의 「보기」로 그 시간에 편집된 행만 리스트로 보고 체크 삭제, 「삭제」로 그 시간에 편집된 행 전부 삭제(TRASH 보관). 삭제 작업 항목은 삭제된 행의 UPC · ITEM CODE 를 남깁니다.'],
@@ -5942,7 +5942,7 @@ function init(){
   applyTheme(curTheme()); $('themeBtn').onclick=toggleTheme; /* [MODULE 00] DAY/NIGHT */
   bindCatMgr(); /* [MODULE 24] 카테고리 관리 */
   /* [MODULE 26] 파일(plu-data.json) 재연결 사용 안 함 — Firebase 자동 동기화로 대체 */
-  if(SYNC_LATEST_WINS&&fbCfgCur()){ __fbBooting=true; fbBootOverlay(true); } /* [원칙] 모든 데이터는 Firebase 에서 — 불러오기 끝난 뒤에만 수정·저장 */
+  if(fbCfgCur()){ __fbBooting=true; fbBootOverlay(true); } /* [원칙] 모든 데이터는 Firebase 에서 — 불러오기 끝난 뒤에만 수정·저장 */
   fbAutoStart();
   /* 종료·숨김 직전 미기록분 즉시 기록 (브라우저 저장 병합분 + 파일) */
   window.addEventListener('beforeunload',function(){ __lsFlush(); if(fsTimer){ fsWriteNow(); } });
@@ -6454,7 +6454,7 @@ var __fbErrMsg='', __fbNamesAsked='', __fbConflict=null;
 /* ═══ [SYNC LOG · UPC 2026-10] 동기화 날짜·시간 기록 — 로컬(S.syncLog) + Firebase FB_ROOT/_SYNCLOG (두 컴퓨터 공용, 최근 300건) ═══ */
 function fbDeviceId(){ try{ var k='pluDeviceId', v=localStorage.getItem(k); if(!v){ v='PC-'+Math.random().toString(36).slice(2,6).toUpperCase(); localStorage.setItem(k,v); } return v; }catch(e){ return 'PC'; } }
 function fbLogSync(dir,n,note){
-  if(!SYNC_LATEST_WINS||!S) return;
+  if(!S) return; if(!Array.isArray(S.syncLog)) S.syncLog=[];
   var e={ at:new Date().toISOString(), dir:dir, n:n||0, by:fbDeviceId(), note:note||'' };
   S.syncLog.push(e); if(S.syncLog.length>300) S.syncLog=S.syncLog.slice(-300);
   __fbMuting=true; saveState(); __fbMuting=false;
@@ -6485,13 +6485,12 @@ function fbRemoteNewer(remoteSavedAt){
 var __fbWatchOff=null, __fbWatchBusy=false;
 /* [실시간 반영] _META 구독 — 다른 컴퓨터가 기록하면 바로 최신본 적용 (Google Drive · OneDrive 처럼) */
 function fbWatchStart(conn){
-  if(!SYNC_LATEST_WINS||__fbWatchOff) return;
+  if(__fbWatchOff) return;
   var M=conn.M, db=conn.db;
   try{ __fbWatchOff=M.fs.onSnapshot(M.fs.doc(db,FB_ROOT,'_META'),function(sn){
     if(!S||__fbSyncRunning||__fbWatchBusy) return;
     var meta=(sn.exists()&&sn.data()&&sn.data().ver==='v3')?sn.data():null;
     if(!meta||!meta.savedAt||meta.savedAt===S.fbLastSync) return;
-    if(!fbRemoteNewer(meta.savedAt)){ __fbMuting=true; S.fbLastSync=meta.savedAt; saveState(); __fbMuting=false; __fbLast=null; fbSyncQueue(300); return; } /* 이 컴퓨터가 더 최근 → 덮어쓰기 전송 */
     __fbWatchBusy=true;
     fbPullApply(conn).then(function(r){ fbLogSync('pull',r.got,'다른 컴퓨터 수정 실시간 반영'); showToast('다른 컴퓨터의 최신본 반영 — 상품 '+r.got+'건','success'); })
       .catch(function(e){ __fbState='err'; __fbErrMsg=String((e&&e.message)||e); renderSaveChip(); })
@@ -6565,14 +6564,8 @@ async function fbSyncRun(){
     var meta=(ms.exists()&&ms.data()&&ms.data().ver==='v3')?ms.data():null;
     if(meta&&meta.savedAt&&S.seeded&&!S.fbLastSync){ /* 내장 데이터로 Firebase 를 덮지 않음 → 가져오기 */ var rs=await fbPullApply(conn); fbLogSync('pull',rs.got,'내장 데이터 → CLOUD 데이터로 교체'); return; }
     if(meta&&meta.savedAt&&S.fbLastSync!==meta.savedAt){
-      if(SYNC_LATEST_WINS){
-        /* [최신본 우선] 원격이 더 최근이면 원격 반영(이 컴퓨터의 더 오래된 수정은 버림), 아니면 계보 승계 후 전체 덮어쓰기 */
-        if(fbRemoteNewer(meta.savedAt)){ var rr=await fbPullApply(conn); fbLogSync('pull',rr.got,'원격이 더 최근 → 반영'); showToast('CLOUD 최신본 반영 — 상품 '+rr.got+'건','success'); return; }
-        __fbMuting=true; S.fbLastSync=meta.savedAt; saveState(); __fbMuting=false; __fbLast=null;
-      } else {
-        /* 다른 컴퓨터가 그 사이에 기록 — 미전송 수정이 있으므로 자동 결정 불가 */
-        __fbConflict={remote:meta.savedAt}; __fbState='conflict'; fbConflictPopup(); return;
-      }
+      /* [원칙 2026-10-01 확정] CLOUD 에 더 새 기록이 있으면 무조건 CLOUD 기준으로 반영 (충돌 팝업 없음). UPC: 이 컴퓨터에만 있던 행은 합쳐서 이어서 전송 */
+      var rr=await fbPullApply(conn); fbLogSync('pull',rr.got,'CLOUD 에 새 기록 → 반영'+(rr.kept?' · 이 컴퓨터 추가분 '+rr.kept+'건 합침':'')); showToast('CLOUD 최신본 반영 — 상품 '+rr.got+'건','success'); return;
     }
     var plan=fbBuildPlan(S);
     if(plan.needNames.length){
@@ -6720,29 +6713,12 @@ async function fbAutoStart(){
     if(!meta){
       if(localRows>0){ __fbLast=null; fbSyncQueue(300); }
       else { __fbLast={}; __fbState='ok'; }
-    } else if(SYNC_LATEST_WINS){
-      /* [원칙 2026-10-01] 접속하면 기본적으로 CLOUD 데이터(상품 + 필드 설정값)를 가져온다.
-         [속도 2026-10-01] 이 컴퓨터 사본이 CLOUD 의 마지막 기록과 같으면(savedAt 일치) 다시 내려받지 않음 — 수천 건 재다운로드가 로딩 지연의 원인
-         예외: 이 컴퓨터에 아직 전송 못 한 수정이 있고 그 수정이 CLOUD 기록보다 더 최근일 때만 전송 */
-      if(meta.savedAt===S.fbLastSync&&localRows>0){ __fbLast=fbDocsMap(fbBuildPlan(S)); if(S.dirtySinceSync) fbSyncQueue(300); else __fbState='ok'; }
-      else if(S.dirtySinceSync&&!fbRemoteNewer(meta.savedAt)){ __fbMuting=true; S.fbLastSync=meta.savedAt; saveState(); __fbMuting=false; __fbLast=null; fbSyncQueue(300); }
-      else { var r0=await fbPullApply(conn); fbLogSync('pull',r0.got,'시작 시 CLOUD 데이터 가져오기'); showToast('CLOUD 데이터 불러오기 — 상품 '+r0.got+'건','success'); }
-    } else if(localRows===0||(S.seeded&&!S.fbLastSync)){
-      var __wasSeed=!!S.seeded; var r=await fbPullApply(conn);
-      fbLogSync('pull',r.got,__wasSeed?'내장 데이터 → CLOUD 데이터로 교체':'빈 상태 → 불러오기');
-      showToast('CLOUD 자동 불러오기 — 상품 '+r.got+'건','success');
-    } else if(meta.savedAt===S.fbLastSync){
-      __fbLast=null; /* 같은 계보 — 다음 전송은 전체 기준 재확립 */
-      if(S.dirtySinceSync) fbSyncQueue(300); else __fbState='ok';
-    } else if(!S.dirtySinceSync){
-      var r2=await fbPullApply(conn);
-      fbLogSync('pull',r2.got,'시작 시 최신본 반영');
-      showToast('CLOUD 최신본 자동 반영 — 상품 '+r2.got+'건','success');
-    } else if(SYNC_LATEST_WINS){
-      if(fbRemoteNewer(meta.savedAt)){ var r3=await fbPullApply(conn); fbLogSync('pull',r3.got,'시작 시 원격이 더 최근 → 반영'); showToast('CLOUD 최신본 반영 — 상품 '+r3.got+'건','success'); }
-      else { __fbMuting=true; S.fbLastSync=meta.savedAt; saveState(); __fbMuting=false; __fbLast=null; fbSyncQueue(300); }
     } else {
-      __fbConflict={remote:meta.savedAt}; __fbState='conflict'; fbConflictPopup();
+      /* [원칙 2026-10-01 확정] 열 때는 무조건 CLOUD 의 최신 기록을 가져온다 — 이 컴퓨터 사본보다 CLOUD 가 기준.
+         (UPC: 이 컴퓨터에만 있던 행은 버리지 않고 합쳐서 CLOUD 로 전송 — fbMergeLocalOnly) */
+      var r0=await fbPullApply(conn);
+      fbLogSync('pull',r0.got,'시작 시 CLOUD 데이터 가져오기'+(r0.kept?' · 이 컴퓨터 추가분 '+r0.kept+'건 합침':''));
+      showToast('CLOUD 데이터 불러오기 — 상품 '+r0.got+'건'+(r0.kept?' (이 컴퓨터 추가분 '+r0.kept+'건 합침)':''),'success');
     }
     fbWatchStart(conn);
   }catch(e){ __fbState='err'; __fbErrMsg=String((e&&(e.code||e.message))||e); if(__fbBooting) showToast('CLOUD 불러오기 실패 — '+__fbErrMsg+' (이 컴퓨터 사본으로 표시, 저장 칩 클릭으로 재시도)','error'); }
