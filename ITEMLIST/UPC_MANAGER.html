@@ -2693,8 +2693,9 @@ function renderContent(){
     return {
       f:f, key:f.key, isCalc:isCalc, isChk:(f.type==='check'&&!isCalc), all:!!f.allStores,
       open:'<td class="'+cls, openChk:'<td class="plu-c-check',
-      mid:'" data-fi="'+i+'"'+(f.align?' style="text-align:'+f.align+';"':'')+' title="'+(f.formula?'수식(자동 계산)':(isCalc?'쉐어(참조 자동)':''))+'">',
-      midChk:'" data-fi="'+i+'"><input type="checkbox" class="cellChk"',
+      /* [요구 2026-10-01] 필드 편집의 바탕색·글씨색은 머리글뿐 아니라 그 열의 모든 셀에 적용 */
+      mid:'" data-fi="'+i+'"'+((f.align||f.color||f.tcolor)?' style="'+(f.align?'text-align:'+f.align+';':'')+(f.color?'background:'+escapeHtml(f.color)+';':'')+(f.tcolor?'color:'+escapeHtml(f.tcolor)+';':'')+'"':'')+' title="'+(f.formula?'수식(자동 계산)':(isCalc?'쉐어(참조 자동)':''))+'">',
+      midChk:'" data-fi="'+i+'"'+(f.color?' style="background:'+escapeHtml(f.color)+';"':'')+'><input type="checkbox" class="cellChk"',
       sf:sf, fmt:f.fmt||''
     };
   });
@@ -3523,7 +3524,7 @@ function renderFeRows(focusKey){
     tr.innerHTML=
       '<td><span class="plu-fe-grip" title="끌어서 순서 이동">⋮⋮</span></td>'+
       '<td><input type="text" inputmode="numeric" class="fe-eno" style="width:52px;" value="'+(f.eno>0?f.eno:'')+'" title="상품 입력 팝업에 나오는 순서 번호 — 중복 입력 시 기존 번호들이 자동으로 한 칸씩 밀립니다"></td>'+
-      '<td><span class="fe-name-wrap"><input type="text" class="fe-label" value="'+escapeHtml(f.label)+'"><button type="button" class="fe-sw fe-sw-bg" title="필드명 바탕색 (30색 선택)" style="'+swBgStyle(f.color)+'"></button><button type="button" class="fe-sw fe-sw-tx" title="필드명 글씨색 (30색 선택)" style="'+swTxStyle(f.tcolor)+'">가</button><button type="button" class="fe-sw fe-bold'+(f.bold?' on':'')+'" title="이 필드 글씨 굵게">B</button></span></td>'+
+      '<td><span class="fe-name-wrap"><input type="text" class="fe-label" value="'+escapeHtml(f.label)+'"><button type="button" class="fe-sw fe-sw-bg" title="열 바탕색 — 머리글과 그 열 전체 셀 (30색 선택)" style="'+swBgStyle(f.color)+'"></button><button type="button" class="fe-sw fe-sw-tx" title="열 글씨색 — 머리글과 그 열 전체 셀 (30색 선택)" style="'+swTxStyle(f.tcolor)+'">가</button><button type="button" class="fe-sw fe-bold'+(f.bold?' on':'')+'" title="이 필드 글씨 굵게">B</button></span></td>'+
       '<td>'+feGroupSelHtml(f)+'</td>'+
       '<td><input type="text" inputmode="numeric" class="fe-w" value="'+(f.w>0?f.w:100)+'"></td>'+
       '<td><select class="fe-type"><option value="text"'+(f.type!=='select'?' selected':'')+'>텍스트</option><option value="select"'+(f.type==='select'?' selected':'')+'>선택목록</option></select> <button type="button" class="plu-fe-mv fe-opts" title="목록 편집">목록</button></td>'+
