@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<!--
+  CATEGORY-MANAGER.html — CATEGORY MANAGER · EGMM > MART   (2026-10-02)
+  ---------------------------------------------------------------------
+  · PLU LIST(PLU-LIST) · UPC LIST(UPC-LIST) 의 카테고리를 한 화면에서 관리
+      상위(대분류) → 중간(소분류/업체) → 하위(NO · KOR · ENG)
+  · 하위 카테고리 = 상품 행의 CATEGORY_NO · CATEGORY_KOR · CATEGORY_ENG 그 자체. PLU · UPC 공용 트리.
+      저장: CATEGORY/_TREE = { ver:1, savedAt, fmt:'GZ', d:gzip+base64( { subs:{ "상위|중간":[{no,kor,eng,order}] }, log:[{at,key,no,newNo,kor,eng}] } ) }
+      PLU/UPC MANAGER 가 이 문서를 실시간 구독 → CATEGORY_NO 드롭다운 · KOR/ENG 자동 채움 · 번호 변경 기록 적용
+  · 상위 · 중간 추가/이름 변경/순서/삭제 → 해당 리스트의 CLOUD(_CONFIG 탭 구조 · 압축 묶음 · 대분류 문서 · _META)에 바로 반영
+      (압축 묶음 방식일 때만 — 행 문서 방식이면 PLU/UPC MANAGER 의 「CLOUD 압축 변환」 먼저)
+  · 상품 건수: 압축 묶음에서 읽음(업체 수만큼 읽기). 행 문서 방식이면 건수 생략(비용 절약)
+  · Firestore 규칙 필요: match /CATEGORY/{document=**} { allow read, write: if request.auth != null; }
+-->
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CATEGORY MANAGER</title>
+<script>try{ document.documentElement.setAttribute('data-theme', localStorage.getItem('pluLocalTheme')==='night'?'night':'day'); }catch(e){}</script>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+<style>
+  :root{
+    --bg:#EDEAE3; --bg-elev:#FFFDFA; --bg-elev-2:#F7F4ED; --border:#E4DFD4; --border-bright:#D6CFC0;
+    --text:#1E1B16; --text-dim:#4C463C; --text-faint:#8C8578; --accent-soft:#E9EFEA; --accent-warm:#2F5D46; --accent:#2E4A6E;
+    --danger:#9C3327; --danger-soft:#F5EAE7; --ok-bg:#eef8f1; --ok-bd:#bfe0cc; --ok-tx:#1e7a46; --sel:#dde8f7; --on-accent:#fff;
+    --font:'Pretendard','Malgun Gothic','맑은 고딕',system-ui,sans-serif;
+  }
+  html[data-theme=night]{ color-scheme:dark; --bg:#12151c; --bg-elev:#1a1f2a; --bg-elev-2:#161a23; --border:#2a3140; --border-bright:#3c4557;
+    --text:#e7eaf2; --text-dim:#a3acbf; --text-faint:#6d7689; --accent:#3b62c4; --accent-soft:#222a3a; --accent-warm:#d4af6a;
+    --danger:#e05b5b; --danger-soft:#3a2426; --ok-bg:#1c2b22; --ok-bd:#2e5a3e; --ok-tx:#6fd39a; --sel:#223050; --on-accent:#12151c; }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ background:var(--bg); color:var(--text); font-family:var(--font); min-height:100vh; font-size:13px; }
+  .wrap{ width:100%; padding:14px 18px 40px; }
+  .topbar{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding-bottom:10px; border-bottom:1px solid var(--border); margin-bottom:14px; }
+  .topbar h1{ font-size:19px; font-weight:800; }
+  .chips{ margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+  .chip{ font-size:11.5px; font-weight:800; padding:6px 11px; border-radius:999px; border:1.5px solid var(--border); background:var(--bg-elev); color:var(--text-dim); }
+  .chip.ok{ border-color:var(--ok-bd); color:var(--ok-tx); background:var(--ok-bg); } .chip.err{ border-color:var(--danger); color:var(--danger); background:var(--danger-soft); }
+  .btn{ border:none; border-radius:9px; padding:8px 13px; font:inherit; font-size:12.5px; font-weight:800; cursor:pointer; background:var(--accent-warm); color:var(--on-accent); }
+  .btn.ghost{ background:var(--bg-elev); color:var(--text-dim); border:1.5px solid var(--border); } .btn.danger{ background:var(--danger); color:#fff; } .btn.sm{ padding:4px 9px; font-size:11.5px; border-radius:7px; }
+  .btn:disabled{ opacity:.45; cursor:default; }
+  .grid{ display:grid; grid-template-columns:minmax(300px,380px) 1fr; gap:14px; align-items:start; }
+  .panel{ background:var(--bg-elev); border:1.5px solid var(--border); border-radius:14px; padding:12px 14px; }
+  .panel h2{ font-size:13.5px; font-weight:800; margin-bottom:8px; display:flex; align-items:center; gap:8px; }
+  .srcTabs{ display:flex; gap:6px; margin-bottom:10px; } .srcTabs .btn{ flex:1; }
+  .srcTabs .btn.on{ background:var(--accent); color:#fff; }
+  .tree{ max-height:68vh; overflow:auto; }
+  .big{ margin-bottom:6px; border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+  .bigHead{ display:flex; align-items:center; gap:6px; padding:7px 9px; background:var(--bg-elev-2); font-weight:800; cursor:pointer; }
+  .bigHead.on{ background:var(--sel); }
+  .bigHead .n{ flex:1; } .cnt{ font-size:11px; color:var(--text-faint); font-weight:700; }
+  .mid{ display:flex; align-items:center; gap:6px; padding:5px 9px 5px 24px; border-top:1px solid var(--border); cursor:pointer; }
+  .mid.on{ background:var(--sel); } .mid .n{ flex:1; }
+  .ico{ border:none; background:transparent; cursor:pointer; font-size:12px; color:var(--text-faint); padding:2px 4px; border-radius:5px; } .ico:hover{ background:var(--bg); color:var(--text); }
+  table{ width:100%; border-collapse:collapse; font-size:12.5px; }
+  th,td{ padding:6px 8px; border-bottom:1px solid var(--border); text-align:left; vertical-align:middle; }
+  th{ font-size:11px; color:var(--text-faint); font-weight:800; }
+  td input{ width:100%; font:inherit; padding:5px 7px; border:1.5px solid var(--border); border-radius:7px; background:var(--bg-elev); color:var(--text); }
+  td input.no{ width:84px; } td.r{ text-align:right; white-space:nowrap; }
+  .hint{ font-size:11.5px; color:var(--text-faint); margin:6px 0 10px; line-height:1.5; }
+  .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .toast{ position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:#1f2a1f; color:#fff; padding:9px 16px; border-radius:10px; font-weight:800; opacity:0; pointer-events:none; transition:opacity .2s; z-index:50; }
+  .toast.show{ opacity:1; } .toast.error{ background:var(--danger); } .toast.success{ background:var(--accent-warm); }
+  .modal-bg{ position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; z-index:40; padding:16px; }
+  .modal-bg.show{ display:flex; }
+  .modal{ background:var(--bg-elev); color:var(--text); border-radius:14px; padding:18px 20px; width:100%; max-width:440px; box-shadow:0 12px 40px rgba(0,0,0,.3); }
+  .modal h3{ font-size:15px; margin-bottom:8px; } .modal p{ white-space:pre-line; line-height:1.55; margin-bottom:14px; color:var(--text-dim); }
+  .modal input{ width:100%; font:inherit; padding:8px 10px; border:1.5px solid var(--border); border-radius:8px; background:var(--bg-elev-2); color:var(--text); margin-bottom:12px; }
+  .modal .row{ justify-content:flex-end; }
+  pre.log{ white-space:pre-wrap; background:rgba(127,127,127,.12); border-radius:8px; padding:10px; max-height:40vh; overflow:auto; font-size:12px; margin-bottom:10px; }
+  .dirty{ color:var(--danger); font-weight:800; font-size:11.5px; }
+  @media (max-width:900px){ .grid{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <h1>🗂 CATEGORY MANAGER</h1>
+    <span class="chip" id="chipPlu">PLU LIST …</span><span class="chip" id="chipUpc">UPC LIST …</span><span class="chip" id="chipTree">카테고리 트리 …</span>
+    <div class="chips">
+      <button class="btn ghost" id="btnGuide" type="button">규칙 가이드</button>
+      <button class="btn ghost" id="btnReload" type="button">새로고침</button>
+    </div>
+  </div>
+  <div class="grid">
+    <div class="panel">
+      <div class="srcTabs"><button class="btn ghost on" data-src="UPC" type="button">UPC LIST</button><button class="btn ghost" data-src="PLU" type="button">PLU LIST</button></div>
+      <h2>상위 → 중간 카테고리 <span class="cnt" id="treeCnt"></span><button class="btn sm ghost" id="btnAddBig" type="button" style="margin-left:auto">＋ 상위 추가</button></h2>
+      <div class="tree" id="tree"></div>
+    </div>
+    <div class="panel">
+      <h2 id="subTitle">하위 카테고리</h2>
+      <div class="hint" id="subHint">왼쪽에서 중간 카테고리를 선택하세요. 하위 카테고리는 상품의 CATEGORY NO · KOR · ENG 로 들어가며 PLU · UPC 가 공유합니다.</div>
+      <div id="subBody"></div>
+      <div class="row" id="subFoot" style="margin-top:10px;display:none">
+        <button class="btn ghost sm" id="btnAddSub" type="button">＋ 하위 추가</button>
+        <span class="dirty" id="subDirty" style="margin-left:auto"></span>
+        <button class="btn" id="btnSaveTree" type="button">트리 저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<div class="modal-bg" id="modalBg"><div class="modal"><h3 id="mTitle"></h3><p id="mText"></p><input type="text" id="mInput" style="display:none" autocomplete="off"><div class="row"><button class="btn ghost" id="mCancel" type="button">취소</button><button class="btn" id="mOk" type="button">확인</button></div></div></div>
+<div class="modal-bg" id="runBg"><div class="modal" style="max-width:560px"><h3 id="runTitle"></h3><pre class="log" id="runLog"></pre><div class="row"><button class="btn" id="runX" type="button" disabled>닫기</button></div></div></div>
+<div class="modal-bg" id="guideBg"><div class="modal" style="max-width:640px"><h3>CATEGORY MANAGER 규칙 가이드</h3><p id="guideText"></p><div class="row"><button class="btn" id="guideX" type="button">닫기</button></div></div></div>
+
+<script src="../FUNCTION-FIREBASE-EGMM.js"></script>
+<script src="../FUNCTION-ACCESS-GATE.js"></script>
+<script>
+(function(){
+  'use strict';
+  var $=function(id){ return document.getElementById(id); };
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+  var toastTimer; function toast(m,t){ var el=$('toast'); clearTimeout(toastTimer); el.textContent=m; el.className='toast show '+(t||''); toastTimer=setTimeout(function(){ el.className='toast '+(t||''); },2400); }
+  function ask(title,text,withInput,def){ return new Promise(function(res){ $('mTitle').textContent=title; $('mText').textContent=text||''; var inp=$('mInput'); inp.style.display=withInput?'':'none'; inp.value=def||''; $('modalBg').classList.add('show'); if(withInput){ setTimeout(function(){ inp.focus(); inp.select(); },30); }
+    function done(ok){ $('modalBg').classList.remove('show'); $('mOk').onclick=null; $('mCancel').onclick=null; inp.onkeydown=null; res(ok?(withInput?inp.value:true):(withInput?null:false)); }
+    $('mOk').onclick=function(){ done(true); }; $('mCancel').onclick=function(){ done(false); }; inp.onkeydown=function(ev){ if(ev.key==='Enter') done(true); if(ev.key==='Escape') done(false); }; }); }
+  function runOpen(title){ $('runTitle').textContent=title; $('runLog').textContent=''; $('runX').disabled=true; $('runBg').classList.add('show'); return function(m){ var p=$('runLog'); p.textContent+=m+'\n'; p.scrollTop=p.scrollHeight; }; }
+  function runDone(){ $('runX').disabled=false; } $('runX').onclick=function(){ $('runBg').classList.remove('show'); };
+  function normKey(s){ return String(s==null?'':s).replace(/\s+/g,' ').trim().toUpperCase(); }
+  function u8ToB64(u8){ var s=''; for(var i=0;i<u8.length;i+=0x8000){ s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000)); } return btoa(s); }
+  function b64ToU8(b64){ var bin=atob(b64), u8=new Uint8Array(bin.length); for(var i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i); return u8; }
+  function gz(txt){ return u8ToB64(pako.gzip(new TextEncoder().encode(txt))); }
+  function ungz(b64){ return new TextDecoder().decode(pako.ungzip(b64ToU8(b64))); }
+
+  /* ── 이름 → CLOUD 문서 ID (PLU/UPC MANAGER 와 같은 규칙) ── */
+  var FB_DICT={ '청과':'PRODUCE','야채':'VEGETABLE','과일':'FRUIT','로컬':'LOCAL','박스':'BOX','유기농':'ORGANIC','글로벌':'GLOBAL','델리':'DELI','정육':'MEAT','수산':'FISH','생선':'FISH',
+    '그로서리':'GROCERY','아시안':'ASIAN','하우스웨어':'HOUSEWARE','주방용품':'KITCHENWARE','행복떡집':'HAENGBOK-RICE-CAKE','음료':'BEVERAGE','스낵':'SNACK','라면':'RAMEN','냉동':'FROZEN',
+    '냉장':'CHILLED','김치':'KIMCHI','반찬':'BANCHAN','베이커리':'BAKERY','기본':'BASIC','기타':'ETC','일반':'GENERAL','템프':'TEMP','시푸드':'SEAFOOD','과자':'SNACK','조미료':'SEASONING','주류':'LIQUOR',
+    '떡':'RICE-CAKE','두부':'TOFU','계란':'EGG','쌀':'RICE','잡화':'SUNDRIES','생활용품':'HOUSEHOLD','건강식품':'HEALTH-FOOD','수입식품':'IMPORTED-FOOD' };
+  function fbNorm(s){ s=String(s==null?'':s).toUpperCase().replace(/['’]/g,''); return s.replace(/[^A-Z0-9]+/g,'-').replace(/-+/g,'-').replace(/^-+|-+$/g,''); }
+  function hasHangul(s){ return /[가-힣ᄀ-ᇿ㄰-㆏]/.test(String(s==null?'':s)); }
+  function autoId(raw){ var h=0x811c9dc5, s=String(raw); for(var i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,0x01000193)>>>0; } var a=fbNorm(s); return (a?a.slice(0,12)+'-':'N-')+('0000000'+h.toString(16)).slice(-8).toUpperCase(); }
+  function idFor(label,names){ var raw=String(label==null?'':label).trim(); if(names&&names[raw]) return fbNorm(names[raw])||autoId(raw); if(FB_DICT[raw]) return FB_DICT[raw]; if(!hasHangul(raw)){ var n=fbNorm(raw); if(n) return n; } return autoId(raw); }
+
+  /* ── 상태 ── */
+  var fb=null, F=null, db=null;
+  var SRC={ UPC:{root:'UPC-LIST',chip:'chipUpc',label:'UPC LIST'}, PLU:{root:'PLU-LIST',chip:'chipPlu',label:'PLU LIST'} };
+  var L={ UPC:null, PLU:null }; /* 리스트별: {meta, pack, st(config), rows:{big|mid:[rows]}} */
+  var tree={ subs:{}, log:[] }, treeSavedAt='', treeDirty=false;
+  var curSrc='UPC', sel=null; /* sel = {big, mid} (이름) */
+
+  /* ── 읽기 ── */
+  function readConfig(root,meta){ var ps=[]; for(var p=0;p<(meta.configParts||1);p++){ var id=p===0?'_CONFIG':('_CONFIG__P'+(p+1)); ps.push(F.getDoc(F.doc(db,root,id)).then(function(sn){ return sn.exists()?sn.data():null; })); }
+    return Promise.all(ps).then(function(ds){ if(ds.some(function(d){ return !d; })) throw new Error('CONFIG 조각 누락'); var fmt=ds[0].fmt||'JS', payload=ds.map(function(d){ return d.d||''; }).join(''); return JSON.parse(fmt==='GZ'?ungz(payload):payload); }); }
+  function loadList(src){
+    var root=SRC[src].root, chip=$(SRC[src].chip);
+    return F.getDoc(F.doc(db,root,'_META')).then(function(ms){
+      var meta=(ms.exists()&&ms.data()&&ms.data().ver==='v3')?ms.data():null;
+      if(!meta){ L[src]={meta:null}; chip.textContent=SRC[src].label+' 없음'; chip.className='chip err'; return; }
+      return window.EgmmFB.packOn(F,db,root).then(function(on){
+        var o={meta:meta,pack:on,rows:{},counts:{}};
+        var pr=on?window.EgmmFB.loadProductRows(F,db,root,meta,null):Promise.resolve(null);
+        return pr.then(function(res){
+          if(res){ Object.keys(res.parts).forEach(function(k){ var pt=res.parts[k]; o.rows[pt.big.name+'|'+pt.sub.name]=pt.rows||[]; }); }
+          L[src]=o; var n=(meta.tree||[]).reduce(function(a,b){ return a+(b.subs||[]).length; },0);
+          chip.textContent=SRC[src].label+' · 상위 '+(meta.tree||[]).length+' · 중간 '+n+(on?' · 상품 '+(meta.total||0)+' (압축 묶음)':' · 행 문서 방식'); chip.className='chip ok';
+        });
+      });
+    }).catch(function(e){ L[src]={meta:null,err:String(e&&e.message||e)}; chip.textContent=SRC[src].label+' 읽기 실패'; chip.className='chip err'; });
+  }
+  function loadTree(){
+    return F.getDoc(F.doc(db,'CATEGORY','_TREE')).then(function(sn){
+      var d=(sn.exists()&&sn.data())?sn.data():null;
+      if(!d){ tree={subs:{},log:[]}; treeSavedAt=''; $('chipTree').textContent='카테고리 트리 없음 (새로 만듦)'; $('chipTree').className='chip'; return; }
+      var t=d; if(d.fmt==='GZ'&&d.d){ t=JSON.parse(ungz(String(d.d))); }
+      tree={ subs:(t.subs&&typeof t.subs==='object')?t.subs:{}, log:Array.isArray(t.log)?t.log:[] }; treeSavedAt=d.savedAt||'';
+      var n=0; Object.keys(tree.subs).forEach(function(k){ n+=(tree.subs[k]||[]).length; });
+      $('chipTree').textContent='카테고리 트리 · 하위 '+n+'개'; $('chipTree').className='chip ok'; treeDirty=false; $('subDirty').textContent='';
+    }).catch(function(e){ $('chipTree').textContent='트리 읽기 실패 — Firestore 규칙(CATEGORY) 확인'; $('chipTree').className='chip err'; });
+  }
+  function saveTree(){
+    var payload={ subs:tree.subs, log:(tree.log||[]).slice(-300) };
+    var doc={ ver:1, savedAt:new Date().toISOString(), fmt:'GZ', d:gz(JSON.stringify(payload)) };
+    return F.setDoc(F.doc(db,'CATEGORY','_TREE'),doc).then(function(){ treeSavedAt=doc.savedAt; treeDirty=false; $('subDirty').textContent=''; var n=0; Object.keys(tree.subs).forEach(function(k){ n+=(tree.subs[k]||[]).length; }); $('chipTree').textContent='카테고리 트리 · 하위 '+n+'개'; $('chipTree').className='chip ok'; toast('카테고리 트리 저장 — PLU · UPC MANAGER 에 바로 반영됩니다','success'); });
+  }
+
+  /* ── 트리 렌더 ── */
+  function metaTree(src){ return (L[src]&&L[src].meta&&L[src].meta.tree)||[]; }
+  function rowsOf(src,big,mid){ return (L[src]&&L[src].rows&&L[src].rows[big+'|'+mid])||null; }
+  function renderTree(){
+    var mt=metaTree(curSrc), h='', total=0;
+    if(!L[curSrc]||!L[curSrc].meta){ $('tree').innerHTML='<div class="hint">'+(L[curSrc]&&L[curSrc].err?esc(L[curSrc].err):'CLOUD 에 '+SRC[curSrc].label+' 데이터가 없습니다')+'</div>'; $('treeCnt').textContent=''; return; }
+    mt.forEach(function(b,bi){
+      var bn=0; (b.subs||[]).forEach(function(s){ bn+=(s.count||0); }); total+=bn;
+      var on=sel&&sel.big===b.name&&!sel.mid;
+      h+='<div class="big"><div class="bigHead'+(on?' on':'')+'" data-big="'+esc(b.name)+'"><span class="n">'+esc(b.name)+'</span><span class="cnt">'+bn+'</span>'
+        +'<button class="ico" data-act="bren" data-big="'+esc(b.name)+'" title="이름 변경">✎</button><button class="ico" data-act="bup" data-i="'+bi+'" title="위로">↑</button><button class="ico" data-act="bdn" data-i="'+bi+'" title="아래로">↓</button><button class="ico" data-act="madd" data-big="'+esc(b.name)+'" title="중간 추가">＋</button><button class="ico" data-act="bdel" data-big="'+esc(b.name)+'" title="삭제">✕</button></div>';
+      (b.subs||[]).forEach(function(s,si){
+        var k=b.name+'|'+s.name, subN=(tree.subs[k]||[]).length, mon=sel&&sel.big===b.name&&sel.mid===s.name;
+        h+='<div class="mid'+(mon?' on':'')+'" data-big="'+esc(b.name)+'" data-mid="'+esc(s.name)+'"><span class="n">'+esc(s.name)+'</span><span class="cnt">'+(s.count||0)+'행 · 하위 '+subN+'</span>'
+          +'<button class="ico" data-act="mren" data-big="'+esc(b.name)+'" data-mid="'+esc(s.name)+'" title="이름 변경">✎</button><button class="ico" data-act="mup" data-big="'+esc(b.name)+'" data-i="'+si+'" title="위로">↑</button><button class="ico" data-act="mdn" data-big="'+esc(b.name)+'" data-i="'+si+'" title="아래로">↓</button><button class="ico" data-act="mdel" data-big="'+esc(b.name)+'" data-mid="'+esc(s.name)+'" title="삭제">✕</button></div>';
+      });
+      h+='</div>';
+    });
+    $('tree').innerHTML=h||'<div class="hint">상위 카테고리 없음</div>'; $('treeCnt').textContent='상품 '+total.toLocaleString('en-US')+'건';
+    Array.prototype.forEach.call($('tree').querySelectorAll('.bigHead'),function(el){ el.onclick=function(ev){ if(ev.target.closest('button')) return; sel={big:el.getAttribute('data-big'),mid:''}; renderTree(); renderSubs(); }; });
+    Array.prototype.forEach.call($('tree').querySelectorAll('.mid'),function(el){ el.onclick=function(ev){ if(ev.target.closest('button')) return; sel={big:el.getAttribute('data-big'),mid:el.getAttribute('data-mid')}; renderTree(); renderSubs(); }; });
+    Array.prototype.forEach.call($('tree').querySelectorAll('button[data-act]'),function(b){ b.onclick=function(ev){ ev.stopPropagation(); treeAction(b.getAttribute('data-act'),b); }; });
+  }
+
+  /* ── 하위 카테고리 편집 ── */
+  function subKey(){ return sel?(sel.big+'|'+sel.mid):''; }
+  function renderSubs(){
+    if(!sel||!sel.mid){ $('subTitle').textContent='하위 카테고리'; $('subHint').style.display=''; $('subBody').innerHTML=''; $('subFoot').style.display='none'; return; }
+    var k=subKey(), list=tree.subs[k]||[], rows=rowsOf(curSrc,sel.big,sel.mid);
+    var cnt={}; if(rows){ rows.forEach(function(r){ var v=(r&&r.v)||{}; var no=normKey(v.CATEGORY_NUMBER); if(no) cnt[no]=(cnt[no]||0)+1; }); }
+    $('subTitle').textContent='하위 카테고리 — '+sel.big+' / '+sel.mid+' ('+SRC[curSrc].label+')'; $('subHint').style.display='none'; $('subFoot').style.display='';
+    var h='<table><thead><tr><th style="width:48px">순서</th><th style="width:100px">NO (번호)</th><th>KOR</th><th>ENG</th><th class="r">상품</th><th style="width:90px"></th></tr></thead><tbody>';
+    list.forEach(function(c,i){ h+='<tr data-i="'+i+'"><td class="cnt">'+(i+1)+'</td><td><input class="no" data-f="no" value="'+esc(c.no)+'"></td><td><input data-f="kor" value="'+esc(c.kor)+'"></td><td><input data-f="eng" value="'+esc(c.eng)+'"></td><td class="r cnt">'+(rows?(cnt[normKey(c.no)]||0):'—')+'</td>'
+      +'<td class="r"><button class="ico" data-act="sup" data-i="'+i+'">↑</button><button class="ico" data-act="sdn" data-i="'+i+'">↓</button><button class="ico" data-act="sdel" data-i="'+i+'">✕</button></td></tr>'; });
+    if(!list.length) h+='<tr><td colspan="6" class="cnt" style="text-align:center;padding:16px">하위 카테고리 없음 — 「＋ 하위 추가」</td></tr>';
+    /* 트리에 없는데 상품에 들어 있는 번호 */
+    var missing=[]; Object.keys(cnt).forEach(function(no){ if(!list.some(function(c){ return normKey(c.no)===no; })) missing.push(no); });
+    h+='</tbody></table>';
+    if(missing.length) h+='<div class="hint" style="margin-top:8px">상품에는 있으나 트리에 없는 번호: '+missing.map(function(no){ return '<button class="btn sm ghost" data-miss="'+esc(no)+'">'+esc(no)+' ('+cnt[no]+')</button>'; }).join(' ')+' — 누르면 하위로 추가</div>';
+    $('subBody').innerHTML=h;
+    Array.prototype.forEach.call($('subBody').querySelectorAll('input[data-f]'),function(inp){ inp.oninput=function(){ var tr=inp.closest('tr'), i=parseInt(tr.getAttribute('data-i'),10), c=tree.subs[k][i]; var f=inp.getAttribute('data-f'); var nv=inp.value;
+      if(f==='no'&&normKey(nv)!==normKey(c.no)){ c.__oldNo=(c.__oldNo!=null?c.__oldNo:c.no); } c[f]=nv; markDirty(); }; });
+    Array.prototype.forEach.call($('subBody').querySelectorAll('button[data-act]'),function(b){ b.onclick=function(){ var i=parseInt(b.getAttribute('data-i'),10), act=b.getAttribute('data-act'), arr=tree.subs[k];
+      if(act==='sdel'){ var c=arr[i], used=rows?(cnt[normKey(c.no)]||0):0; ask('하위 카테고리 삭제','"'+c.no+' '+(c.kor||'')+'" 을 트리에서 삭제할까요?'+(used?'\n이 번호를 가진 상품 '+used+'건의 값은 그대로 남습니다 (트리에만 없음).':'')).then(function(ok){ if(!ok) return; arr.splice(i,1); markDirty(); renderSubs(); renderTree(); }); return; }
+      if(act==='sup'&&i>0){ var t=arr[i-1]; arr[i-1]=arr[i]; arr[i]=t; } if(act==='sdn'&&i<arr.length-1){ var t2=arr[i+1]; arr[i+1]=arr[i]; arr[i]=t2; } markDirty(); renderSubs(); }; });
+    Array.prototype.forEach.call($('subBody').querySelectorAll('button[data-miss]'),function(b){ b.onclick=function(){ var no=b.getAttribute('data-miss'); var r0=null; (rows||[]).some(function(r){ var v=(r&&r.v)||{}; if(normKey(v.CATEGORY_NUMBER)===no){ r0=v; return true; } return false; });
+      if(!tree.subs[k]) tree.subs[k]=[]; tree.subs[k].push({no:no,kor:String((r0&&r0.CATEGORY_KOREA)||''),eng:String((r0&&r0.CATEGORY_ENGLISH)||''),order:tree.subs[k].length}); markDirty(); renderSubs(); renderTree(); }; });
+  }
+  function markDirty(){ treeDirty=true; $('subDirty').textContent='저장 안 됨'; }
+  $('btnAddSub').onclick=function(){ if(!sel||!sel.mid) return; var k=subKey(); if(!tree.subs[k]) tree.subs[k]=[]; var max=0; tree.subs[k].forEach(function(c){ var n=parseInt(String(c.no).replace(/\D/g,''),10); if(!isNaN(n)&&n>max) max=n; });
+    tree.subs[k].push({no:String(max?max+1:(tree.subs[k].length+1)),kor:'',eng:'',order:tree.subs[k].length}); markDirty(); renderSubs(); renderTree(); var last=$('subBody').querySelector('tbody tr:last-child input[data-f="kor"]'); if(last) last.focus(); };
+  $('btnSaveTree').onclick=function(){
+    var bad=[]; Object.keys(tree.subs).forEach(function(k){ var seen={}; (tree.subs[k]||[]).forEach(function(c,i){ c.no=String(c.no||'').trim(); c.kor=String(c.kor||'').trim(); c.eng=String(c.eng||'').trim(); c.order=i; if(!c.no) bad.push(k+' #'+(i+1)+' 번호 없음'); else if(seen[normKey(c.no)]) bad.push(k+' 번호 중복 '+c.no); seen[normKey(c.no)]=1; }); });
+    if(bad.length){ toast(bad[0],'error'); return; }
+    var at=new Date().toISOString();
+    Object.keys(tree.subs).forEach(function(k){ (tree.subs[k]||[]).forEach(function(c){ if(c.__oldNo!=null&&normKey(c.__oldNo)!==normKey(c.no)){ tree.log.push({at:at,key:k,no:String(c.__oldNo),newNo:c.no,kor:c.kor,eng:c.eng}); } delete c.__oldNo; }); });
+    $('btnSaveTree').disabled=true; saveTree().catch(function(e){ toast('저장 실패: '+String(e&&e.message||e),'error'); }).then(function(){ $('btnSaveTree').disabled=false; renderSubs(); renderTree(); });
+  };
+
+  /* ── 상위 · 중간 편집 → 리스트 CLOUD 반영 ── */
+  function needPack(){ if(!L[curSrc]||!L[curSrc].meta){ toast('CLOUD 데이터 없음','error'); return false; } if(!L[curSrc].pack){ toast(SRC[curSrc].label+' 가 아직 행 문서 방식입니다 — '+(curSrc==='UPC'?'UPC':'PLU')+' MANAGER 메뉴 > 「CLOUD 압축 변환」 후 사용하세요','error'); return false; } return true; }
+  function treeAction(act,btn){
+    var big=btn.getAttribute('data-big'), mid=btn.getAttribute('data-mid'), i=parseInt(btn.getAttribute('data-i'),10);
+    if(act==='bren') return renameBig(big);
+    if(act==='bdel') return deleteBig(big);
+    if(act==='bup'||act==='bdn') return moveBig(i,act==='bup'?-1:1);
+    if(act==='madd') return addMid(big);
+    if(act==='mren') return renameMid(big,mid);
+    if(act==='mdel') return deleteMid(big,mid);
+    if(act==='mup'||act==='mdn') return moveMid(big,i,act==='mup'?-1:1);
+  }
+  $('btnAddBig').onclick=function(){ if(!needPack()) return; ask('상위 카테고리 추가','새 상위 카테고리 이름',true,'').then(function(name){ if(name==null) return; name=String(name).trim(); if(!name) return; if(metaTree(curSrc).some(function(b){ return normKey(b.name)===normKey(name); })){ toast('이미 있는 이름','error'); return; }
+    applyListChange('상위 추가 — '+name,function(st,meta){ st.tabs.push({label:name,subs:[name]}); if(!st.data[name]) st.data[name]={}; st.data[name][name]=[]; return {newPacks:[[name,name,[]]]}; }); }); };
+  function renameBig(big){ if(!needPack()) return; ask('상위 카테고리 이름 변경','"'+big+'" 의 새 이름',true,big).then(function(name){ if(name==null) return; name=String(name).trim(); if(!name||name===big) return; if(metaTree(curSrc).some(function(b){ return normKey(b.name)===normKey(name); })){ toast('이미 있는 이름','error'); return; }
+    applyListChange('상위 이름 변경 — '+big+' → '+name,function(st,meta){ var t=st.tabs.filter(function(x){ return x.label===big; })[0]; if(!t) throw new Error('상위 없음'); t.label=name; st.data[name]=st.data[big]||{}; delete st.data[big]; if(st.layouts&&st.layouts[big]){ st.layouts[name]=st.layouts[big]; delete st.layouts[big]; } if(st.deptMap&&st.deptMap[big]!=null){ st.deptMap[name]=st.deptMap[big]; delete st.deptMap[big]; } if(st.deptSubMap&&st.deptSubMap[big]){ st.deptSubMap[name]=st.deptSubMap[big]; delete st.deptSubMap[big]; }
+      var mv=[]; (t.subs||[]).forEach(function(sb){ mv.push({oldBig:big,oldMid:sb,newBig:name,newMid:sb}); }); renameTreeKeys(mv); return {moves:mv}; }); }); }
+  function deleteBig(big){ if(!needPack()) return; var b=metaTree(curSrc).filter(function(x){ return x.name===big; })[0]; var n=b?(b.subs||[]).reduce(function(a,s){ return a+(s.count||0); },0):0; if(n>0){ toast('상품이 '+n+'건 있어 삭제할 수 없습니다 — 먼저 상품을 옮기거나 삭제하세요','error'); return; }
+    ask('상위 카테고리 삭제','"'+big+'" 을 삭제할까요? (상품 0건)').then(function(ok){ if(!ok) return; applyListChange('상위 삭제 — '+big,function(st,meta){ var t=st.tabs.filter(function(x){ return x.label===big; })[0]; if(!t) throw new Error('상위 없음'); var dels=(t.subs||[]).map(function(sb){ return [big,sb]; }); st.tabs=st.tabs.filter(function(x){ return x.label!==big; }); delete st.data[big]; if(st.tabs.length===0) throw new Error('마지막 상위 카테고리는 삭제할 수 없습니다'); return {delPacks:dels}; }); }); }
+  function moveBig(i,d){ if(!needPack()) return; applyListChange('상위 순서 변경',function(st){ var j=i+d; if(j<0||j>=st.tabs.length) throw new Error('이동 불가'); var t=st.tabs[i]; st.tabs[i]=st.tabs[j]; st.tabs[j]=t; return {}; }); }
+  function addMid(big){ if(!needPack()) return; ask('중간 카테고리 추가','"'+big+'" 아래 새 중간 카테고리 이름'+(curSrc==='UPC'?' (= VENDER 값)':''),true,'').then(function(name){ if(name==null) return; name=String(name).trim(); if(!name) return;
+    applyListChange('중간 추가 — '+big+' / '+name,function(st){ var t=st.tabs.filter(function(x){ return x.label===big; })[0]; if(!t) throw new Error('상위 없음'); if(t.subs.some(function(s){ return normKey(s)===normKey(name); })) throw new Error('이미 있는 이름'); t.subs.push(name); if(!st.data[big]) st.data[big]={}; st.data[big][name]=[]; return {newPacks:[[big,name,[]]]}; }); }); }
+  function renameMid(big,mid){ if(!needPack()) return; ask('중간 카테고리 이름 변경','"'+big+' / '+mid+'" 의 새 이름'+(curSrc==='UPC'?'\n(UPC: 이 업체 상품의 VENDER 값도 새 이름으로 바뀜)':''),true,mid).then(function(name){ if(name==null) return; name=String(name).trim(); if(!name||name===mid) return;
+    applyListChange('중간 이름 변경 — '+big+' / '+mid+' → '+name,function(st){ var t=st.tabs.filter(function(x){ return x.label===big; })[0]; if(!t) throw new Error('상위 없음'); if(t.subs.some(function(s){ return normKey(s)===normKey(name); })) throw new Error('이미 있는 이름'); var si=t.subs.indexOf(mid); if(si<0) throw new Error('중간 없음'); t.subs[si]=name; st.data[big]=st.data[big]||{}; st.data[big][name]=st.data[big][mid]||[]; delete st.data[big][mid]; if(st.deptSubMap&&st.deptSubMap[big]&&st.deptSubMap[big][mid]!=null){ st.deptSubMap[big][name]=st.deptSubMap[big][mid]; delete st.deptSubMap[big][mid]; }
+      var mv=[{oldBig:big,oldMid:mid,newBig:big,newMid:name,setVender:(curSrc==='UPC')}]; renameTreeKeys(mv); return {moves:mv}; }); }); }
+  function deleteMid(big,mid){ if(!needPack()) return; var b=metaTree(curSrc).filter(function(x){ return x.name===big; })[0]; var s=b&&(b.subs||[]).filter(function(x){ return x.name===mid; })[0]; if(s&&s.count>0){ toast('상품이 '+s.count+'건 있어 삭제할 수 없습니다','error'); return; }
+    ask('중간 카테고리 삭제','"'+big+' / '+mid+'" 을 삭제할까요? (상품 0건)').then(function(ok){ if(!ok) return; applyListChange('중간 삭제 — '+big+' / '+mid,function(st){ var t=st.tabs.filter(function(x){ return x.label===big; })[0]; if(!t) throw new Error('상위 없음'); if(t.subs.length<=1) throw new Error('마지막 중간 카테고리는 삭제할 수 없습니다'); t.subs=t.subs.filter(function(x){ return x!==mid; }); if(st.data[big]) delete st.data[big][mid]; return {delPacks:[[big,mid]]}; }); }); }
+  function moveMid(big,i,d){ if(!needPack()) return; applyListChange('중간 순서 변경',function(st){ var t=st.tabs.filter(function(x){ return x.label===big; })[0]; if(!t) throw new Error('상위 없음'); var j=i+d; if(j<0||j>=t.subs.length) throw new Error('이동 불가'); var x=t.subs[i]; t.subs[i]=t.subs[j]; t.subs[j]=x; return {}; }); }
+  function renameTreeKeys(mv){ var ch=false; mv.forEach(function(m){ var ok=m.oldBig+'|'+m.oldMid, nk=m.newBig+'|'+m.newMid; if(tree.subs[ok]&&ok!==nk){ tree.subs[nk]=tree.subs[ok]; delete tree.subs[ok]; (tree.log||[]).forEach(function(e){ if(e.key===ok) e.key=nk; }); ch=true; } }); if(ch) treeDirty=true; }
+
+  /* 리스트 CLOUD 반영: _CONFIG(탭 구조) · 압축 묶음(이동/이름변경/추가/삭제) · 대분류 문서 · _META */
+  function applyListChange(title,mutate){
+    var src=curSrc, root=SRC[src].root, log=runOpen(SRC[src].label+' · '+title);
+    var meta, st, res, savedAt=new Date().toISOString();
+    return F.getDoc(F.doc(db,root,'_META')).then(function(ms){ meta=(ms.exists()&&ms.data())?ms.data():null; if(!meta) throw new Error('_META 없음'); log('1) 설정 읽기…'); return readConfig(root,meta); })
+    .then(function(cfg){ st=cfg; st.tabs=st.tabs||[]; st.data=st.data||{}; res=mutate(st,meta)||{}; log('2) 구조 변경 적용');
+      var jobs=[];
+      /* 이동/이름변경: 묶음 읽어서 새 경로로 (UPC: VENDER 값 교체) */
+      (res.moves||[]).forEach(function(m){ var ob=idFor(m.oldBig,meta.names), om=idFor(m.oldMid,meta.names), nb=idFor(m.newBig,meta.names), nm=idFor(m.newMid,meta.names);
+        if(ob===nb&&om===nm&&!m.setVender) return;
+        jobs.push(window.EgmmFB.packReadSub(F,db,root,ob,om).then(function(rows){ rows=rows||[]; if(m.setVender){ rows.forEach(function(r){ if(r&&r.v){ r.v.VENDER_VENDER=m.newMid; r.m=savedAt.slice(0,16)+':00.000Z'; } }); }
+          return { write:[nb,nm,rows], del:(ob!==nb||om!==nm)?[ob,om]:null }; })); });
+      (res.newPacks||[]).forEach(function(p){ jobs.push(Promise.resolve({ write:[idFor(p[0],meta.names),idFor(p[1],meta.names),p[2]||[]] })); });
+      (res.delPacks||[]).forEach(function(p){ jobs.push(Promise.resolve({ del:[idFor(p[0],meta.names),idFor(p[1],meta.names)] })); });
+      return Promise.all(jobs);
+    })
+    .then(function(ops){
+      log('3) CLOUD 기록…');
+      var batch=F.writeBatch(db), n=0, writes=[];
+      function op(fn){ fn(batch); n++; }
+      /* 묶음 */
+      var pv={}; ops.forEach(function(o){ if(o.write){ var b64=gz(JSON.stringify(o.write[2])); var parts=[]; for(var i=0;i<b64.length;i+=700000) parts.push(b64.slice(i,i+700000)); if(!parts.length) parts=[''];
+          op(function(b){ b.set(F.doc(db,root,'_PACK',o.write[0],o.write[1]),{fmt:'GZ',n:o.write[2].length,parts:parts.length,d:parts[0],at:savedAt}); }); for(var p=2;p<=parts.length;p++){ (function(pp){ op(function(b){ b.set(F.doc(db,root,'_PACK',o.write[0],o.write[1]+'__P'+pp),{part:pp,d:parts[pp-1]}); }); })(p); } pv[o.write[0]+'/'+o.write[1]]=savedAt; writes.push('묶음 '+o.write[0]+'/'+o.write[1]+' ('+o.write[2].length+'행)'); }
+        if(o.del){ op(function(b){ b.delete(F.doc(db,root,'_PACK',o.del[0],o.del[1])); }); for(var q=2;q<=6;q++){ (function(qq){ op(function(b){ b.delete(F.doc(db,root,'_PACK',o.del[0],o.del[1]+'__P'+qq)); }); })(q); } writes.push('묶음 삭제 '+o.del[0]+'/'+o.del[1]); } });
+      /* 설정 */
+      var clone=JSON.parse(JSON.stringify(st)); clone.data={}; (clone.tabs||[]).forEach(function(t){ clone.data[t.label]={}; (t.subs||[]).forEach(function(sb){ clone.data[t.label][sb]=[]; }); }); delete clone.ui; delete clone.dirtySinceSync; delete clone.fbLastSync; delete clone.syncLog; delete clone.dirtyAt;
+      var cb64=gz(JSON.stringify(clone)), cparts=[]; for(var ci=0;ci<cb64.length;ci+=600000) cparts.push(cb64.slice(ci,ci+600000)); if(!cparts.length) cparts=[''];
+      cparts.forEach(function(pt,pi){ op(function(b){ b.set(F.doc(db,root,pi===0?'_CONFIG':('_CONFIG__P'+(pi+1))),{ver:'v3',fmt:'GZ',part:pi+1,parts:cparts.length,d:pt}); }); });
+      for(var qx=cparts.length+1;qx<=Math.max((meta.configParts||1),1)+1;qx++){ (function(q2){ op(function(b){ b.delete(F.doc(db,root,'_CONFIG__P'+q2)); }); })(qx); }
+      /* 대분류 문서 · 목차 */
+      var oldPv={}; (meta.tree||[]).forEach(function(b){ (b.subs||[]).forEach(function(s){ if(s.pv) oldPv[b.id+'/'+s.id]=s.pv; }); });
+      var oldCount={}; (meta.tree||[]).forEach(function(b){ (b.subs||[]).forEach(function(s){ oldCount[b.name+'|'+s.name]=s.count||0; }); });
+      var moved={}; ops.forEach(function(o){ if(o.write) moved[o.write[0]+'/'+o.write[1]]=o.write[2].length; });
+      var treeOut=[], total=0, usedBig={};
+      st.tabs.forEach(function(t,bi){ var bid=idFor(t.label,meta.names); if(usedBig[bid]) bid=autoId(t.label); usedBig[bid]=1; var subs=[], usedSub={};
+        (t.subs||[]).forEach(function(sb,si){ var sid=idFor(sb,meta.names); if(usedSub[sid]) sid=autoId(sb); usedSub[sid]=1; var cnt=(moved[bid+'/'+sid]!=null)?moved[bid+'/'+sid]:(oldCount[t.label+'|'+sb]||0); total+=cnt;
+          subs.push({id:sid,name:sb,order:si,count:cnt,pv:pv[bid+'/'+sid]||oldPv[bid+'/'+sid]||savedAt}); });
+        var node={id:bid,name:t.label,order:bi,dept:(st.deptMap&&st.deptMap[t.label]!=null)?st.deptMap[t.label]:null,subs:subs}; treeOut.push(node);
+        op(function(b){ b.set(F.doc(db,root,bid),{name:node.name,order:node.order,dept:node.dept,subs:subs.map(function(s){ return {id:s.id,name:s.name,order:s.order,count:s.count}; })}); }); });
+      (meta.tree||[]).forEach(function(b){ if(!treeOut.some(function(x){ return x.id===b.id; })) op(function(bt){ bt.delete(F.doc(db,root,b.id)); }); });
+      var newMeta={ ver:'v3', savedAt:savedAt, build:'CATEGORY-MANAGER', pack:true, total:total, configParts:cparts.length, names:meta.names||{}, tree:treeOut };
+      op(function(b){ b.set(F.doc(db,root,'_META'),newMeta); });
+      writes.forEach(function(w){ log('   '+w); }); log('   설정 '+cparts.length+'조각 · 대분류 문서 '+treeOut.length+' · 목차');
+      return batch.commit().then(function(){ log('완료 — PLU/UPC MANAGER 는 다음 동기화 때 CLOUD 기준으로 다시 받습니다.'); if(treeDirty){ return saveTree().then(function(){ log('카테고리 트리 키 이름도 저장'); }); } });
+    })
+    .then(function(){ runDone();
+      if(sel&&res){ (res.moves||[]).forEach(function(m){ if(sel.big===m.oldBig&&(!sel.mid||sel.mid===m.oldMid)){ sel={big:m.newBig,mid:sel.mid?m.newMid:''}; } }); (res.delPacks||[]).forEach(function(d){ if(sel&&sel.big===d[0]&&(sel.mid===d[1]||!sel.mid)) sel=null; }); }
+      return reloadAll(); })
+    .catch(function(e){ log('오류: '+String(e&&e.message||e)); runDone(); });
+  }
+
+  /* ── 가이드 ── */
+  $('guideText').textContent=[
+    '1. 카테고리는 상위(대분류) → 중간(소분류 · UPC 는 업체/VENDER) → 하위(NO · KOR · ENG) 3단계입니다.',
+    '2. 하위 카테고리는 상품 행의 CATEGORY NO · KOR · ENG 값 그 자체이고, PLU LIST 와 UPC LIST 가 하나의 트리(CATEGORY/_TREE)를 공유합니다.',
+    '3. 하위를 추가·수정하고 「트리 저장」을 누르면 PLU/UPC MANAGER 에 바로 반영됩니다: CATEGORY NO 셀이 그 중간 카테고리의 하위 목록 드롭다운이 되고, 번호를 고르면 KOR · ENG 가 자동으로 채워집니다. 엑셀 불러오기도 NO 만 있으면 KOR · ENG 를 채웁니다.',
+    '4. 하위 번호(NO)를 바꾸면 변경 기록이 남아, 매니저가 그 번호를 가진 상품 행의 NO 를 새 번호로 바꿉니다. KOR · ENG 이름을 바꾸면 그 번호의 상품 행 값도 맞춰집니다.',
+    '5. 하위 삭제는 트리에서만 지워지고 상품 행의 값은 남습니다. "상품에는 있으나 트리에 없는 번호" 버튼으로 기존 값을 트리에 바로 등록할 수 있습니다.',
+    '6. 상위 · 중간 추가/이름 변경/순서/삭제는 해당 리스트의 CLOUD 에 바로 기록됩니다 (압축 묶음 방식일 때만). 상품이 있는 카테고리는 삭제할 수 없습니다. UPC 에서 중간 이름을 바꾸면 그 업체 상품의 VENDER 값도 새 이름으로 바뀝니다.',
+    '7. 상품 건수는 압축 묶음에서 읽습니다. 행 문서 방식이면 건수가 표시되지 않습니다 (읽기 비용 절약).',
+    '8. Firestore 규칙에 match /CATEGORY/{document=**} { allow read, write: if request.auth != null; } 가 있어야 트리를 저장할 수 있습니다.'
+  ].join('\n');
+  $('btnGuide').onclick=function(){ $('guideBg').classList.add('show'); }; $('guideX').onclick=function(){ $('guideBg').classList.remove('show'); };
+  Array.prototype.forEach.call(document.querySelectorAll('.srcTabs .btn'),function(b){ b.onclick=function(){ curSrc=b.getAttribute('data-src'); Array.prototype.forEach.call(document.querySelectorAll('.srcTabs .btn'),function(x){ x.classList.toggle('on',x===b); }); sel=null; renderTree(); renderSubs(); }; });
+  function reloadAll(){ return Promise.all([loadList('UPC'),loadList('PLU'),loadTree()]).then(function(){ renderTree(); renderSubs(); }); }
+  $('btnReload').onclick=function(){ if(treeDirty&&!confirm('저장 안 된 트리 변경이 있습니다. 버리고 새로고침할까요?')) return; reloadAll(); };
+  window.addEventListener('beforeunload',function(e){ if(treeDirty){ e.preventDefault(); e.returnValue=''; } });
+
+  function boot(){ reloadAll(); }
+  if(!window.EgmmFB||!window.AccessGate){ $('chipTree').textContent='공용 모듈 로드 실패'; $('chipTree').className='chip err'; return; }
+  window.AccessGate.require({ title:'CATEGORY MANAGER' }).then(function(){
+    window.EgmmFB.ready.then(function(f){ fb=f; F=f; db=f.db; boot(); }).catch(function(){ $('chipTree').textContent='CLOUD 설정 없음'; $('chipTree').className='chip err'; });
+  });
+  window.__CM={ setFb:function(f){ fb=f; F=f; db=f.db||{}; return reloadAll(); }, state:function(){ return {L:L,tree:tree,sel:sel,src:curSrc}; }, select:function(b,m){ sel={big:b,mid:m}; renderTree(); renderSubs(); }, setSrc:function(s){ curSrc=s; renderTree(); renderSubs(); }, idFor:idFor, applyListChange:applyListChange, saveTree:saveTree, markDirty:markDirty };
+})();
+</script>
+</body>
+</html>
