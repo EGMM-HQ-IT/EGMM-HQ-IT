@@ -2492,7 +2492,7 @@ var GUIDE_UPC=[
   ['표시','같은 UPC 행은 UPC 칸이 같은 색. USE 미체크 행은 회색 취소선. 검색은 Enter, 번호는 쉼표로 여러 개.'],
   ['저장','모든 변경은 즉시 자동 저장되고 CLOUD(UPC-LIST)에 자동 동기화됩니다. 상단 칩에서 상태 확인.'],
   ['동기화 규칙','수정하면 조건 없이 무조건 CLOUD 로 전송됩니다(업체 이름이 한글이어도 자동 ID, 0건도 전송). 기본 데이터는 없고 모든 데이터(상품 + 필드 설정값)는 CLOUD 에서 가져옵니다. 열면 먼저 CLOUD 를 불러오고, 끝나기 전에는 수정·저장이 잠깁니다. 여러 컴퓨터에서 쓸 때 가장 최근에 수정된 쪽이 항상 기준(충돌 선택 없음). 다른 컴퓨터가 저장하면 이 화면에도 바로 반영되고, 메뉴 > 동기화 로그에 날짜·시간·방향(전송/반영)·컴퓨터가 기록됩니다.'],
-  ['TRASH','리스트에서 삭제한 행은 UPC · ITEM CODE · VENDER 3개만 TRASH 에 보관됩니다(메뉴 > TRASH). 엑셀 불러오기 때 TRASH 와 UPC·ITEM CODE 가 모두 같은 행은 무조건 무시되어 쓰레기가 다시 쌓이지 않습니다. TRASH 에서 제거하면 다시 등록 가능.']
+  ['TRASH','리스트에서 삭제한 행은 UPC · ITEM CODE · VENDER 3개만 TRASH 에 보관됩니다(메뉴 > TRASH). TRASH 는 상위 · 중간 카테고리별로 따로 관리되며, 보고 있는 카테고리의 TRASH 만 표시됩니다. 같은 카테고리로 엑셀 불러오기 때 TRASH 와 UPC·ITEM CODE 가 모두 같은 행은 무조건 무시되어 쓰레기가 다시 쌓이지 않습니다. TRASH 에서 제거하면 다시 등록 가능.']
 ];
 function openGuide(){
   var ov=$('gdOv');
@@ -2980,42 +2980,46 @@ async function delAllRows(){
   /* [요구] 2회 확인 */
   if(!(await uiConfirm('카테고리 상품 리스트를 전체 삭제할까요?\n대상 카테고리: '+scope+'\n전체 '+all.length+'행'+(inUse?' (사용중 체크 '+inUse+'행 포함 — 함께 삭제됩니다)':''),'전체삭제 (1/2)'))) return;
   if(!(await uiConfirm('정말 삭제합니다 — 되돌릴 수 없습니다.\n'+scope+' 의 '+all.length+'행 전체'+(inUse?' (사용중 '+inUse+'행 포함)':'')+'를 삭제할까요?','전체삭제 최종 확인 (2/2)'))) return;
-  var __tr=trashAddRows(curBig(),all.slice());
+  var __tr=trashAddRows(curBig(),curSub(),all.slice());
   all.length=0; /* 전체 비움 — 예외 없음 */
   selRows={}; saveState(); renderContent();
   showToast('전체삭제 완료 — '+scope+' 전체 삭제됨'+(__tr?' · TRASH 보관 '+__tr:''),'success');
 }
 /* ═══ [TRASH · UPC 2026-10] 삭제한 행 보관 — UPC · ITEM CODE · VENDER 3개 필드만 ═══ */
 function trashKeyOf(upc,code){ return normKey(String(upc||'').replace(/\D/g,'').replace(/^0+/,''))+'|'+normKey(code); }
-function trashAddRows(big,rows){
+/* [요구 2026-10-01] TRASH 는 상위(대분류) · 중간(소분류) 카테고리별로 따로 관리 — 항목에 big/sub 기록, 키 = big|sub|UPC|ITEM CODE */
+function trashCatKey(big,sub,upc,code){ return normKey(big)+'|'+normKey(sub)+'|'+trashKeyOf(upc,code); }
+function trashSubOf(t){ return (t.sub!=null&&t.sub!=='')?t.sub:(t.vender||''); } /* 이전 항목(sub 없음)은 VENDER 를 중간 카테고리로 간주 */
+function trashAddRows(big,sub,rows){
   if(!TRASH_ENABLED||!rows||!rows.length) return 0;
   var pf=fieldByKey(big,'ITEM_PLU')||fieldByKey(big,'PLU'), cf=fieldByKey(big,'VENDER_ITEM_CODE'), vf=fieldByKey(big,'VENDER_VENDER');
   if(!pf) return 0;
-  var seen={}; (S.trash||[]).forEach(function(t){ seen[trashKeyOf(t.upc,t.code)]=1; });
+  var seen={}; (S.trash||[]).forEach(function(t){ seen[trashCatKey(t.big||big,trashSubOf(t),t.upc,t.code)]=1; });
   var n=0, at=new Date().toISOString();
   rows.forEach(function(r){
     var upc=String(getCell(r,pf,'')||'').trim(); if(!upc) return;
     var code=cf?String(getCell(r,cf,'')||'').trim():'', vend=vf?String(getCell(r,vf,'')||'').trim():'';
-    var k=trashKeyOf(upc,code); if(seen[k]) return; seen[k]=1;
-    S.trash.push({ upc:upc, code:code, vender:vend, at:at }); n++;
+    var k=trashCatKey(big,sub,upc,code); if(seen[k]) return; seen[k]=1;
+    S.trash.push({ big:big, sub:sub, upc:upc, code:code, vender:vend, at:at }); n++;
   });
   return n;
 }
-/* 불러오기용: TRASH 의 UPC+ITEM CODE 가 모두 같은 행은 무시 */
-function trashIndex(){ var ix={}; if(TRASH_ENABLED){ (S.trash||[]).forEach(function(t){ if(t.code) ix[trashKeyOf(t.upc,t.code)]=1; }); } return ix; }
+/* 불러오기용: 같은 상위·중간 카테고리의 TRASH 에 UPC+ITEM CODE 가 모두 같은 행은 무시 */
+function trashIndex(big){ var ix={}; if(TRASH_ENABLED){ (S.trash||[]).forEach(function(t){ if(t.code&&(t.big||big)===big) ix[trashCatKey(big,trashSubOf(t),t.upc,t.code)]=1; }); } return ix; }
 function openTrash(){
-  var list=(S.trash||[]).slice().reverse();
-  var h='<b style="font-size:15px">TRASH — 삭제한 상품 보관 ('+list.length+'건)</b>'
-    +'<div style="margin:6px 0 10px;color:var(--ink-dim,#777)">리스트에서 삭제한 행의 UPC · ITEM CODE · VENDER 만 보관합니다. 엑셀 불러오기 때 UPC 와 ITEM CODE 가 모두 같은 행은 자동으로 무시됩니다. (다른 컴퓨터와 함께 동기화)</div>'
+  var __big=curBig(), __sub=curSub();
+  var list=(S.trash||[]).filter(function(t){ return (t.big||__big)===__big&&trashSubOf(t)===__sub; }).reverse();
+  var h='<b style="font-size:15px">TRASH — '+escapeHtml(__big)+' / '+escapeHtml(__sub)+' ('+list.length+'건)</b>'
+    +'<div style="margin:6px 0 10px;color:var(--ink-dim,#777)">이 카테고리에서 삭제한 행의 UPC · ITEM CODE · VENDER 만 보관합니다 (상위 · 중간 카테고리별로 따로 관리). 이 카테고리로 엑셀 불러오기 때 UPC 와 ITEM CODE 가 모두 같은 행은 자동으로 무시됩니다. (다른 컴퓨터와 함께 동기화)</div>'
     +'<div style="max-height:56vh;overflow:auto;border:1px solid var(--line,#ddd);border-radius:8px">'
     +'<table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="position:sticky;top:0;background:var(--panel-2,#f4f4f4)"><th style="text-align:left;padding:6px 8px">UPC</th><th style="text-align:left;padding:6px 8px">ITEM CODE</th><th style="text-align:left;padding:6px 8px">VENDER</th><th style="text-align:left;padding:6px 8px">삭제 시각</th><th></th></tr></thead><tbody>'
-    +(list.length?list.map(function(t){ return '<tr><td style="padding:5px 8px;border-top:1px solid var(--line,#eee)">'+escapeHtml(t.upc)+'</td><td style="padding:5px 8px;border-top:1px solid var(--line,#eee)">'+escapeHtml(t.code)+'</td><td style="padding:5px 8px;border-top:1px solid var(--line,#eee)">'+escapeHtml(t.vender)+'</td><td style="padding:5px 8px;border-top:1px solid var(--line,#eee);white-space:nowrap">'+escapeHtml(String(t.at||'').slice(0,19).replace('T',' '))+'</td><td style="padding:5px 8px;border-top:1px solid var(--line,#eee)"><button class="plu-tool-btn" data-tk="'+escapeHtml(trashKeyOf(t.upc,t.code))+'" style="padding:2px 8px">제거</button></td></tr>'; }).join(''):'<tr><td colspan="5" style="padding:18px;text-align:center;color:var(--ink-dim,#777)">비어 있음</td></tr>')
+    +(list.length?list.map(function(t){ return '<tr><td style="padding:5px 8px;border-top:1px solid var(--line,#eee)">'+escapeHtml(t.upc)+'</td><td style="padding:5px 8px;border-top:1px solid var(--line,#eee)">'+escapeHtml(t.code)+'</td><td style="padding:5px 8px;border-top:1px solid var(--line,#eee)">'+escapeHtml(t.vender)+'</td><td style="padding:5px 8px;border-top:1px solid var(--line,#eee);white-space:nowrap">'+escapeHtml(String(t.at||'').slice(0,19).replace('T',' '))+'</td><td style="padding:5px 8px;border-top:1px solid var(--line,#eee)"><button class="plu-tool-btn" data-tk="'+escapeHtml(trashCatKey(t.big||__big,trashSubOf(t),t.upc,t.code))+'" style="padding:2px 8px">제거</button></td></tr>'; }).join(''):'<tr><td colspan="5" style="padding:18px;text-align:center;color:var(--ink-dim,#777)">비어 있음</td></tr>')
     +'</tbody></table></div>'
     +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button id="trashEmpty" class="plu-tool-btn">TRASH 비우기</button><button id="trashClose" class="plu-tool-btn plu-imp-go">닫기</button></div>';
   var ov=__fbOverlay('trashOv',h);
   $('trashClose').onclick=function(){ __fbClose('trashOv'); };
-  $('trashEmpty').onclick=async function(){ if(!(await uiConfirm('TRASH 를 전부 비울까요? (비우면 불러오기 때 다시 등록될 수 있습니다)'))) return; S.trash=[]; saveState(); __fbClose('trashOv'); showToast('TRASH 비움','success'); };
-  Array.prototype.forEach.call(ov.querySelectorAll('button[data-tk]'),function(b){ b.onclick=function(){ var k=b.getAttribute('data-tk'); S.trash=(S.trash||[]).filter(function(t){ return trashKeyOf(t.upc,t.code)!==k; }); saveState(); openTrash(); }; });
+  $('trashEmpty').onclick=async function(){ if(!(await uiConfirm(__big+' / '+__sub+' 의 TRASH 를 비울까요? (비우면 불러오기 때 다시 등록될 수 있습니다)'))) return; S.trash=(S.trash||[]).filter(function(t){ return !((t.big||__big)===__big&&trashSubOf(t)===__sub); }); saveState(); __fbClose('trashOv'); showToast('TRASH 비움 — '+__big+' / '+__sub,'success'); };
+  Array.prototype.forEach.call(ov.querySelectorAll('button[data-tk]'),function(b){ b.onclick=function(){ var k=b.getAttribute('data-tk'); S.trash=(S.trash||[]).filter(function(t){ return trashCatKey(t.big||__big,trashSubOf(t),t.upc,t.code)!==k; }); saveState(); openTrash(); }; });
 }
 async function delSelected(){
   var ids=Object.keys(selRows); if(!ids.length){ showToast('삭제할 행을 선택하세요','error'); return; }
@@ -3031,9 +3035,9 @@ async function delSelected(){
   if(!(await uiConfirm(delCnt+'개 행을 삭제할까요?'+(prot?'\n(사용중 체크 '+prot+'행은 보호되어 삭제되지 않습니다)':'')))) return;
   var __tr=0;
   if(gsActive()){ /* [전역 검색] 각 행을 원래 카테고리에서 제거 */
-    for(var gid in delIds){ var m=__gsMap[gid]; if(!m) continue; var arr=((S.data[m.big]||{})[m.sub])||[]; var ix=-1; for(var j=0;j<arr.length;j++){ if(arr[j].id===gid){ ix=j; break; } } if(ix>=0){ __tr+=trashAddRows(m.big,[arr[ix]]); arr.splice(ix,1); } }
+    for(var gid in delIds){ var m=__gsMap[gid]; if(!m) continue; var arr=((S.data[m.big]||{})[m.sub])||[]; var ix=-1; for(var j=0;j<arr.length;j++){ if(arr[j].id===gid){ ix=j; break; } } if(ix>=0){ __tr+=trashAddRows(m.big,m.sub,[arr[ix]]); arr.splice(ix,1); } }
   } else {
-    __tr+=trashAddRows(curBig(),rows.filter(function(r){ return !!delIds[r.id]; }));
+    __tr+=trashAddRows(curBig(),curSub(),rows.filter(function(r){ return !!delIds[r.id]; }));
     for(var i=rows.length-1;i>=0;i--){ if(delIds[rows[i].id]) rows.splice(i,1); }
   }
   selRows={}; saveState(); renderContent();
@@ -4146,7 +4150,7 @@ function applyImport(opts){
   var pluF=fieldByKey(big,'ITEM_PLU')||fieldByKey(big,'PLU'); /* 델리 사양 레이아웃(ITEM_PLU) 지원 */
   var stats={upd:0,add:0,moved:0,bigs:{}};
   stats.bigs[big]=1;
-  var __trashIx=trashIndex(); /* [TRASH] UPC+ITEM CODE 일치 행 무시 */
+  var __trashIxByBig={}; function __trashIxOf(bg){ if(!__trashIxByBig[bg]) __trashIxByBig[bg]=trashIndex(bg); return __trashIxByBig[bg]; } /* [TRASH] 상위·중간 카테고리별 UPC+ITEM CODE 일치 행 무시 */
   /* [중복 허용 2026-10-01] 체크 해제 시 이미 있는 UPC / ITEM CODE 의 새 행은 건너뜀 (대분류 전체 기준) */
   var __chkDup=(opts.allowDupUpc===false||opts.allowDupCode===false), __upcSet={}, __codeSet={};
   if(__chkDup&&mF){ subs.forEach(function(sb){ rowsFor(big,sb).forEach(function(r){ var u=matchNorm(r.v?r.v[mF.key]:''); if(u) __upcSet[u]=1; if(__icF0){ var c=normKey(getCell(r,__icF0,'')); if(c) __codeSet[c]=1; } }); }); }
@@ -4301,7 +4305,7 @@ function applyImport(opts){
       }
 
       /* [TRASH · 2026-10] 삭제 보관함에 UPC+ITEM CODE 가 모두 있는 행은 무조건 무시 (쓰레기 재등록 방지) */
-      if(TRASH_ENABLED&&mF&&vals.VENDER_ITEM_CODE!=null&&normKey(vals.VENDER_ITEM_CODE)!==''&&__trashIx[trashKeyOf(vals[mF.key],vals.VENDER_ITEM_CODE)]){ stats.trashed=(stats.trashed||0)+1; continue; }
+      if(TRASH_ENABLED&&mF&&vals.VENDER_ITEM_CODE!=null&&normKey(vals.VENDER_ITEM_CODE)!==''&&__trashIxOf(rowBig)[trashCatKey(rowBig,dest,vals[mF.key],vals.VENDER_ITEM_CODE)]){ stats.trashed=(stats.trashed||0)+1; continue; }
       /* [2026-10-01 제거] 'UPC·ITEM CODE 모두 같으면 무시' 규칙 삭제 — 조건 없이 전부 처리(같은 값이면 덮어써도 변화 없음) */
       if(hit){
         var r0=hit.row;
