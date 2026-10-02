@@ -881,8 +881,10 @@ html[data-theme=night] .plu-cm-row.cur { border-color:#4d8bea; background:#1e2c4
         <input class="plu-search" id="pluSearch" type="text" placeholder="🔍 검색어 입력 후 Enter (번호,번호 가능 · 전 카테고리)" autocomplete="off">
         <span class="plu-count-top" id="pluCountTop"></span>
       </div>
-      <!-- [MODULE 00 · THEME] DAY / NIGHT 전환 -->
-      <button class="plu-theme-btn" id="themeBtn" type="button" title="화면 모드 전환 (DAY / NIGHT)"></button>
+      <!-- [UPC 2026-10-02] 정렬 — 누를 때만 현재 중간 카테고리 정렬 (자동 정렬 없음) -->
+      <select class="plu-tool-btn" id="sortSel" style="display:none" title="현재 중간 카테고리 정렬 (선택할 때만)"><option value="">정렬</option><option value="upc">UPC 순</option><option value="desc">DESC 순</option></select>
+      <!-- [MODULE 00 · THEME] DAY / NIGHT 전환 — 2026-10-02: EGMM 상단 버튼만 사용 (여기서는 숨김) -->
+      <button class="plu-theme-btn" id="themeBtn" type="button" style="display:none" title="화면 모드 전환 (DAY / NIGHT)"></button>
       <!-- [MODULE 07 · STORE] 매장 버튼 — 현재 매장 표시 -->
       <div class="plu-store-wrap" id="pluStoreWrap"></div>
       <!-- [MODULE 15 · AUTOSAVE] 실시간 저장 칩 -->
@@ -1535,6 +1537,7 @@ function migrate(st){
   })();
   if(!st.qe||typeof st.qe!=='object'||!Array.isArray(st.qe.list)) st.qe={list:[]}; /* [MODULE 21] 상품 입력 대기 목록(저장 전 보존) */
   if(!st.deptMap||typeof st.deptMap!=='object') st.deptMap={}; /* [MODULE 22] 대분류별 DEPARTMENT 번호 */
+  if(!st.deptSubMap||typeof st.deptSubMap!=='object') st.deptSubMap={}; /* [2026-10-02] 중간 카테고리별 DEPARTMENT 번호 { 대분류: { 중간: 번호 } } */
   /* [MODULE 23 · FIELD-FX] 필드 기능 설정 — 대분류(카테고리)별: 하위 카테고리 기준 필드 · POS DESC 구성 */
   if(!st.ffx||typeof st.ffx!=='object') st.ffx={};
   if(!st.ffx.byBig||typeof st.ffx.byBig!=='object') st.ffx.byBig={};
@@ -1909,7 +1912,9 @@ function sortRowsByPlu(big,sub){
   });
   for(var i=0;i<dec.length;i++) arr[i]=dec[i].r;
 }
+var AUTO_SORT=(APP_MODE!=='UPC'); /* [UPC 2026-10-02] 자동 정렬 없음 — 상단 「정렬」로만 */
 function sortAllByPlu(big){
+  if(!AUTO_SORT&&!arguments[1]) return;
   (big?[big]:S.tabs.map(function(t){return t.label;})).forEach(function(bg){
     var d=S.data[bg]||{}; for(var sb in d) sortRowsByPlu(bg,sb);
   });
@@ -2473,9 +2478,9 @@ function toggleMenuPop(force){
 /* 메뉴 항목 정의 — ☰ 메뉴 팝업과 EGMM 사이드바 서브메뉴(PLU LIST 아래)가 같은 목록을 쓴다.
    (2026-09 삭제: Firebase 업로드·복원·설정 / 업로드 진단 / 매칭) */
 var PLU_MENU=[
-  { id:'entry',   label:'상품 입력',     cls:'plu-imp-go', run:function(){ openQuickEntry(); } },   /* [MODULE 21] */
-  { id:'addrow',  label:'행 추가',       run:function(){ addRow(); } },
-  { id:'fields',  label:'필드 편집',     run:function(){ openFieldEditor(); } },
+  { id:'entry',   label:'상품 입력',     cls:'plu-imp-go', run:function(){ openQuickEntry(); }, notUpc:true },   /* [MODULE 21] (UPC: 삭제 2026-10-02) */
+  { id:'addrow',  label:(APP_MODE==='UPC'?'상품 추가':'행 추가'), run:function(){ addRow(); } },
+  { id:'fields',  label:'필드 편집',     run:function(){ openFieldEditor(); }, notUpc:true },           /* (UPC: 머리글 더블클릭으로 대체 2026-10-02) */
   { id:'cats',    label:'카테고리 관리', run:function(){ openCatMgr(); } },                          /* [MODULE 24] */
   { id:'import',  label:'엑셀 불러오기', run:function(){ $('pluImportInput').value=''; $('pluImportInput').click(); } },
   { id:'export',  label:'엑셀 내보내기', run:function(){ openExportModal(); } },                     /* [MODULE 11] */
@@ -2484,14 +2489,14 @@ var PLU_MENU=[
   { id:'print',   label:'리스트 출력',   run:function(){ openPrintModal(); } },                      /* [MODULE 18] */
   { id:'delall',  label:'전체삭제',      run:function(){ delAllRows(); } },
   { id:'dept',    label:'DEPARTMENT 설정', run:function(){ openDeptModal(); } },                     /* [MODULE 22] */
-  { id:'fieldfx', label:'필드 기능 추가', run:function(){ openFieldFxModal(); } },                    /* [MODULE 23] */
+  { id:'fieldfx', label:(APP_MODE==='UPC'?'POS DESC 설정':'필드 기능 추가'), run:function(){ openFieldFxModal(); } },                    /* [MODULE 23] */
   { id:'trash',   label:'TRASH',         run:function(){ openTrash(); }, only:'TRASH' },                 /* [UPC 2026-10] */
   { id:'synclog', label:'동기화 로그',   run:function(){ openSyncLog(); }, only:'SYNC' },               /* [UPC 2026-10] */
   { id:'packmig', label:'CLOUD 압축 변환', run:function(){ fbPackMigrate(); } },                         /* [2026-10-02] 행 문서 → 업체별 압축 묶음 (1회) */
   { id:'packclr', label:'CLOUD 이전 문서 정리', run:function(){ fbLegacyCleanup(); } },                  /* [2026-10-02] 변환 확인 후 이전 행 문서 삭제 */
   { id:'guide',   label:'입력 · 관리 가이드', run:function(){ openGuide(); } }                         /* [2026-09-30] 서브메뉴 맨 아래 */
 ];
-PLU_MENU=PLU_MENU.filter(function(m){ return !m.only||(m.only==='TRASH'&&TRASH_ENABLED)||(m.only==='SYNC'&&SYNC_LATEST_WINS); });
+PLU_MENU=PLU_MENU.filter(function(m){ if(m.notUpc&&APP_MODE==='UPC') return false; return !m.only||(m.only==='TRASH'&&TRASH_ENABLED)||(m.only==='SYNC'&&SYNC_LATEST_WINS); });
 /* [2026-09-30] 입력 및 관리 가이드 — 번호 목록 팝업 (PLU / UPC 모드별 내용) */
 var GUIDE_PLU=[
   ['CLOUD 압축 변환','메뉴 > CLOUD 압축 변환(1회): CLOUD 의 상품 데이터를 행마다 문서 1개에서 소분류별 압축 묶음 1개로 바꿉니다. CLOUD 데이터를 백업 파일로 내려받고, 묶음을 다시 읽어 1:1 대조가 맞을 때만 켭니다. 이후 읽기·쓰기 횟수(Firebase 과금 기준)가 행 수가 아니라 소분류 수 기준으로 줄고, 태블릿 PLU PREVIEW 도 묶음만 받습니다. 이전 행 문서는 모든 기기가 새 버전인 것을 확인한 뒤 「CLOUD 이전 문서 정리」로 삭제.'],
@@ -2918,7 +2923,7 @@ function startCellEdit(td,id,fs){
       /* [UPC] VENDER 수정 → 그 이름의 중간 카테고리로 이동 */
       if(SUB_BY_VENDER&&normKey(f.key)==='VENDER_VENDER'&&!gsActive()){ if(syncSubsByVenderLive(curBig())){ saveState(); renderContent(); showToast('VENDER '+nv+' → "'+String(nv).trim()+'" 중간 카테고리로 이동됨','success'); return true; } }
       /* [MODULE 05] 청과: PLU 직접 입력 확정 → 번호 범위 소분류로 자동 이동 */
-      if(isPluField(f)&&!gsActive()){
+      if(isPluField(f)&&!gsActive()&&AUTO_SORT){
         var mvSub=routeRowByPluInput(curBig(),r,nv);
         if(mvSub){ sortRowsByPlu(curBig(),mvSub); calcRow(curBig(),r); saveState(); renderContent(); showToast('PLU '+nv+' → "'+mvSub+'" 소분류로 이동됨','success'); return true; }
         /* [MODULE 20] PLU 확정 → 같은 소분류 안에서 자릿수·숫자 순으로 재정렬 */
@@ -2968,6 +2973,14 @@ function startColResize(rz,root,ev){
   }
 }
 
+/* [UPC 2026-10-02] 수동 정렬: 현재 중간 카테고리 행을 UPC 순 / DESC(ENGLISH_DESC) 순으로 */
+function sortCurrentSub(mode){
+  var big=curBig(), rows=curRows(); if(!rows.length){ showToast('정렬할 행이 없습니다','error'); return; }
+  if(mode==='upc'){ sortRowsByPlu(big,curSub()); }
+  else { var f=fieldByKey(big,'ITEM_ENGLISH')||fieldByKey(big,'ENGLISH_DESC'); if(!f){ showToast('DESC 필드 없음','error'); return; }
+    rows.forEach(function(r,i){ r.__i=i; }); rows.sort(function(a,b){ var x=String(getCell(a,f,'')||'').toUpperCase(), y=String(getCell(b,f,'')||'').toUpperCase(); return x<y?-1:(x>y?1:(a.__i-b.__i)); }); rows.forEach(function(r){ delete r.__i; }); }
+  saveState(); renderContent(); showToast('정렬: '+(mode==='upc'?'UPC 순':'DESC 순')+' — '+curSub(),'success');
+}
 function addRow(){
   var r={id:newId(),v:{},sv:{}};
   prefillAutoinc(curBig(),r); /* 엑셀 =이전행+1 재현: 최대값+1 자동 입력 */
@@ -4460,6 +4473,7 @@ function applyImport(opts){
   /* [MODULE 22 · DEPT] DEPARTMENT 열 라우팅 — 번호→대분류(설정 메뉴), 청과는 PLU 범위→소분류 */
   function tabOf(bg){ for(var i=0;i<S.tabs.length;i++){ if(S.tabs[i].label===bg) return S.tabs[i]; } return null; }
   function deptBigOf(n){ for(var i=0;i<S.tabs.length;i++){ var L=S.tabs[i].label; if(S.deptMap&&S.deptMap[L]!=null&&parseInt(S.deptMap[L],10)===n) return L; } return null; }
+  function deptSubOf(n){ var m=S.deptSubMap||{}; for(var bg in m){ for(var sb in (m[bg]||{})){ if(parseInt(m[bg][sb],10)===n){ var tt=tabOf(bg); if(tt&&tt.subs.indexOf(sb)>=0) return {big:bg,sub:sb}; } } } return null; }
   function ensureSub(bg,name){ var tt=tabOf(bg); if(!tt) return false; if(tt.subs.indexOf(name)<0){ tt.subs.push(name); } if(!S.data[bg]) S.data[bg]={}; if(!S.data[bg][name]) S.data[bg][name]=[]; return true; }
   /* [요구 2026-09 · UPC 모드] 업체 지정: 축약어 이름의 대분류가 없으면 생성 (소분류 = 축약어) */
   /* [확정 2026-09-30] 업체 지정: 대분류는 현재 카테고리 그대로, 중간 카테고리 = 축약어 (없으면 생성) · VENDER = 축약어 */
@@ -4564,12 +4578,13 @@ function applyImport(opts){
       var venderRow=__fileVend?'':venderBig;
 
       /* [MODULE 22] 행별 대분류 결정 — DEPARTMENT 값이 설정된 대분류와 일치하면 그쪽으로 */
-      var rowBig=big, deptMatched=false;
+      var rowBig=big, deptMatched=false, __deptSub='';
       if(venderRow){ vals.VENDER_VENDER=venderRow; } /* 업체 지정: VENDER = 축약어 (DEPARTMENT 라우팅 안 함) */
       else if(deptCi>=0){
         var dvRaw=cellStr(row[deptCi]);
         var dv=parseInt(String(dvRaw==null?'':dvRaw).replace(/[^0-9]/g,''),10);
-        if(!isNaN(dv)){ var db=deptBigOf(dv); if(db){ rowBig=db; deptMatched=true; if(db!==big) stats.dept=(stats.dept||0)+1; stats.bigs[db]=1; } }
+        if(!isNaN(dv)){ var __ds=deptSubOf(dv); if(__ds){ rowBig=__ds.big; __deptSub=__ds.sub; deptMatched=true; if(__ds.big!==big) stats.dept=(stats.dept||0)+1; stats.bigs[__ds.big]=1; }
+          else { var db=deptBigOf(dv); if(db){ rowBig=db; deptMatched=true; if(db!==big) stats.dept=(stats.dept||0)+1; stats.bigs[db]=1; } } }
       }
       var rowTab=tabOf(rowBig), rowSubs=(rowTab&&rowTab.subs)||[];
 
@@ -4586,6 +4601,8 @@ function applyImport(opts){
          행은 선택한 소분류로 들어가고, 카테고리 값은 필드리스트 위 칩으로 필터.
          (청과 PLU 범위 · DEPARTMENT 라우팅은 별개 확정 규칙으로 유지) */
       if(rowSubs.indexOf(dest)<0) dest=rowSubs[0];
+      /* [2026-10-02] DEPARTMENT 번호가 중간 카테고리와 일치 → 그 중간 카테고리로 (UPC: VENDER 값도 그 이름으로, 파일에 VENDER 가 없을 때) */
+      if(__deptSub){ ensureSub(rowBig,__deptSub); dest=__deptSub; rowSubs=(tabOf(rowBig).subs)||rowSubs; if(SUB_BY_VENDER&&!__fileVend) vals.VENDER_VENDER=__deptSub; }
 
       var rIdx=getIdx(rowBig);
       var hit=null, __hitAll=null;
@@ -5576,12 +5593,20 @@ function openDeptModal(){
   var h='<div class="plu-imp-hint" style="margin-bottom:8px;">참조표: <b>'+DEPT_LEGEND+'</b><br>'
     +'대분류마다 부서 번호를 지정하면, 엑셀 불러오기에서 DEPARTMENT 열 값이 일치하는 행이 그 대분류로 들어갑니다.<br>'
     +'청과(2)로 들어온 행은 PLU 번호 범위로 중간 카테고리에 자동 배치됩니다 (야채·과일·로컬·박스·유기농).</div>';
+  h+='<div class="plu-imp-hint" style="margin-bottom:8px;">[2026-10-02] 중간 카테고리에도 번호를 지정할 수 있습니다 — 번호가 중간 카테고리와 일치하면 그 상위 + 중간 카테고리로 바로 들어갑니다 (상위 번호보다 우선).</div>';
   S.tabs.forEach(function(t){
     var v=(S.deptMap&&S.deptMap[t.label]!=null)?S.deptMap[t.label]:'';
     h+='<div class="ex-toolrow" style="align-items:center;margin-bottom:6px;">'
       +'<b style="min-width:110px;display:inline-block;">'+escapeHtml(t.label)+'</b>'
       +'<input type="number" class="icp-sel dp-in" data-big="'+escapeHtml(t.label)+'" min="0" value="'+v+'" placeholder="미지정" style="width:90px;">'
       +'</div>';
+    (t.subs||[]).forEach(function(sb){
+      var sv=(S.deptSubMap&&S.deptSubMap[t.label]&&S.deptSubMap[t.label][sb]!=null)?S.deptSubMap[t.label][sb]:'';
+      h+='<div class="ex-toolrow" style="align-items:center;margin-bottom:4px;padding-left:22px;">'
+        +'<span style="min-width:88px;display:inline-block;color:var(--ink-dim,#777);font-size:12px;">└ '+escapeHtml(sb)+'</span>'
+        +'<input type="number" class="icp-sel dp-sub" data-big="'+escapeHtml(t.label)+'" data-sub="'+escapeHtml(sb)+'" min="0" value="'+sv+'" placeholder="미지정" style="width:90px;">'
+        +'</div>';
+    });
   });
   h+='<div class="plu-imp-foot"><button class="plu-tool-btn" id="dpCancel" type="button">취소</button><button class="plu-tool-btn plu-imp-go" id="dpSave" type="button">저장</button></div>';
   $('dpBody').innerHTML=h;
@@ -5593,7 +5618,12 @@ function openDeptModal(){
       var n=parseInt(inp.value,10);
       if(!isNaN(n)&&n>0) next[inp.getAttribute('data-big')]=n;
     });
-    S.deptMap=next; saveState();
+    var nextSub={};
+    $('dpBody').querySelectorAll('.dp-sub').forEach(function(inp){
+      var n=parseInt(inp.value,10);
+      if(!isNaN(n)&&n>0){ var bg=inp.getAttribute('data-big'); if(!nextSub[bg]) nextSub[bg]={}; nextSub[bg][inp.getAttribute('data-sub')]=n; }
+    });
+    S.deptMap=next; S.deptSubMap=nextSub; saveState();
     $('dpOv').classList.remove('show');
     showToast('DEPARTMENT 설정 저장','success');
   };
@@ -5950,7 +5980,8 @@ function init(){
   $('puX').onclick=function(){ $('puOv').classList.remove('show'); };
   $('delSelBtn').onclick=function(){ delSelected(); };
   if(TRASH_ENABLED){ $('trashBtn').style.display=''; $('trashBtn').onclick=function(){ openTrash(); }; }
-  if(APP_MODE==='UPC'){ $('dataEditBtn').style.display=''; $('dataEditBtn').onclick=function(){ openDataEdit(); }; $('histBtn').style.display=''; $('histBtn').onclick=function(){ openHistory(); }; }
+  if(APP_MODE==='UPC'){ $('dataEditBtn').style.display=''; $('dataEditBtn').onclick=function(){ openDataEdit(); }; $('histBtn').style.display=''; $('histBtn').onclick=function(){ openHistory(); };
+    $('sortSel').style.display=''; $('sortSel').onchange=function(){ var v=$('sortSel').value; $('sortSel').value=''; if(!v) return; sortCurrentSub(v); }; }
   $('printOv').addEventListener('click',function(ev){ if(ev.target===this) this.classList.remove('show'); });
   $('menuPop').addEventListener('click',function(ev){ if(ev.target===this) toggleMenuPop(false); }); /* 바깥(오버레이) 클릭 닫기 */
   $('feSave').onclick=feSave;
