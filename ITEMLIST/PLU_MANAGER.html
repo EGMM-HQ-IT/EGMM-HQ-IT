@@ -874,6 +874,8 @@ html[data-theme=night] .plu-cm-row.cur { border-color:#4d8bea; background:#1e2c4
       <button class="plu-save-chip" id="saveChip" type="button"></button>
       <!-- [TRASH · UPC 2026-10] 삭제 보관함 보기 (TRASH_ENABLED 일 때만 표시) -->
       <button class="plu-tool-btn" id="trashBtn" type="button" style="display:none" title="삭제한 상품 보관함 (UPC · ITEM CODE · VENDER)">♻ TRASH</button>
+      <!-- [데이터 편집 · UPC 2026-10] 중복 데이터 보기 · 중복 데이터 삭제 (현재 중간 카테고리) -->
+      <button class="plu-tool-btn" id="dataEditBtn" type="button" style="display:none" title="중복 데이터 보기 · 삭제 (현재 중간 카테고리)">✎ 데이터 편집</button>
       <!-- [선택삭제] 메뉴 버튼 왼쪽 -->
       <button class="plu-tool-btn plu-delsel" id="delSelBtn" type="button">🗑 선택삭제</button>
       <!-- [MODULE 08] 기능 메뉴 버튼 (팝업은 아래 모달) -->
@@ -2492,6 +2494,7 @@ var GUIDE_UPC=[
   ['표시','같은 UPC 행은 UPC 칸이 같은 색. USE 미체크 행은 회색 취소선. 검색은 Enter, 번호는 쉼표로 여러 개.'],
   ['저장','모든 변경은 즉시 자동 저장되고 CLOUD(UPC-LIST)에 자동 동기화됩니다. 상단 칩에서 상태 확인.'],
   ['동기화 규칙','수정하면 조건 없이 무조건 CLOUD 로 전송됩니다(업체 이름이 한글이어도 자동 ID, 0건도 전송). 기본 데이터는 없고 모든 데이터(상품 + 필드 설정값)는 CLOUD 에서 가져옵니다. 열면 먼저 CLOUD 를 불러오고, 끝나기 전에는 수정·저장이 잠깁니다. 여러 컴퓨터에서 쓸 때 가장 최근에 수정된 쪽이 항상 기준(충돌 선택 없음). 다른 컴퓨터가 저장하면 이 화면에도 바로 반영되고, 메뉴 > 동기화 로그에 날짜·시간·방향(전송/반영)·컴퓨터가 기록됩니다.'],
+  ['데이터 편집','상단 「데이터 편집」 버튼: 현재 보고 있는 중간 카테고리 안에서 ① 중복 데이터 보기 — UPC / ITEM CODE 기준 체크 후 검색, 별도 팝업에 그룹별로 구분 표시(표시 필드 선택 가능), 체크한 행 삭제. ② 중복 데이터 삭제 — UPC / ITEM CODE 기준(둘 다 체크 = 둘 다 같아야 중복), SRP 또는 COST 높은/낮은 순으로 1개 또는 2개만 남기고 나머지 삭제. 삭제한 행은 모두 TRASH 보관, 사용중(체크) 상품은 보호.'],
   ['TRASH','리스트에서 삭제한 행은 UPC · ITEM CODE · VENDER 3개만 TRASH 에 보관됩니다(메뉴 > TRASH). TRASH 는 상위 · 중간 카테고리별로 따로 관리되며, 보고 있는 카테고리의 TRASH 만 표시됩니다. 같은 카테고리로 엑셀 불러오기 때 TRASH 와 UPC·ITEM CODE 가 모두 같은 행은 무조건 무시되어 쓰레기가 다시 쌓이지 않습니다. TRASH 에서 제거하면 다시 등록 가능.']
 ];
 function openGuide(){
@@ -3020,6 +3023,144 @@ function openTrash(){
   $('trashClose').onclick=function(){ __fbClose('trashOv'); };
   $('trashEmpty').onclick=async function(){ if(!(await uiConfirm(__big+' / '+__sub+' 의 TRASH 를 비울까요? (비우면 불러오기 때 다시 등록될 수 있습니다)'))) return; S.trash=(S.trash||[]).filter(function(t){ return !((t.big||__big)===__big&&trashSubOf(t)===__sub); }); saveState(); __fbClose('trashOv'); showToast('TRASH 비움 — '+__big+' / '+__sub,'success'); };
   Array.prototype.forEach.call(ov.querySelectorAll('button[data-tk]'),function(b){ b.onclick=function(){ var k=b.getAttribute('data-tk'); S.trash=(S.trash||[]).filter(function(t){ return trashCatKey(t.big||__big,trashSubOf(t),t.upc,t.code)!==k; }); saveState(); openTrash(); }; });
+}
+
+/* ═══ [데이터 편집 · UPC 2026-10-01] 현재 중간 카테고리 안에서 중복 데이터 보기 · 중복 데이터 삭제 ═══
+   - 기준: UPC / ITEM CODE 체크 (둘 다 체크 = 둘 다 같아야 중복)
+   - 보기: 별도 팝업에 그룹별로 구분 표시, 표시 필드 선택, 체크한 행 삭제(TRASH 보관)
+   - 삭제: 그룹마다 SRP·COST 높은/낮은 순으로 1개 또는 2개만 남기고 나머지 삭제(TRASH 보관) */
+var __deOpt={ vUpc:true, vCode:false, dUpc:true, dCode:false, metric:'SRP_HI', keep:1, fields:null };
+function __deFieldAny(big,keys){ for(var i=0;i<keys.length;i++){ var f=fieldByKey(big,keys[i]); if(f) return f; } return null; }
+function __deUpcF(big){ return __deFieldAny(big,['ITEM_PLU','PLU','UPC']); }
+function __deCodeF(big){ return __deFieldAny(big,['VENDER_ITEM_CODE','ITEM_CODE']); }
+function __deSrpF(big){ return __deFieldAny(big,['PRICE_SRP','SRP','PRICE']); }
+function __deCostF(big){ return __deFieldAny(big,['PRICE_COST','COST','UNIT_COST']); }
+function __deNum(v){ var n=parseFloat(String(v==null?'':v).replace(/[^0-9.\-]/g,'')); return isNaN(n)?null:n; }
+/* 중복 그룹: 현재 중간 카테고리 행만. 키에 쓰는 값이 비어 있는 행은 제외 */
+function dupGroups(byUpc,byCode){
+  var big=curBig(), rows=curRows(), uf=__deUpcF(big), cf=__deCodeF(big);
+  if(!byUpc&&!byCode) return [];
+  var map={}, order=[];
+  rows.forEach(function(r){
+    var ku='', kc='';
+    if(byUpc){ ku=matchNorm(getCell(r,uf,'')); if(!ku) return; }
+    if(byCode){ kc=normKey(getCell(r,cf,'')); if(!kc) return; }
+    var k=ku+'|'+kc;
+    if(!map[k]){ map[k]={key:k,upc:byUpc?String(getCell(r,uf,'')||'').trim():'',code:byCode?String(getCell(r,cf,'')||'').trim():'',rows:[]}; order.push(k); }
+    map[k].rows.push(r);
+  });
+  return order.map(function(k){ return map[k]; }).filter(function(g){ return g.rows.length>=2; });
+}
+function __deMetricLabel(m){ return {SRP_HI:'SRP 높은 것',SRP_LO:'SRP 낮은 것',COST_HI:'COST 높은 것',COST_LO:'COST 낮은 것'}[m]||m; }
+/* 그룹 안에서 남길 행 정렬: 기준값 없는 행은 뒤로 */
+function __deSortGroup(rows,metric){
+  var big=curBig(), f=(metric.indexOf('SRP')===0)?__deSrpF(big):__deCostF(big), hi=/_HI$/.test(metric);
+  return rows.slice().sort(function(a,b){
+    var x=f?__deNum(getCell(a,f,'')):null, y=f?__deNum(getCell(b,f,'')):null;
+    if(x==null&&y==null) return 0; if(x==null) return 1; if(y==null) return -1;
+    return hi?(y-x):(x-y);
+  });
+}
+function openDataEdit(){
+  var big=curBig(), sub=curSub(), lay=S.layouts[big]||[];
+  if(!__deOpt.fields){ var def={}; ['ITEM_PLU','PLU','VENDER_ITEM_CODE','VENDER_VENDER','ITEM_ENGLISH','ENGLISH_DESC','PRICE_SRP','SRP','PRICE_COST','COST'].forEach(function(k){ def[normKey(k)]=1; }); __deOpt.fields={}; lay.forEach(function(f){ if(def[normKey(f.key)]) __deOpt.fields[f.key]=1; }); }
+  var h='<b style="font-size:15px">데이터 편집 — '+escapeHtml(big)+' / '+escapeHtml(sub)+' ('+curRows().length+'행)</b>'
+    +'<div style="margin:4px 0 12px;color:var(--ink-dim,#777)">현재 보고 있는 중간 카테고리 안에서만 작업합니다. 삭제한 행은 TRASH 에 보관됩니다.</div>'
+    /* ── 중복 데이터 보기 ── */
+    +'<div style="border:1px solid var(--line,#ddd);border-radius:10px;padding:12px 14px;margin-bottom:12px">'
+    +'<b style="font-size:13.5px">① 중복 데이터 보기</b>'
+    +'<div style="display:flex;gap:16px;align-items:center;margin:8px 0;flex-wrap:wrap"><span style="color:var(--ink-dim,#777)">중복 기준</span>'
+    +'<label style="display:inline-flex;align-items:center;gap:5px"><input type="checkbox" id="deVUpc"'+(__deOpt.vUpc?' checked':'')+'> UPC 기준</label>'
+    +'<label style="display:inline-flex;align-items:center;gap:5px"><input type="checkbox" id="deVCode"'+(__deOpt.vCode?' checked':'')+'> ITEM CODE 기준</label></div>'
+    +'<div style="color:var(--ink-dim,#777);margin:6px 0 4px">리스트에 보여줄 필드</div>'
+    +'<div id="deFields" style="display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px">'
+    +lay.filter(function(f){ return !f.hidden; }).map(function(f){ return '<label style="display:inline-flex;align-items:center;gap:4px"><input type="checkbox" class="de-f" data-k="'+escapeHtml(f.key)+'"'+(__deOpt.fields[f.key]?' checked':'')+'> '+escapeHtml(f.label||f.key)+'</label>'; }).join('')
+    +'</div>'
+    +'<div style="display:flex;justify-content:flex-end;margin-top:10px"><button id="deSearch" class="plu-tool-btn plu-imp-go">검색</button></div>'
+    +'</div>'
+    /* ── 중복 데이터 삭제 ── */
+    +'<div style="border:1px solid var(--line,#ddd);border-radius:10px;padding:12px 14px">'
+    +'<b style="font-size:13.5px">② 중복 데이터 삭제</b>'
+    +'<div style="display:flex;gap:16px;align-items:center;margin:8px 0;flex-wrap:wrap"><span style="color:var(--ink-dim,#777)">중복 기준</span>'
+    +'<label style="display:inline-flex;align-items:center;gap:5px"><input type="checkbox" id="deDUpc"'+(__deOpt.dUpc?' checked':'')+'> UPC 기준</label>'
+    +'<label style="display:inline-flex;align-items:center;gap:5px"><input type="checkbox" id="deDCode"'+(__deOpt.dCode?' checked':'')+'> ITEM CODE 기준</label>'
+    +'<span style="color:var(--ink-dim,#777);font-size:12px">(둘 다 체크 = UPC 와 ITEM CODE 가 모두 같아야 중복)</span></div>'
+    +'<div style="display:flex;gap:16px;align-items:center;margin:8px 0;flex-wrap:wrap"><span style="color:var(--ink-dim,#777)">남길 기준</span>'
+    +'<select id="deMetric" class="icp-sel" style="width:auto">'+['SRP_HI','SRP_LO','COST_HI','COST_LO'].map(function(m){ return '<option value="'+m+'"'+(__deOpt.metric===m?' selected':'')+'>'+__deMetricLabel(m)+'</option>'; }).join('')+'</select>'
+    +'<span style="color:var(--ink-dim,#777)">남길 개수</span>'
+    +'<select id="deKeep" class="icp-sel" style="width:auto"><option value="1"'+(__deOpt.keep===1?' selected':'')+'>1개만 남기기</option><option value="2"'+(__deOpt.keep===2?' selected':'')+'>2개만 남기기</option></select></div>'
+    +'<div id="deDelInfo" style="color:var(--ink-dim,#777);margin:4px 0"></div>'
+    +'<div style="display:flex;justify-content:flex-end;margin-top:8px"><button id="deDelRun" class="plu-tool-btn" style="border-color:#c33;color:#c33">중복 삭제 실행</button></div>'
+    +'</div>'
+    +'<div style="display:flex;justify-content:flex-end;margin-top:12px"><button id="deClose" class="plu-tool-btn plu-imp-go">닫기</button></div>';
+  __fbOverlay('deOv',h);
+  function readOpt(){
+    __deOpt.vUpc=$('deVUpc').checked; __deOpt.vCode=$('deVCode').checked; __deOpt.dUpc=$('deDUpc').checked; __deOpt.dCode=$('deDCode').checked;
+    __deOpt.metric=$('deMetric').value; __deOpt.keep=parseInt($('deKeep').value,10)||1;
+    __deOpt.fields={}; Array.prototype.forEach.call(document.querySelectorAll('#deFields .de-f'),function(c){ if(c.checked) __deOpt.fields[c.getAttribute('data-k')]=1; });
+  }
+  function delInfo(){ readOpt(); var gs=dupGroups(__deOpt.dUpc,__deOpt.dCode); var n=0; gs.forEach(function(g){ n+=Math.max(0,g.rows.length-__deOpt.keep); });
+    $('deDelInfo').textContent=(!__deOpt.dUpc&&!__deOpt.dCode)?'기준을 하나 이상 체크하세요':('중복 그룹 '+gs.length+'개 · 삭제 예정 '+n+'행 (각 그룹 '+__deMetricLabel(__deOpt.metric)+' 순으로 '+__deOpt.keep+'개 남김)'); }
+  ['deDUpc','deDCode','deMetric','deKeep'].forEach(function(id){ $(id).onchange=delInfo; }); delInfo();
+  $('deClose').onclick=function(){ readOpt(); __fbClose('deOv'); };
+  $('deSearch').onclick=function(){ readOpt(); if(!__deOpt.vUpc&&!__deOpt.vCode){ showToast('중복 기준을 하나 이상 체크하세요','error'); return; } openDupList(); };
+  $('deDelRun').onclick=async function(){
+    readOpt(); if(!__deOpt.dUpc&&!__deOpt.dCode){ showToast('중복 기준을 하나 이상 체크하세요','error'); return; }
+    var big=curBig(), sub=curSub(), gs=dupGroups(__deOpt.dUpc,__deOpt.dCode), del=[], prot=0;
+    gs.forEach(function(g){ var sorted=__deSortGroup(g.rows,__deOpt.metric); sorted.slice(__deOpt.keep).forEach(function(r){ if(isRowInUse(r)) prot++; else del.push(r); }); });
+    if(!gs.length){ showToast('중복 데이터가 없습니다','success'); return; }
+    if(!del.length){ uiAlert('삭제 대상이 모두 사용중(체크) 상품이라 삭제할 수 없습니다. (보호 '+prot+'행)','사용중 상품 보호'); return; }
+    var crit=(__deOpt.dUpc&&__deOpt.dCode)?'UPC + ITEM CODE':(__deOpt.dUpc?'UPC':'ITEM CODE');
+    if(!(await uiConfirm(big+' / '+sub+'\n중복 기준: '+crit+' · 그룹 '+gs.length+'개\n'+__deMetricLabel(__deOpt.metric)+' 순으로 '+__deOpt.keep+'개 남기고 '+del.length+'행 삭제'+(prot?' (사용중 '+prot+'행은 보호)':'')+'\n\n삭제한 행은 TRASH 에 보관됩니다. 진행할까요?','중복 데이터 삭제'))) return;
+    var tr=trashAddRows(big,sub,del), ids={}; del.forEach(function(r){ ids[r.id]=1; });
+    var arr=curRows(); for(var i=arr.length-1;i>=0;i--){ if(ids[arr[i].id]) arr.splice(i,1); }
+    selRows={}; saveState(); renderContent(); delInfo();
+    showToast('중복 삭제 '+del.length+'행'+(prot?' · 사용중 보호 '+prot+'행':'')+(tr?' · TRASH 보관 '+tr:''),'success');
+  };
+}
+/* 중복 리스트 팝업: 그룹별 구분 + 체크 삭제 */
+function openDupList(){
+  var big=curBig(), sub=curSub(), lay=S.layouts[big]||[];
+  var fields=lay.filter(function(f){ return !f.hidden&&__deOpt.fields[f.key]; });
+  if(!fields.length) fields=[__deUpcF(big),__deCodeF(big)].filter(Boolean);
+  var gs=dupGroups(__deOpt.vUpc,__deOpt.vCode), total=0; gs.forEach(function(g){ total+=g.rows.length; });
+  var crit=(__deOpt.vUpc&&__deOpt.vCode)?'UPC + ITEM CODE':(__deOpt.vUpc?'UPC':'ITEM CODE');
+  var td='padding:4px 8px;border-top:1px solid var(--line,#eee);white-space:nowrap;';
+  var h='<b style="font-size:15px">중복 데이터 — '+escapeHtml(big)+' / '+escapeHtml(sub)+'</b>'
+    +'<div style="margin:4px 0 10px;color:var(--ink-dim,#777)">기준: '+crit+' · 그룹 '+gs.length+'개 · '+total+'행. 그룹마다 색으로 구분됩니다. 체크한 행을 삭제하면 TRASH 에 보관됩니다.</div>'
+    +'<div style="max-height:60vh;overflow:auto;border:1px solid var(--line,#ddd);border-radius:8px">'
+    +'<table style="border-collapse:collapse;font-size:12px;min-width:100%"><thead><tr style="position:sticky;top:0;background:var(--panel-2,#f4f4f4);z-index:1"><th style="padding:5px 8px"><input type="checkbox" id="dupAll" title="전체 선택"></th><th style="text-align:left;padding:5px 8px">그룹</th>'
+    +fields.map(function(f){ return '<th style="text-align:left;padding:5px 8px;white-space:nowrap">'+escapeHtml(f.label||f.key)+'</th>'; }).join('')+'</tr></thead><tbody>';
+  if(!gs.length) h+='<tr><td colspan="'+(fields.length+2)+'" style="padding:18px;text-align:center;color:var(--ink-dim,#777)">중복 데이터 없음</td></tr>';
+  gs.forEach(function(g,gi){
+    var bg=(gi%2===0)?'rgba(255,196,0,.10)':'rgba(0,120,255,.08)';
+    g.rows.forEach(function(r,ri){
+      h+='<tr style="background:'+bg+(ri===0?';border-top:2px solid var(--line,#bbb)':'')+'"><td style="'+td+'text-align:center"><input type="checkbox" class="dup-ck" data-id="'+escapeHtml(r.id)+'"'+(isRowInUse(r)?' title="사용중(체크) 상품 — 삭제 보호"':'')+'></td>'
+        +'<td style="'+td+'color:var(--ink-dim,#777)">'+(ri===0?('#'+(gi+1)+' · '+g.rows.length+'행'):'')+'</td>'
+        +fields.map(function(f){ return '<td style="'+td+'">'+escapeHtml(String(dispCell(r,f)==null?'':dispCell(r,f)))+'</td>'; }).join('')+'</tr>';
+    });
+  });
+  h+='</tbody></table></div>'
+    +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;align-items:center"><span id="dupCnt" style="color:var(--ink-dim,#777);margin-right:auto">선택 0행</span><button id="dupDel" class="plu-tool-btn" style="border-color:#c33;color:#c33">체크한 행 삭제</button><button id="dupClose" class="plu-tool-btn plu-imp-go">닫기</button></div>';
+  var ov=__fbOverlay('dupOv',h);
+  ov.firstChild.style.maxWidth='96vw'; ov.firstChild.style.width='auto'; ov.firstChild.style.minWidth='520px';
+  function cnt(){ var n=0; Array.prototype.forEach.call(ov.querySelectorAll('.dup-ck'),function(c){ if(c.checked) n++; }); $('dupCnt').textContent='선택 '+n+'행'; }
+  Array.prototype.forEach.call(ov.querySelectorAll('.dup-ck'),function(c){ c.onchange=cnt; });
+  $('dupAll').onchange=function(){ var on=$('dupAll').checked; Array.prototype.forEach.call(ov.querySelectorAll('.dup-ck'),function(c){ c.checked=on; }); cnt(); };
+  $('dupClose').onclick=function(){ __fbClose('dupOv'); };
+  $('dupDel').onclick=async function(){
+    var ids={}, n=0; Array.prototype.forEach.call(ov.querySelectorAll('.dup-ck'),function(c){ if(c.checked){ ids[c.getAttribute('data-id')]=1; n++; } });
+    if(!n){ showToast('삭제할 행을 체크하세요','error'); return; }
+    var rows=curRows(), del=[], prot=0; rows.forEach(function(r){ if(ids[r.id]){ if(isRowInUse(r)) prot++; else del.push(r); } });
+    if(!del.length){ uiAlert('체크한 행이 모두 사용중(체크) 상품이라 삭제할 수 없습니다. (보호 '+prot+'행)','사용중 상품 보호'); return; }
+    if(!(await uiConfirm(del.length+'행을 삭제할까요?'+(prot?'\n(사용중 체크 '+prot+'행은 보호되어 삭제되지 않습니다)':'')+'\n삭제한 행은 TRASH 에 보관됩니다.','중복 데이터 삭제'))) return;
+    var tr=trashAddRows(big,sub,del), dset={}; del.forEach(function(r){ dset[r.id]=1; });
+    for(var i=rows.length-1;i>=0;i--){ if(dset[rows[i].id]) rows.splice(i,1); }
+    selRows={}; saveState(); renderContent();
+    showToast('삭제됨 '+del.length+'행'+(prot?' · 사용중 보호 '+prot+'행':'')+(tr?' · TRASH 보관 '+tr:''),'success');
+    openDupList(); /* 다시 검색해서 갱신 */
+    if($('deOv')&&$('deDelInfo')){ $('deDUpc').dispatchEvent(new Event('change')); }
+  };
 }
 async function delSelected(){
   var ids=Object.keys(selRows); if(!ids.length){ showToast('삭제할 행을 선택하세요','error'); return; }
@@ -5637,6 +5778,7 @@ function init(){
   $('puX').onclick=function(){ $('puOv').classList.remove('show'); };
   $('delSelBtn').onclick=function(){ delSelected(); };
   if(TRASH_ENABLED){ $('trashBtn').style.display=''; $('trashBtn').onclick=function(){ openTrash(); }; }
+  if(APP_MODE==='UPC'){ $('dataEditBtn').style.display=''; $('dataEditBtn').onclick=function(){ openDataEdit(); }; }
   $('printOv').addEventListener('click',function(ev){ if(ev.target===this) this.classList.remove('show'); });
   $('menuPop').addEventListener('click',function(ev){ if(ev.target===this) toggleMenuPop(false); }); /* 바깥(오버레이) 클릭 닫기 */
   $('feSave').onclick=feSave;
@@ -6452,7 +6594,7 @@ function fbSyncChipClick(){
 }
 /* [MODULE 26] 테스트/외부 공개 */
 try{
-  window.__PLU.saveState=saveState;
+  window.__PLU.saveState=saveState; window.__PLU.openDataEdit=openDataEdit; window.__PLU.openDupList=openDupList; window.__PLU.dupGroups=dupGroups;
   window.__PLU.fbAutoStart=fbAutoStart; window.__PLU.fbSyncRun=fbSyncRun;
   window.__PLU.fbSyncState=function(){ return __fbState; };
   window.__PLU.fbSetSyncMs=function(ms){ __fbSyncMs=ms; };
