@@ -3655,7 +3655,7 @@ function fbLoadVenders(){
   return __venderLoading;
 }
 function venderOptionsHtml(sel){
-  var h='<option value="">(지정 안 함 — 현재 카테고리 '+escapeHtml(curBig())+')</option>';
+  var h='<option value="">(지정 안 함 — 파일의 VENDER 값대로)</option>';
   (__venderList||[]).forEach(function(v){ h+='<option value="'+escapeHtml(v.code)+'"'+(v.code===sel?' selected':'')+'>'+escapeHtml(v.code)+(v.name?' — '+escapeHtml(v.name):'')+(v.nameKo?' ('+escapeHtml(v.nameKo)+')':'')+'</option>'; });
   return h;
 }
@@ -3886,7 +3886,8 @@ function renderImportModal(){
 
   if(APP_MODE==='UPC'){
     /* [요구 2026-09] 업체 지정 — 선택하면 축약어 이름의 대분류로 저장 + VENDER 필드 = 축약어 (아래 소분류 선택은 무시) */
-    var __vsel=(impCtx.vender!=null)?impCtx.vender:(( __venderList||[]).some(function(v){ return v.code===curBig(); })?curBig():'');
+    /* [버그 수정 2026-10-01] 업체 기본값은 항상 '미지정' — 대분류 이름(예: EGP)이 업체 코드와 같으면 자동 선택되어 파일의 VENDER 값을 전부 EGP 로 덮어쓰던 문제 */
+    var __vsel=(impCtx.vender!=null)?impCtx.vender:'';
     h+='<div class="icp-lbl">업체</div>';
     h+='<select class="icp-sel" id="impVender">'+(__venderList?venderOptionsHtml(__vsel):'<option value="">업체 목록 불러오는 중…</option>')+'</select>';
   }
@@ -3995,7 +3996,7 @@ function renderImportModal(){
     var __vs=$('impVender');
     if(__vs){
       __vs.onchange=function(){ impCtx.vender=__vs.value; };
-      if(!__venderList){ fbLoadVenders().then(function(){ var el=$('impVender'); if(!el) return; var cur=(impCtx.vender!=null)?impCtx.vender:(( __venderList||[]).some(function(v){ return v.code===curBig(); })?curBig():''); el.innerHTML=venderOptionsHtml(cur); impCtx.vender=el.value; })
+      if(!__venderList){ fbLoadVenders().then(function(){ var el=$('impVender'); if(!el) return; var cur=(impCtx.vender!=null)?impCtx.vender:''; el.innerHTML=venderOptionsHtml(cur); impCtx.vender=el.value; })
         .catch(function(e){ var el=$('impVender'); if(el) el.innerHTML='<option value="">업체 목록 없음</option>'; }); }
       else impCtx.vender=__vs.value;
     }
