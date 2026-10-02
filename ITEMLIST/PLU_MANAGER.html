@@ -3078,7 +3078,7 @@ function __deSortGroup(rows,metric){
    - 같은 분 · 같은 작업 · 같은 카테고리는 한 항목으로 합침 (행 id 누적)
    - 항목별로 그 시간에 편집된 행만 리스트로 보기 / 체크 삭제 / 전부 삭제(TRASH 보관)
    - S.history 는 CLOUD(_CONFIG) 에 함께 저장되어 두 컴퓨터가 공유 */
-var HIST_MAX=400, HIST_IDS_MAX=20000;
+var HIST_MAX=400, HIST_IDS_MAX=20000, HIST_IDS_TOTAL=60000; /* 항목별 · 전체 id 상한 (CLOUD 설정 문서 크기 보호) */
 var HIST_TYPES={ imp:'엑셀 불러오기', add:'행 추가', edit:'셀 수정', fill:'전체 채우기', del:'삭제', dup:'중복 삭제', part:'부분 업데이트' };
 function histMinute(d){ d=d||new Date(); return d.toISOString().slice(0,16)+':00.000Z'; }
 function rowStamp(){ return histMinute(); } /* 행 마지막 편집 시각 (분 단위) */
@@ -3096,6 +3096,8 @@ function histLog(type,big,sub,ids,delRows,note){
   e.n=e.ids.length+e.del.length; if(note) e.note=note;
   if(e.ids.length>HIST_IDS_MAX) e.ids=e.ids.slice(-HIST_IDS_MAX);
   if(S.history.length>HIST_MAX) S.history=S.history.slice(-HIST_MAX);
+  /* 전체 id 수 상한: 오래된 항목부터 id 목록을 비움(항목 자체는 남김 — 보기/삭제만 불가) */
+  var tot=0; for(var hi=S.history.length-1;hi>=0;hi--){ var he=S.history[hi]; tot+=(he.ids||[]).length; if(tot>HIST_IDS_TOTAL&&he!==e&&(he.ids||[]).length){ he.ids=[]; he.n=(he.del||[]).length; } }
 }
 function histRowMini(big,r){ var uf=__deUpcF(big), cf=__deCodeF(big), vf=fieldByKey(big,'VENDER_VENDER'); return { id:r.id, upc:uf?String(getCell(r,uf,'')||''):'', code:cf?String(getCell(r,cf,'')||''):'', vender:vf?String(getCell(r,vf,'')||''):'' }; }
 /* 히스토리 항목의 행이 지금 어디에 있는지 (대분류 전체에서 id 로 찾음 — 소분류가 바뀌었어도 추적) */
@@ -6093,15 +6095,16 @@ function fbBuildPlan(st){
       if(subUsed[subId]&&SYNC_NO_GATES){ subId=fbAutoId(sb); }
       if(subUsed[subId]){ errs.push('소분류 영어 이름 중복 ('+t.label+'): '+subId+' — 팝업에서 다른 이름 지정 필요'); needNames.push({kind:'sub',label:sb,big:t.label,dup:1}); return; }
       subUsed[subId]=sb;
-      var rows=((st.data&&st.data[t.label])||{})[sb]||[], used={};
+      var rows=((st.data&&st.data[t.label])||{})[sb]||[], used={}, ids=[];
       rows.forEach(function(r,ri){
         if(!r||typeof r!=='object') return;
         var id=fbItemId(fbRowPlu(r),r,used);
-        items.push({big:bigId,sub:subId,id:id,data:{ plu:fbRowPlu(r), order:ri,
+        /* [속도 2026-10-02] 행 순서(order)를 상품 문서에서 빼고 소분류별 _ORDERS 문서(id 목록)로 — 행 하나 삭제·이동 때 뒤 행 수천 건이 다시 기록되던 문제 해소 */
+        items.push({big:bigId,sub:subId,id:id,data:{ plu:fbRowPlu(r),
           r:{ id:String(r.id||''), v:fbClean(r.v||{}), sv:fbClean(r.sv||{}), m:String(r.m||'') } }});
-        total++;
+        ids.push(String(r.id||'')); total++;
       });
-      node.subs.push({id:subId,name:sb,order:si,count:rows.length});
+      node.subs.push({id:subId,name:sb,order:si,count:rows.length,ids:ids});
     });
     tree.push(node);
   });
@@ -6276,7 +6279,9 @@ function fbRunDone(){ var b=$('fbRunX'); if(b) b.disabled=false; }
 /* ── CONFIG 상태 직렬화 (행 제외 · gzip 분할) ── */
 var FB_CHUNK=600000; /* base64 문자 — 문서 1MB 제한 대비 여유 */
 function fbConfigChunks(st){
-  var clone=fbClean(st); clone.data={};
+  /* [속도 2026-10-02] 상품 데이터(수천 행)는 복제하지 않고 나머지 설정만 복제 */
+  var shallow={}; for(var __k in st){ if(__k!=='data') shallow[__k]=st[__k]; }
+  var clone=fbClean(shallow); clone.data={};
   delete clone.ui; delete clone.dirtySinceSync; delete clone.fbLastSync; /* [MODULE 26] 탭 이동·동기화 플래그는 CONFIG 변경으로 치지 않음 */
   delete clone.syncLog; delete clone.dirtyAt; /* [2026-10] 동기화 로그·수정 시각은 로컬 전용 (핑퐁 방지) */
   (clone.tabs||[]).forEach(function(t){ clone.data[t.label]={}; (t.subs||[]).forEach(function(sb){ clone.data[t.label][sb]=[]; }); });
@@ -6347,6 +6352,7 @@ async function fbUploadStart(){
       if((i2+1)%450===0) log('상품 기록 '+(i2+1)+'/'+plan.total);
     }
     log('상품 기록 '+plan.total+'/'+plan.total);
+    for(var o0=0;o0<plan.tree.length;o0++){ var ob=plan.tree[o0]; for(var o1=0;o1<ob.subs.length;o1++){ var osb=ob.subs[o1], ro=M.fs.doc(db,FB_ROOT,'_ORDERS',ob.id,osb.id), od={ids:osb.ids||[]}; await op((function(r2,d2){ return function(b){ b.set(r2,d2); }; })(ro,od)); } }
     /* 매장 = 최상위 STORE 컴렉션 문서 (없어진 매장 문서는 삭제) */
     var storeIds={}, storeList=(S.stores||[]).map(function(nm,ix){ var sid=fbNorm(nm)||('S'+ix); storeIds[sid]=1; return { id:sid, name:nm, order:ix }; });
     var stSnap=await M.fs.getDocs(M.fs.collection(db,FB_STORE));
@@ -6445,7 +6451,7 @@ try{
      전송 실패는 30초 후 자동 재시도, 이름 미확정은 팝업 자동 표시
    - 저장 칩(#saveChip)을 FB 동기화 상태 표시로 전환 (fbSyncChipInfo/Click)
    ═══════════════════════════════════════════════════════════════════════════ */
-var __fbSyncMs=2500, __fbRetryMs=30000;
+var __fbSyncMs=2500, __fbRetryMs=30000, FB_DELTA_MAX=3000; /* 변경분 목록 상한 — 넘으면 전체 반영 */
 var __fbLast=null;   /* path→json — 이 세션이 아는 Firebase 상태. null = 전체 전송 필요 */
 var __fbSyncTimer=0, __fbSyncRunning=false, __fbSyncPending=false, __fbRetryTimer=0;
 var __fbMuting=false;   /* 동기화 자신이 하는 저장(플래그·복원 적용)의 재큐잉 방지 */
@@ -6500,7 +6506,9 @@ function fbWatchStart(conn){
     var meta=(sn.exists()&&sn.data()&&sn.data().ver==='v3')?sn.data():null;
     if(!meta||!meta.savedAt||meta.savedAt===S.fbLastSync) return;
     __fbWatchBusy=true;
-    fbPullApply(conn).then(function(r){ fbLogSync('pull',r.got,'다른 컴퓨터 수정 실시간 반영'); showToast('다른 컴퓨터의 최신본 반영 — 상품 '+r.got+'건','success'); })
+    fbDeltaApply(conn,meta).then(function(r){ if(r) return r; return fbPullApply(conn); })
+      .then(function(r){ if(r&&r.delta){ fbLogSync('pull',r.got+r.del,'다른 컴퓨터 수정 실시간 반영 (변경분 '+r.got+' · 삭제 '+r.del+')'); showToast('다른 컴퓨터 수정 반영 — 변경 '+r.got+'건'+(r.del?' · 삭제 '+r.del+'건':''),'success'); }
+        else { fbLogSync('pull',r.got,'다른 컴퓨터 수정 실시간 반영'); showToast('다른 컴퓨터의 최신본 반영 — 상품 '+r.got+'건','success'); } })
       .catch(function(e){ __fbState='err'; __fbErrMsg=String((e&&e.message)||e); renderSaveChip(); })
       .finally(function(){ __fbWatchBusy=false; });
   },function(){}); }catch(e){}
@@ -6519,7 +6527,8 @@ function fbDocsMap(plan){
   var m={};
   plan.items.forEach(function(it){ m[FB_ROOT+'/'+it.big+'/'+it.sub+'/'+it.id]=JSON.stringify(it.data); });
   plan.tree.forEach(function(tb){ m[FB_ROOT+'/'+tb.id]=JSON.stringify({ name:tb.name, order:tb.order, dept:tb.dept,
-    subs:tb.subs.map(function(s){ return {id:s.id,name:s.name,order:s.order,count:s.count}; }) }); });
+    subs:tb.subs.map(function(s){ return {id:s.id,name:s.name,order:s.order,count:s.count}; }) });
+    tb.subs.forEach(function(s){ m[FB_ROOT+'/_ORDERS/'+tb.id+'/'+s.id]=JSON.stringify({ ids:s.ids||[] }); }); });
   (S.stores||[]).forEach(function(nm,ix){ var sid=fbNorm(nm)||('S'+ix); m[FB_STORE+'/'+sid]=JSON.stringify({name:nm,order:ix}); });
   m[FB_ROOT+'/_FIELDS']=JSON.stringify({ list: fbClean(masterLayoutOf(S)||[]) });
   var ck=fbConfigChunks(S);
@@ -6585,10 +6594,11 @@ async function fbSyncRun(){
       return;
     }
     if(plan.errs.length){ __fbState='err'; __fbErrMsg=plan.errs[0]; return; }
-    if(!SYNC_NO_GATES&&plan.total===0&&((meta&&meta.total>0)||(__fbLast&&Object.keys(__fbLast).some(function(k){return k.split('/').length===4;})))){
+    if(!SYNC_NO_GATES&&plan.total===0&&((meta&&meta.total>0)||(__fbLast&&Object.keys(__fbLast).some(function(k){return k.split('/').length===4&&k.indexOf(FB_ROOT+'/_ORDERS/')!==0;})))){
       __fbState='hold'; return; /* 전체 0건은 자동 전송 금지 — 실수로 Firebase 를 비우는 사고 방지 */
     }
     var m=fbDocsMap(plan), writes=[], dels=[], k;
+    var __fbLastWasDiff=(__fbLast!=null), __fbLastSnap=__fbLast||{};
     if(__fbLast==null){ dels=await fbListStale(conn,plan,m,meta); for(k in m) writes.push(k); }
     else{
       for(k in m){ if(__fbLast[k]!==m[k]) writes.push(k); }
@@ -6605,6 +6615,10 @@ async function fbSyncRun(){
     for(var wi=0;wi<writes.length;wi++){ var rw=M.fs.doc.apply(null,[db].concat(writes[wi].split('/'))), dd=JSON.parse(m[writes[wi]]); await op((function(r2,d2){ return function(b){ b.set(r2,d2); }; })(rw,dd)); }
     await flush();
     var newMeta=fbMetaOf(plan,m);
+    /* [속도 2026-10-02 · 변경분 동기화] 이번 전송에서 바뀐 문서 목록을 _META 에 같이 기록 → 다른 컴퓨터는 전체(수천 건) 재다운로드 대신 바뀐 문서만 가져온다 */
+    if(__fbLastWasDiff&&S.fbLastSync&&(writes.length+dels.length)<=FB_DELTA_MAX){
+      newMeta.delta={ base:S.fbLastSync, w:writes.slice(), d:dels.map(function(p){ var id=''; try{ var o=JSON.parse(__fbLastSnap[p]||'null'); id=(o&&o.r&&o.r.id)?String(o.r.id):''; }catch(e){} return {p:p,id:id}; }) };
+    }
     await M.fs.setDoc(M.fs.doc(db,FB_ROOT,'_META'),newMeta);
     __fbLast=m;
     __fbMuting=true; S.fbLastSync=newMeta.savedAt; S.dirtySinceSync=false; saveState(); __fbMuting=false;
@@ -6618,6 +6632,14 @@ async function fbSyncRun(){
     __fbSyncRunning=false; renderSaveChip();
     if(__fbSyncPending){ __fbSyncPending=false; fbSyncQueue(400); }
   }
+}
+/* 행 순서: _ORDERS 문서(id 목록)가 있으면 그 순서, 없으면(이전 기록) 상품 문서의 order 값 */
+function fbSortByOrder(rows,ordSnap){
+  var ids=(ordSnap&&ordSnap.exists&&ordSnap.exists()&&ordSnap.data()&&Array.isArray(ordSnap.data().ids))?ordSnap.data().ids:null;
+  if(ids&&ids.length){ var pos={}; ids.forEach(function(id,i){ pos[id]=i; }); var n=ids.length;
+    rows.forEach(function(r,i){ var k=(r.r&&r.r.id!=null)?String(r.r.id):''; r.__o=(pos[k]!=null)?pos[k]:(n+(r.order||0)); r.__i=i; });
+    rows.sort(function(a,c){ return (a.__o-c.__o)||(a.__i-c.__i); }); rows.forEach(function(r){ delete r.__o; delete r.__i; }); }
+  else rows.sort(function(a,c){ return (a.order||0)-(c.order||0); });
 }
 /* Firebase 전체 읽기 (복원·자동 불러오기 공용) */
 async function fbReadAll(conn){
@@ -6634,10 +6656,10 @@ async function fbReadAll(conn){
   var st=fbConfigJoin(chunks,fmt), got=0, mismatch=[];
   /* [속도 2026-10-01] 소분류별 읽기를 순차 → 동시 요청 */
   var jobs=[];
-  (meta.tree||[]).forEach(function(b){ (b.subs||[]).forEach(function(sb){ jobs.push(M.fs.getDocs(M.fs.collection(db,FB_ROOT,b.id,sb.id)).then(function(snap){ return {b:b,sb:sb,snap:snap}; })); }); });
+  (meta.tree||[]).forEach(function(b){ (b.subs||[]).forEach(function(sb){ jobs.push(Promise.all([ M.fs.getDocs(M.fs.collection(db,FB_ROOT,b.id,sb.id)), M.fs.getDoc(M.fs.doc(db,FB_ROOT,'_ORDERS',b.id,sb.id)).catch(function(){ return null; }) ]).then(function(rr){ return {b:b,sb:sb,snap:rr[0],ord:rr[1]}; })); }); });
   var res=await Promise.all(jobs);
   res.forEach(function(x){ var b=x.b, sb=x.sb, rows=[]; x.snap.forEach(function(d){ var dd=d.data(); if(dd&&dd.r) rows.push(dd); });
-    rows.sort(function(a,c){ return (a.order||0)-(c.order||0); });
+    fbSortByOrder(rows,x.ord);
     if(!st.data[b.name]) st.data[b.name]={};
     st.data[b.name][sb.name]=rows.map(function(x2){ return x2.r; });
     got+=rows.length;
@@ -6662,23 +6684,26 @@ function fbMergeByTime(remote){
   function rowKey(big,sub,r){ var v=r.v||{}, upc=(v.ITEM_PLU!=null&&v.ITEM_PLU!=='')?v.ITEM_PLU:v.PLU, code=v.VENDER_ITEM_CODE; return (code!=null&&String(code).trim()!=='')?trashCatKey(big,sub,upc,code):null; }
   (S.tabs||[]).forEach(function(t){
     var big=t.label, rdm=remote.data[big]; if(!rdm) return; /* CLOUD 에 없는 대분류는 손대지 않음 */
-    var rPos={}; for(var sb in rdm){ (rdm[sb]||[]).forEach(function(r,ix){ if(r&&r.id) rPos[r.id]={sub:sb,ix:ix,row:r}; }); }
-    var ldm=S.data[big]||{};
+    /* [속도 2026-10-02] splice 반복(O(n²)) 대신 교체 표시 후 한 번에 재구성 — 12k 행 전부 더 최근일 때 27초 → 1초 미만 */
+    var rPos={}; for(var sb in rdm){ (rdm[sb]||[]).forEach(function(r){ if(r&&r.id) rPos[r.id]={sub:sb,row:r}; }); }
+    var ldm=S.data[big]||{}, drop={}, add={};
     for(var ls in ldm){ (ldm[ls]||[]).forEach(function(r){
       if(!r||!r.id) return;
       var hit=rPos[r.id];
       if(hit){
         var lm=String(r.m||''), rm=String(hit.row.m||'');
         if(lm>rm){ /* 이 컴퓨터가 더 최근 → 이 컴퓨터 행으로 교체 (소분류도 이 컴퓨터 기준) */
-          rdm[hit.sub].splice(hit.ix,1); for(var k2 in rPos){ if(rPos[k2].sub===hit.sub&&rPos[k2].ix>hit.ix) rPos[k2].ix--; }
-          if(!rdm[ls]) rdm[ls]=[]; rdm[ls].push(r); rPos[r.id]={sub:ls,ix:rdm[ls].length-1,row:r}; newer++;
+          drop[r.id]=1; (add[ls]=add[ls]||[]).push(r); newer++;
         }
         return;
       }
       var rk=rowKey(big,ls,r), lm2=String(r.m||'');
       if(rk&&rTrash[rk]&&rTrash[rk]>lm2) return; /* 다른 컴퓨터가 더 최근에 삭제 */
-      if(!rdm[ls]) rdm[ls]=[]; rdm[ls].push(r); rPos[r.id]={sub:ls,ix:rdm[ls].length-1,row:r}; kept++;
+      (add[ls]=add[ls]||[]).push(r); kept++;
     }); }
+    var hasDrop=false; for(var dk in drop){ hasDrop=true; break; }
+    if(hasDrop){ for(var sbd in rdm){ rdm[sbd]=(rdm[sbd]||[]).filter(function(r){ return !(r&&r.id&&drop[r.id]); }); } }
+    for(var sa in add){ if(!rdm[sa]) rdm[sa]=[]; Array.prototype.push.apply(rdm[sa],add[sa]); }
     /* 이 컴퓨터에서 삭제한 행: CLOUD 의 같은 행이 삭제 시각 이후에 편집되지 않았으면 CLOUD 에서도 제거 */
     for(var sb2 in rdm){ var arr=rdm[sb2]; for(var i=arr.length-1;i>=0;i--){ var rr=arr[i]; if(!rr) continue; var k3=rowKey(big,sb2,rr); if(k3&&lTrash[k3]&&lTrash[k3]>String(rr.m||'')){ arr.splice(i,1); removed++; } } }
     var rt=null; (remote.tabs||[]).forEach(function(x){ if(x.label===big) rt=x; });
@@ -6690,6 +6715,62 @@ function fbMergeByTime(remote){
   var seenH={}; var allH=(remote.history||[]).concat(S.history||[]).filter(function(e){ var k=[e.at,e.type,e.big,e.sub,e.by].join('|'); if(seenH[k]) return false; seenH[k]=1; return true; });
   allH.sort(function(a,b){ return String(a.at||'')<String(b.at||'')?-1:1; }); remote.history=allH.slice(-HIST_MAX);
   return {kept:kept,newer:newer,removed:removed};
+}
+/* [속도 2026-10-02 · 변경분 반영] _META.delta 가 이 컴퓨터의 마지막 동기화 지점(base)과 이어지면 바뀐 문서만 가져와 적용.
+   조건이 안 맞으면(전송 안 된 수정이 있거나, 중간 기록을 건너뛴 경우) false → 전체 반영(fbPullApply)으로 */
+async function fbDeltaApply(conn,meta){
+  if(!S||!meta||!meta.delta||!meta.delta.base||meta.delta.base!==S.fbLastSync) return false;
+  if(S.dirtySinceSync) return false; /* 이 컴퓨터에 전송 안 된 수정이 있으면 시각 기준 합치기(전체 반영)로 */
+  var M=conn.M, db=conn.db, d=meta.delta, w=d.w||[], dl=d.d||[];
+  if(w.length+dl.length>FB_DELTA_MAX) return false;
+  var nameOf={}; (meta.tree||[]).forEach(function(b){ nameOf[b.id]=b.name; (b.subs||[]).forEach(function(s2){ nameOf[b.id+'/'+s2.id]=s2.name; }); });
+  var cfgChanged=false, itemPaths=[], orderPaths=[];
+  w.forEach(function(p){ var seg=p.split('/'); if(seg.length===4&&seg[0]===FB_ROOT&&seg[1]==='_ORDERS') orderPaths.push(seg); else if(seg.length===4&&seg[0]===FB_ROOT) itemPaths.push(seg); else cfgChanged=true; });
+  dl.forEach(function(x){ var seg=String(x.p||'').split('/'); if(seg.length===4&&seg[0]===FB_ROOT&&seg[1]==='_ORDERS') return; if(!(seg.length===4&&seg[0]===FB_ROOT)) cfgChanged=true; });
+  /* 1) 설정(필드·TRASH·히스토리·탭 등) 바뀌었으면 설정 문서만 다시 읽어 교체 (상품 데이터는 그대로) */
+  var st=null;
+  if(cfgChanged){
+    var chunks=[], fmt='JS';
+    for(var pI=0;pI<(meta.configParts||1);pI++){ var id=pI===0?'_CONFIG':('_CONFIG__P'+(pI+1)); var cs=await M.fs.getDoc(M.fs.doc(db,FB_ROOT,id)); if(!cs.exists()) return false; fmt=cs.data().fmt||'JS'; chunks.push(cs.data().d||''); }
+    try{ st=fbConfigJoin(chunks,fmt); }catch(e){ return false; }
+    var stSnap=await M.fs.getDocs(M.fs.collection(db,FB_STORE)); var stArr=[]; stSnap.forEach(function(d2){ var dd=d2.data(); if(dd&&dd.name) stArr.push(dd); });
+    if(stArr.length){ stArr.sort(function(a,c){ return (a.order||0)-(c.order||0); }); st.stores=stArr.map(function(x){ return x.name; }); }
+  }
+  /* 2) 바뀐 상품 문서만 읽기 (동시 요청) */
+  var docs=await Promise.all(itemPaths.map(function(seg){ return M.fs.getDoc(M.fs.doc(db,seg[0],seg[1],seg[2],seg[3])).then(function(sn){ return {seg:seg,sn:sn}; }); }));
+  var ords=await Promise.all(orderPaths.map(function(seg){ return M.fs.getDoc(M.fs.doc(db,seg[0],seg[1],seg[2],seg[3])).then(function(sn){ return {seg:seg,sn:sn}; }); }));
+  __fbMuting=true;
+  try{
+    if(st){ for(var k in st){ if(k==='data'||k==='ui'||k==='fbLastSync'||k==='dirtySinceSync'||k==='syncLog'||k==='dirtyAt'||k==='seeded') continue; S[k]=st[k]; }
+      (S.tabs||[]).forEach(function(t){ if(!S.data[t.label]) S.data[t.label]={}; (t.subs||[]).forEach(function(sb){ if(!Array.isArray(S.data[t.label][sb])) S.data[t.label][sb]=[]; }); }); }
+    /* 행 id → 위치 인덱스 (대분류별) */
+    var pos={}; (S.tabs||[]).forEach(function(t){ var dm=S.data[t.label]||{}; for(var sb in dm){ (dm[sb]||[]).forEach(function(r){ if(r&&r.id) pos[t.label+'\u0000'+r.id]={big:t.label,sub:sb,row:r}; }); } });
+    function removeRow(big,id){ var hit=pos[big+'\u0000'+id]; if(!hit) return; var arr=(S.data[big]||{})[hit.sub]||[]; var ix=arr.indexOf(hit.row); if(ix>=0) arr.splice(ix,1); delete pos[big+'\u0000'+id]; }
+    var got=0, touched={};
+    docs.forEach(function(x){ var seg=x.seg, bigName=nameOf[seg[1]], subName=nameOf[seg[1]+'/'+seg[2]]; if(!bigName||!subName) return;
+      var dd=x.sn.exists()?x.sn.data():null; if(!dd||!dd.r||!dd.r.id) return;
+      var r=dd.r; touched[bigName]=1;
+      var t=null; for(var ti=0;ti<S.tabs.length;ti++){ if(S.tabs[ti].label===bigName){ t=S.tabs[ti]; break; } }
+      if(!t){ t={label:bigName,subs:[]}; S.tabs.push(t); }
+      if(t.subs.indexOf(subName)<0) t.subs.push(subName);
+      if(!S.data[bigName]) S.data[bigName]={}; if(!Array.isArray(S.data[bigName][subName])) S.data[bigName][subName]=[];
+      var hit=pos[bigName+'\u0000'+r.id];
+      if(hit&&hit.sub===subName){ hit.row.v=r.v||{}; hit.row.sv=r.sv||{}; hit.row.m=r.m||''; }
+      else { if(hit) removeRow(bigName,r.id); var nr={id:String(r.id),v:r.v||{},sv:r.sv||{},m:r.m||''}; S.data[bigName][subName].push(nr); pos[bigName+'\u0000'+r.id]={big:bigName,sub:subName,row:nr}; }
+      got++; });
+    dl.forEach(function(x){ var seg=String(x.p||'').split('/'); if(seg.length!==4||!x.id||seg[1]==='_ORDERS') return; var bigName=nameOf[seg[1]]; if(!bigName) return; touched[bigName]=1; removeRow(bigName,String(x.id)); });
+    /* 행 순서 문서: 그 소분류 행을 id 목록 순서로 재배열 */
+    ords.forEach(function(x){ var bigName=nameOf[x.seg[2]], subName=nameOf[x.seg[2]+'/'+x.seg[3]]; if(!bigName||!subName) return; var arr=(S.data[bigName]||{})[subName]; if(!Array.isArray(arr)) return;
+      var ids=(x.sn.exists()&&x.sn.data()&&Array.isArray(x.sn.data().ids))?x.sn.data().ids:null; if(!ids) return; var pos={}; ids.forEach(function(id,i){ pos[id]=i; }); var n=ids.length;
+      arr.forEach(function(r,i){ r.__o=(pos[r.id]!=null)?pos[r.id]:n+i; }); arr.sort(function(a,c){ return a.__o-c.__o; }); arr.forEach(function(r){ delete r.__o; }); touched[bigName]=1; });
+    for(var bg in touched){ if(SUB_BY_VENDER) syncSubsByVender(S,bg); if(typeof calcAll==='function') calcAll(bg); }
+    S.fbLastSync=meta.savedAt||null; S.dirtySinceSync=false;
+    saveState();
+  } finally { __fbMuting=false; }
+  renderAll();
+  __fbLast=fbDocsMap(fbBuildPlan(S));
+  __fbState='ok'; renderSaveChip();
+  return { got:got, del:dl.length, delta:true };
 }
 async function fbPullApply(conn){
   var r=await fbReadAll(conn);
@@ -6747,9 +6828,16 @@ async function fbAutoStart(){
     } else {
       /* [원칙 2026-10-01 확정] 열 때는 무조건 CLOUD 의 최신 기록을 가져온다 — 이 컴퓨터 사본보다 CLOUD 가 기준.
          (UPC: 이 컴퓨터에만 있던 행은 버리지 않고 합쳐서 CLOUD 로 전송 — fbMergeLocalOnly) */
-      var r0=await fbPullApply(conn);
-      fbLogSync('pull',r0.got,'시작 시 CLOUD 데이터 가져오기'+(r0.kept?' · 이 컴퓨터 추가분 '+r0.kept+'건 합침':''));
-      showToast('CLOUD 데이터 불러오기 — 상품 '+r0.got+'건'+(r0.kept?' (이 컴퓨터 추가분 '+r0.kept+'건 합침)':''),'success');
+      var r0=null;
+      if(meta.savedAt===S.fbLastSync&&!S.dirtySinceSync&&localRows>0&&(meta.total==null||meta.total===localRows)){ /* 이 컴퓨터 사본 = CLOUD 마지막 기록과 동일 계보(기록 시각·건수 일치) → 받을 변경 없음 (CLOUD 기준 그대로). 하나라도 다르면 아래에서 다시 받음 */
+        __fbLast=fbDocsMap(fbBuildPlan(S)); __fbState='ok'; fbLogSync('pull',0,'시작 시 CLOUD 확인 — 변경 없음(동일 기록)'); showToast('CLOUD 확인 — 최신 상태 (상품 '+localRows+'건)','success');
+      } else {
+        r0=await fbDeltaApply(conn,meta); /* 마지막 동기화 지점과 이어지면 바뀐 문서만 */
+        if(r0){ fbLogSync('pull',r0.got+r0.del,'시작 시 CLOUD 변경분 반영 (변경 '+r0.got+' · 삭제 '+r0.del+')'); showToast('CLOUD 변경분 반영 — 변경 '+r0.got+'건'+(r0.del?' · 삭제 '+r0.del+'건':''),'success'); }
+        else { r0=await fbPullApply(conn);
+          fbLogSync('pull',r0.got,'시작 시 CLOUD 데이터 가져오기'+(r0.kept?' · 이 컴퓨터 추가분 '+r0.kept+'건 합침':''));
+          showToast('CLOUD 데이터 불러오기 — 상품 '+r0.got+'건'+(r0.kept?' (이 컴퓨터 추가분 '+r0.kept+'건 합침)':''),'success'); }
+      }
     }
     fbWatchStart(conn);
   }catch(e){ __fbState='err'; __fbErrMsg=String((e&&(e.code||e.message))||e); if(__fbBooting) showToast('CLOUD 불러오기 실패 — '+__fbErrMsg+' (이 컴퓨터 사본으로 표시, 저장 칩 클릭으로 재시도)','error'); }
