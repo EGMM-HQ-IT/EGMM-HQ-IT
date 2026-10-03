@@ -5391,6 +5391,8 @@ function renderSaveChip(){ /* [MODULE 26] FB 동기화 상태 표시로 전환 (
   if(fb.cls) c.classList.add(fb.cls);
   c.textContent=fb.text+((fb.cls==='ok'||fb.text.indexOf('동기화됨')>=0)?t:'');
   c.title=fb.title||'';
+  /* [2026-10-02] EGMM 프레임 안에서는 칩을 숨기고 EGMM 의 USER 박스로 상태를 보냄 */
+  if(window.parent&&window.parent!==window){ c.style.display='none'; try{ window.parent.postMessage({ plu:'syncChip', app:APP_MODE, text:c.textContent, cls:fb.cls||'', title:fb.title||'' },'*'); }catch(e){} }
 }
 function saveChipClick(){ /* [MODULE 26] 칩 = FB 동기화 제어 (파일 재연결 없음) */
   __lsFlush();
@@ -7225,6 +7227,7 @@ function __announceMenu(){ try{ if(window.parent && window.parent!==window) wind
 window.addEventListener('message', function(e){
   var d=e.data||{};
   if(d.plu==='getMenu') __announceMenu();
+  else if(d.plu==='syncClick'){ try{ saveChipClick(); }catch(err){} }
   else if(d.plu==='run' && d.id){ try{ window.__pluMenuRun(String(d.id)); }catch(err){ console.error('[PLU 메뉴 실행 실패]', err); } }
 });
 if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded',function(){ init(); __announceMenu(); },{once:true}); }

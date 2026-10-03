@@ -2329,9 +2329,12 @@
   .eg-sys-label { font-family: var(--serif); font-weight: 800; font-size: 12px; letter-spacing: .08em; color: var(--text-faint); margin-right: 4px; }
   .eg-sys-btn { padding: 6px 11px; font-size: 12px; }
   .eg-userbox .eg-user-row { display: flex; align-items: baseline; gap: 8px; font-size: 12px; padding: 3px 2px; }
-  .eg-userbox .eg-user-row .k { flex: 0 0 48px; font-size: 10.5px; font-weight: 800; letter-spacing: .06em; color: var(--text-faint); }
+  .eg-userbox .eg-user-row .k { flex: 0 0 68px; font-size: 10.5px; font-weight: 800; letter-spacing: .06em; color: var(--text-faint); }
   .eg-userbox .eg-user-row .v { flex: 1; font-weight: 700; color: var(--text); word-break: break-all; }
-  .eg-userbox .eg-user-sync { font-size: 11px; color: var(--text-dim); padding-left: 58px; white-space: pre-line; line-height: 1.45; }
+  .eg-cloud-row { cursor: pointer; border-radius: 6px; } .eg-cloud-row:hover { background: var(--bg); }
+  .eg-cloud-row .v.ok { color: #1e7a46; } .eg-cloud-row .v.need { color: #b7791f; } .eg-cloud-row .v.err { color: #9C3327; }
+  /* [2026-10-02] 메인메뉴 버튼 세로 크기 통일 (PLU LIST 기준 · 한 줄) */
+  .egmm-menu-btn { height: 38px; box-sizing: border-box; } .egmm-menu-btn .mlab { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
   .eg-userbox .eg-user-btns { display: flex; gap: 5px; margin-top: 8px; }
   .eg-user-btn { flex: 1; min-width: 0; border: 1px solid var(--border); background: var(--bg-elev); color: var(--text-dim); border-radius: 9px; padding: 7px 2px; font: inherit; font-size: 10.5px; font-weight: 800; cursor: pointer; white-space: nowrap; }
   .eg-user-btn:hover { border-color: var(--accent-warm); color: var(--text); }
@@ -2912,9 +2915,8 @@
     <div class="egmm-card-head"><span class="egmm-card-tick"></span><span class="egmm-card-name">USER</span></div>
     <div class="eg-user-row"><span class="k">NAME</span><span class="v" id="egUserName">—</span></div>
     <div class="eg-user-row"><span class="k">ID</span><span class="v" id="egUserId">—</span></div>
-    <div class="eg-user-row"><span class="k">RANK</span><span class="v" id="egUserRank">—</span></div>
-    <div class="eg-user-row"><span class="k">CLOUD</span><span class="v" id="egCloudState">연결 확인 중…</span></div>
-    <div class="eg-user-row eg-user-sync" id="egCloudSync"></div>
+    <div class="eg-user-row"><span class="k">PERMISSION</span><span class="v" id="egUserRank">—</span></div>
+    <div class="eg-user-row eg-cloud-row" id="egCloudRow" title="클릭: 지금 즉시 동기화 / 재시도"><span class="k">CLOUD</span><span class="v" id="egCloudState">연결 확인 중…</span></div>
     <div class="eg-user-btns">
       <button class="eg-user-btn" id="egThemeBtn" type="button" title="화면 모드 전환 (DAY / NIGHT)">🌙 NIGHT</button>
       <button class="eg-user-btn" id="egmmExitBtn" type="button" title="처음 화면으로">⌂ HOME</button>
@@ -3522,12 +3524,11 @@
       $('egUserRank').textContent=[(typeof u.level==='number')?('LV-'+u.level):'',u.rank||'',perm].filter(Boolean).join(' · ')||'—'; }
     fillUser(); setTimeout(fillUser,800); setTimeout(fillUser,3000);
     var lb=$('egLogoutBtn'); if(lb) lb.onclick=function(){ ['egmmGate','egmmUser','egmmAuth','egmmAccessAuth'].forEach(function(k){ try{ sessionStorage.removeItem(k); }catch(e){} }); location.reload(); };
-    function fmt(iso){ var d=new Date(iso); if(isNaN(d)) return String(iso||'').slice(0,16); var p=function(n){ return (n<10?'0':'')+n; }; return p(d.getMonth()+1)+'/'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }
-    var last={};
-    function renderSync(){ var parts=[]; ['UPC-LIST','PLU-LIST'].forEach(function(r){ if(last[r]) parts.push((r==='UPC-LIST'?'UPC':'PLU')+' 최근 기록 '+fmt(last[r].savedAt)+(last[r].total!=null?' · '+Number(last[r].total).toLocaleString('en-US')+'건':'')+(last[r].pack?' · 압축':'')); }); $('egCloudSync').textContent=parts.join('\n'); }
-    if(window.EgmmFB){ window.EgmmFB.ready.then(function(fb){ $('egCloudState').textContent='연결됨 (DB '+(window.EgmmFB.dbId||'')+')';
-        ['UPC-LIST','PLU-LIST'].forEach(function(r){ try{ fb.onSnapshot(fb.doc(fb.db,r,'_META'),function(sn){ var d=(sn.exists()&&sn.data())?sn.data():null; if(d&&d.savedAt){ last[r]={savedAt:d.savedAt,total:d.total,pack:!!d.pack}; renderSync(); } },function(){}); }catch(e){} });
-      }).catch(function(){ $('egCloudState').textContent='CLOUD 설정 없음'; }); }
+    /* CLOUD 동기화 상태: 열려 있는 PLU/UPC MANAGER 가 보내는 칩 상태를 표시 (매니저 안의 칩은 숨김). 클릭 → 그 매니저에 즉시 동기화 요청 */
+    var __syncSrc=null;
+    window.addEventListener('message',function(e){ var d=e.data||{}; if(d.plu!=='syncChip') return; __syncSrc=e.source; var v=$('egCloudState'); if(!v) return; v.textContent=(d.app==='UPC'?'UPC · ':'PLU · ')+String(d.text||''); v.className='v '+(d.cls||''); v.title=d.title||''; });
+    var cr=$('egCloudRow'); if(cr) cr.onclick=function(){ if(__syncSrc){ try{ __syncSrc.postMessage({plu:'syncClick'},'*'); }catch(e){} } };
+    if(window.EgmmFB){ window.EgmmFB.ready.then(function(){ if($('egCloudState').textContent==='연결 확인 중…') $('egCloudState').textContent='연결됨'; }).catch(function(){ $('egCloudState').textContent='CLOUD 설정 없음'; }); }
     else $('egCloudState').textContent='CLOUD 모듈 없음';
   })();
   applyTheme(curTheme());
