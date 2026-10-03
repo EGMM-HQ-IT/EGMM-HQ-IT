@@ -3252,11 +3252,11 @@ function openFieldTextOp(f,op){
     if(op==='del'){ if(!a) return null; var re=new RegExp(__reEsc(a),'g'); return function(cur){ if(cur.indexOf(a)<0) return null; return cur.replace(re,'').replace(/\s{2,}/g,' ').trim(); }; }
     if(op==='rep'){ if(!a) return null; var re2=new RegExp(__reEsc(a),'g'); return function(cur){ if(cur.indexOf(a)<0) return null; return cur.replace(re2,b); }; }
     return function(cur){ return a; }; }
-  function prev(){ var fn=mk(); $('fmPrev').textContent=fn?('변경 예정: '+__fmCount(f,rows,fn)+'행 / '+rows.length+'행'):'문자를 입력하세요'; }
+  function prev(){ var fn=mk(); var c=fn?__fmCount(f,rows,fn):0; $('fmPrev').textContent=fn?('변경 예정: '+c+'행 / '+rows.length+'행'):'문자를 입력하세요'; $('fmGo').textContent=c?('실행 ('+c+'행)'):'실행'; }
   ['fmA','fmB'].forEach(function(id){ if($(id)){ $(id).oninput=prev; $(id).onkeydown=function(ev){ if(ev.key==='Enter') $('fmGo').click(); if(ev.key==='Escape') __fbClose('fmOv'); }; } }); prev();
   $('fmCancel').onclick=function(){ __fbClose('fmOv'); };
-  $('fmGo').onclick=async function(){ var fn=mk(); if(!fn){ showToast('문자를 입력하세요','error'); return; } var cnt=__fmCount(f,rows,fn); if(!cnt){ showToast('변경될 행이 없습니다','error'); return; }
-    if(!(await uiConfirm(title+' — "'+(f.label||f.key)+'"\n'+scope+' 중 '+cnt+'행이 바뀝니다. 진행할까요?',title))) return;
+  $('fmGo').onclick=function(){ var fn=mk(); if(!fn){ showToast('문자를 입력하세요','error'); return; } var cnt=__fmCount(f,rows,fn); if(!cnt){ showToast('변경될 행이 없습니다','error'); return; }
+    /* [2026-10-02] 이 팝업에서 바로 실행 — 별도 확인 팝업 없음(변경 행 수는 버튼에 표시) */
     var a=$('fmA')?$('fmA').value:''; __fbClose('fmOv'); var n=__fmApply(f,rows,fn,title+' "'+a+'"'); showToast(title+' — '+n+'행 변경','success'); };
 }
 /* SRP 가격 생성: COST 기준 마진 % + 끝자리(.29 .49 .79 .99) 선택 → 계산값 이상인 가장 가까운 끝자리 가격 */
@@ -3287,11 +3287,10 @@ function openSrpGen(f){
   function readOpt(){ __srpOpt.margin=parseFloat($('srpM').value)||0; __srpOpt.base=(ov.querySelector('input[name=srpBase]:checked')||{}).value||'price'; __srpOpt.ends={}; Array.prototype.forEach.call(ov.querySelectorAll('.srpE'),function(c){ __srpOpt.ends[c.value]=c.checked; }); __srpOpt.onlyEmpty=$('srpEmpty').checked; }
   function fn(cur,r){ if(__srpOpt.onlyEmpty&&String(cur).trim()!=='') return null; var v=srpCalc(getCell(r,cf,S.curStore),__srpOpt); return v==null?null:v.toFixed(2); }
   function prev(){ readOpt(); var cnt=__fmCount(f,rows,fn), ex=[]; for(var i=0;i<rows.length&&ex.length<3;i++){ var c=getCell(rows[i],cf,S.curStore); var v=srpCalc(c,__srpOpt); if(v!=null) ex.push('COST '+c+' → SRP '+v.toFixed(2)); }
-    $('srpPrev').textContent='변경 예정: '+cnt+'행 / '+rows.length+'행'+(ex.length?'\n예: '+ex.join(' · '):''); }
+    $('srpPrev').textContent='변경 예정: '+cnt+'행 / '+rows.length+'행'+(ex.length?'\n예: '+ex.join(' · '):''); $('srpGo').textContent=cnt?('생성 ('+cnt+'행)'):'생성'; }
   Array.prototype.forEach.call(ov.querySelectorAll('input'),function(i){ i.oninput=prev; i.onchange=prev; }); prev();
   $('srpCancel').onclick=function(){ __fbClose('srpOv'); };
-  $('srpGo').onclick=async function(){ readOpt(); var cnt=__fmCount(f,rows,fn); if(!cnt){ showToast('변경될 행이 없습니다 (COST 확인)','error'); return; }
-    if(!(await uiConfirm('SRP 가격 생성 — 마진 '+__srpOpt.margin+'% ('+(__srpOpt.base==='cost'?'원가 기준':'판매가 기준')+') · 끝자리 '+Object.keys(__srpOpt.ends).filter(function(k){ return __srpOpt.ends[k]; }).map(function(k){ return k.slice(1); }).join(' ')+'\n'+scope+' 중 '+cnt+'행의 SRP 가 바뀝니다. 진행할까요?','SRP 가격 생성'))) return;
+  $('srpGo').onclick=function(){ readOpt(); var cnt=__fmCount(f,rows,fn); if(!cnt){ showToast('변경될 행이 없습니다 (COST 확인)','error'); return; }
     __fbClose('srpOv'); var n=__fmApply(f,rows,fn,'SRP 생성 마진 '+__srpOpt.margin+'%'); showToast('SRP 생성 — '+n+'행','success'); };
 }
 function openDataEdit(){
