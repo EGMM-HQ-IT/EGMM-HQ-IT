@@ -2324,6 +2324,18 @@
   .eg-top-msg.alarm { border-color: #9C3327; color: #9C3327; }
   .eg-top-msg .egmm-chat-alarm-dot { display: none; }
   .eg-top-msg.alarm .egmm-chat-alarm-dot { display: inline-block; }
+  /* [2026-10-02] 상단 SYSTEM 메뉴 · 접속자 박스 */
+  .eg-sys-row { flex-wrap: wrap; gap: 6px; }
+  .eg-sys-label { font-family: var(--serif); font-weight: 800; font-size: 12px; letter-spacing: .08em; color: var(--text-faint); margin-right: 4px; }
+  .eg-sys-btn { padding: 6px 11px; font-size: 12px; }
+  .eg-userbox .eg-user-row { display: flex; align-items: baseline; gap: 8px; font-size: 12px; padding: 3px 2px; }
+  .eg-userbox .eg-user-row .k { flex: 0 0 48px; font-size: 10.5px; font-weight: 800; letter-spacing: .06em; color: var(--text-faint); }
+  .eg-userbox .eg-user-row .v { flex: 1; font-weight: 700; color: var(--text); word-break: break-all; }
+  .eg-userbox .eg-user-sync { font-size: 11px; color: var(--text-dim); padding-left: 58px; white-space: pre-line; line-height: 1.45; }
+  .eg-userbox .eg-user-btns { display: flex; gap: 5px; margin-top: 8px; }
+  .eg-user-btn { flex: 1; min-width: 0; border: 1px solid var(--border); background: var(--bg-elev); color: var(--text-dim); border-radius: 9px; padding: 7px 2px; font: inherit; font-size: 10.5px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+  .eg-user-btn:hover { border-color: var(--accent-warm); color: var(--text); }
+  .eg-user-btn.danger:hover { border-color: #9C3327; color: #9C3327; }
   /* ── 본문: 사이드바 + 콘텐츠 ── */
   .eg-body { flex: 1; display: grid; grid-template-columns: 230px 1fr; min-height: 0; }
   .eg-side { min-height: 0; overflow-y: auto; padding: 12px 8px 16px; border-right: 1px solid var(--border);
@@ -2771,12 +2783,14 @@
     var SYSTEM_CODES={ 'MENU-ACCESS':1, 'MENU-STORE':1, 'MENU-DEPARTMENT':1, 'MENU-MENU':1, 'MENU-FUNCTION-CODE':1, 'MENU-VENDER':1 };
     function hideEmptyCards(){
       Array.prototype.forEach.call(document.querySelectorAll('.eg-side .egmm-card'), function(card){
+        if(card.classList.contains('eg-userbox')) return; /* 접속자 박스는 항상 표시 */
         var any=false;
         Array.prototype.forEach.call(card.querySelectorAll('.egmm-menu-btn'), function(b){
           if(b.style.display!=='none') any=true; });
         if(!any) card.style.display='none';
       });
     }
+    function hideSysRowIfEmpty(){ var row=document.getElementById('egSysRow'); if(!row) return; var any=false; Array.prototype.forEach.call(row.querySelectorAll('.eg-sys-btn'),function(b){ if(b.style.display!=='none') any=true; }); row.style.display=any?'':'none'; }
     function applyMenuPerms(){
       var user=null;
       try{ user=JSON.parse(sessionStorage.getItem('egmmAccessAuth')||'null'); }catch(e){}
@@ -2789,6 +2803,7 @@
           var b=document.getElementById(btnId); if(b) b.style.display='none';
         }
       });
+      hideSysRowIfEmpty();
       if(perms.indexOf('*')>=0){ hideEmptyCards(); return; }  // 전체 권한: SYSTEM 외 모두 표시
       if(!window.EgmmFB){ hideEmptyCards(); return; }
       window.EgmmFB.ready.then(function(fb){
@@ -2877,61 +2892,70 @@
    <div class="eg-topbar-brand">
      <div class="egmm-wordmark">EGMM<span class="dot">.</span></div>
    </div>
-   <div class="eg-topbar-actions">
-     <button class="eg-top-exit" id="egThemeBtn" type="button" title="화면 모드 전환 (DAY / NIGHT)">🌙 NIGHT</button>
-     <button class="eg-top-exit" id="egmmExitBtn" type="button">← 처음으로</button>
+   <!-- [2026-10-02] SYSTEM 메뉴 — 상단바 (LV-0 관리자에게만 표시) -->
+   <div class="eg-topbar-actions eg-sys-row" id="egSysRow">
+     <span class="eg-sys-label">SYSTEM</span>
+     <button class="eg-top-exit eg-sys-btn" id="egmmAccessBtn" type="button">ACCESS</button>
+     <button class="eg-top-exit eg-sys-btn" id="egmmStoreBtn" type="button">STORE</button>
+     <button class="eg-top-exit eg-sys-btn" id="egmmDeptBtn" type="button">DEPARTMENT</button>
+     <button class="eg-top-exit eg-sys-btn" id="egmmMenuMgrBtn" type="button">MENU</button>
+     <button class="eg-top-exit eg-sys-btn" id="egmmFuncCodeBtn" type="button">FUNCTION CODE</button>
+     <button class="eg-top-exit eg-sys-btn" id="egmmVenderBtn" type="button">VENDER</button>
    </div>
  </header>
  <div class="eg-body">
  <!-- 왼쪽 사이드바 -->
  <aside class="eg-side">
  <div class="egmm-cards">
-  <!-- 박스 0: SYSTEM (계정·마트·부서·메뉴·코드 관리 — Firestore egmm-hq-it/egmm) -->
-  <div class="egmm-card">
-    <div class="egmm-card-head"><span class="egmm-card-tick"></span><span class="egmm-card-name">SYSTEM</span></div>
-
-    <button class="egmm-menu-btn" id="egmmAccessBtn"><span class="egmm-menu-label mlab">ACCESS<small>아이디 · 비번 · 직급 · 권한 · 차단</small></span></button>
-    <button class="egmm-menu-btn" id="egmmStoreBtn"><span class="egmm-menu-label mlab">STORE<small>마트 생성 · 관리 (STORE-코드)</small></span></button>
-    <button class="egmm-menu-btn" id="egmmDeptBtn"><span class="egmm-menu-label mlab">DEPARTMENT<small>부서 생성 · 관리 (DEPT-코드)</small></span></button>
-    <button class="egmm-menu-btn" id="egmmMenuMgrBtn"><span class="egmm-menu-label mlab">MENU<small>메뉴 생성 · 권한 (MENU-코드)</small></span></button>
-    <button class="egmm-menu-btn" id="egmmFuncCodeBtn"><span class="egmm-menu-label mlab">FUNCTION CODE<small>직급 · 부서 · 메뉴 코드 관리</small></span></button>
-    <button class="egmm-menu-btn" id="egmmVenderBtn"><span class="egmm-menu-label mlab">VENDER<small>업체명 · 축약어 관리 (UPC MANAGER VENDER)</small></span></button>
+  <!-- [2026-10-02] 접속자 박스: 권한 · 이름 · 아이디 · CLOUD 동기화 · NIGHT · HOME · LOGOUT -->
+  <div class="egmm-card eg-userbox">
+    <div class="egmm-card-head"><span class="egmm-card-tick"></span><span class="egmm-card-name">USER</span></div>
+    <div class="eg-user-row"><span class="k">NAME</span><span class="v" id="egUserName">—</span></div>
+    <div class="eg-user-row"><span class="k">ID</span><span class="v" id="egUserId">—</span></div>
+    <div class="eg-user-row"><span class="k">RANK</span><span class="v" id="egUserRank">—</span></div>
+    <div class="eg-user-row"><span class="k">CLOUD</span><span class="v" id="egCloudState">연결 확인 중…</span></div>
+    <div class="eg-user-row eg-user-sync" id="egCloudSync"></div>
+    <div class="eg-user-btns">
+      <button class="eg-user-btn" id="egThemeBtn" type="button" title="화면 모드 전환 (DAY / NIGHT)">🌙 NIGHT</button>
+      <button class="eg-user-btn" id="egmmExitBtn" type="button" title="처음 화면으로">⌂ HOME</button>
+      <button class="eg-user-btn danger" id="egLogoutBtn" type="button" title="로그아웃">⏻ LOGOUT</button>
+    </div>
   </div>
 
   <!-- 박스 1: EGMM -->
   <div class="egmm-card">
     <div class="egmm-card-head"><span class="egmm-card-tick"></span><span class="egmm-card-name">MART</span></div>
 
-    <button class="egmm-menu-btn" id="egmmPluListBtn"><span class="egmm-menu-label mlab">PLU LIST<small>PLU 리스트</small></span><span class="egmm-menu-arrow eg-sub-arrow" aria-hidden="true">▾</span></button>
+    <button class="egmm-menu-btn" id="egmmPluListBtn"><span class="egmm-menu-label mlab">PLU LIST</span><span class="egmm-menu-arrow eg-sub-arrow" aria-hidden="true">▾</span></button>
     <div class="eg-submenu" id="egmmPluSub" hidden></div>
-    <button class="egmm-menu-btn" id="egmmUpcListBtn"><span class="egmm-menu-label mlab">UPC LIST / ITEM CODE<small>UPC 아이템 리스트</small></span><span class="egmm-menu-arrow eg-sub-arrow" aria-hidden="true">▾</span></button>
+    <button class="egmm-menu-btn" id="egmmUpcListBtn"><span class="egmm-menu-label mlab">UPC LIST / ITEM CODE</span><span class="egmm-menu-arrow eg-sub-arrow" aria-hidden="true">▾</span></button>
     <div class="eg-submenu" id="egmmUpcSub" hidden></div>
-    <button class="egmm-menu-btn" id="egmmItemAnalyzeMartBtn"><span class="egmm-menu-label mlab">ITEM ANALYZE<small>품목 분석 · 매장별 판매 · 업체별 비율</small></span></button>
-    <button class="egmm-menu-btn" id="egmmCategoryMgrBtn"><span class="egmm-menu-label mlab">CATEGORY MANAGER<small>PLU · UPC 카테고리 통합 관리 (상위 · 중간 · 하위)</small></span></button>
+    <button class="egmm-menu-btn" id="egmmItemAnalyzeMartBtn"><span class="egmm-menu-label mlab">ITEM ANALYZE</span></button>
+    <button class="egmm-menu-btn" id="egmmCategoryMgrBtn"><span class="egmm-menu-label mlab">CATEGORY MANAGER</span></button>
 
 
-    <button class="egmm-menu-btn" id="egmmCalendarBtn"><span class="egmm-menu-label mlab">CALENDAR<small>캘린더</small></span></button>
+    <button class="egmm-menu-btn" id="egmmCalendarBtn"><span class="egmm-menu-label mlab">CALENDAR</span></button>
 
-    <button class="egmm-menu-btn" id="egmmPurchaseBtn"><span class="egmm-menu-label mlab">DAILY PURCHASE<small>매입일지 보기</small></span></button>
+    <button class="egmm-menu-btn" id="egmmPurchaseBtn"><span class="egmm-menu-label mlab">DAILY PURCHASE</span></button>
   </div>
 
   <!-- 박스: ADVERTISING -->
   <div class="egmm-card">
     <div class="egmm-card-head"><span class="egmm-card-tick"></span><span class="egmm-card-name">ADVERTISING</span></div>
-    <button class="egmm-menu-btn" id="egmmAdListBtn"><span class="egmm-menu-label mlab">AD LIST MANAGER<small>광고상품 리스트 관리</small></span></button>
-    <button class="egmm-menu-btn" id="egmmWeeklyAdBtn"><span class="egmm-menu-label mlab">WEEKLY AD MANAGER<small>주간 광고지 등록·관리</small></span></button>
+    <button class="egmm-menu-btn" id="egmmAdListBtn"><span class="egmm-menu-label mlab">AD LIST MANAGER</span></button>
+    <button class="egmm-menu-btn" id="egmmWeeklyAdBtn"><span class="egmm-menu-label mlab">WEEKLY AD MANAGER</span></button>
   </div>
 
   <!-- 박스 2: ODP -->
   <div class="egmm-card">
     <div class="egmm-card-head"><span class="egmm-card-tick"></span><span class="egmm-card-name">ODP</span></div>
 
-    <button class="egmm-menu-btn" id="egmmOcrBtn"><span class="egmm-menu-label mlab">OCR<small>문서 인식</small></span></button>
+    <button class="egmm-menu-btn" id="egmmOcrBtn"><span class="egmm-menu-label mlab">OCR</span></button>
 
 
-    <button class="egmm-menu-btn" id="egmmToolsBtn"><span class="egmm-menu-label mlab">TOOLS<small>도구 모음</small></span></button>
-    <button class="egmm-menu-btn" id="egmmItemAnalyzeBtn"><span class="egmm-menu-label mlab">ITEM ANALYZE<small>품목 분석</small></span></button>
-    <button class="egmm-menu-btn" id="egmmShawnMgrBtn"><span class="egmm-menu-label mlab">MANAGER<small>클라우드</small></span></button>
+    <button class="egmm-menu-btn" id="egmmToolsBtn"><span class="egmm-menu-label mlab">TOOLS</span></button>
+    <button class="egmm-menu-btn" id="egmmItemAnalyzeBtn"><span class="egmm-menu-label mlab">ITEM ANALYZE</span></button>
+    <button class="egmm-menu-btn" id="egmmShawnMgrBtn"><span class="egmm-menu-label mlab">MANAGER</span></button>
   </div>
 
   <!-- 박스: REQUEST (한 세로 열) -->
@@ -2941,21 +2965,21 @@
     
       <div class="egmm-card-head"><span class="egmm-card-tick"></span><span class="egmm-card-name">REQUEST</span></div>
 
-      <button class="egmm-menu-btn" id="egmmDeliReqBtn"><span class="egmm-menu-label mlab">REQUEST CONFIRMATION<small>요청 확인</small></span><span class="egmm-req-count" id="deliReqCount"></span></button>
+      <button class="egmm-menu-btn" id="egmmDeliReqBtn"><span class="egmm-menu-label mlab">REQUEST CONFIRMATION</span><span class="egmm-req-count" id="deliReqCount"></span></button>
     </div>
   </div>
 
   <!-- 박스 3: GUIDE -->
   <div class="egmm-card">
     <div class="egmm-card-head"><span class="egmm-card-tick"></span><span class="egmm-card-name">GUIDE</span></div>
-    <button class="egmm-menu-btn" id="egmmHanaBtn"><span class="egmm-menu-label mlab">HANA<small>HANA 가이드</small></span></button>
+    <button class="egmm-menu-btn" id="egmmHanaBtn"><span class="egmm-menu-label mlab">HANA</span></button>
 
-    <button class="egmm-menu-btn" id="egmmTaxBtn"><span class="egmm-menu-label mlab">TAX<small>세금 안내</small></span></button>
-    <button class="egmm-menu-btn" id="egmmEbtBtn"><span class="egmm-menu-label mlab">EBT<small>EBT 안내</small></span></button>
-    <button class="egmm-menu-btn" id="egmmHardLiquorBtn"><span class="egmm-menu-label mlab">HARD LIQUOR<small>주류 안내</small></span></button>
+    <button class="egmm-menu-btn" id="egmmTaxBtn"><span class="egmm-menu-label mlab">TAX</span></button>
+    <button class="egmm-menu-btn" id="egmmEbtBtn"><span class="egmm-menu-label mlab">EBT</span></button>
+    <button class="egmm-menu-btn" id="egmmHardLiquorBtn"><span class="egmm-menu-label mlab">HARD LIQUOR</span></button>
 
-    <button class="egmm-menu-btn" id="egmmProductNameMakerBtn"><span class="egmm-menu-label mlab">PRODUCT NAME MAKER<small>상품명 생성기</small></span></button>
-    <button class="egmm-menu-btn" id="egmmDeliMgmtBtn"><span class="egmm-menu-label mlab">DELI MANAGEMENT<small>델리 관리</small></span></button>
+    <button class="egmm-menu-btn" id="egmmProductNameMakerBtn"><span class="egmm-menu-label mlab">PRODUCT NAME MAKER</span></button>
+    <button class="egmm-menu-btn" id="egmmDeliMgmtBtn"><span class="egmm-menu-label mlab">DELI MANAGEMENT</span></button>
   </div>
  </div>
  </aside>
@@ -3490,6 +3514,22 @@
   }
   function toggleTheme(){ var t=(curTheme()==='night')?'day':'night'; try{ localStorage.setItem(THEME_KEY,t); }catch(e){} applyTheme(t); }
   var __themeBtn=$('egThemeBtn'); if(__themeBtn) __themeBtn.onclick=toggleTheme;
+  /* [2026-10-02] 접속자 박스 */
+  (function(){
+    function fillUser(){ var u=null; try{ u=JSON.parse(sessionStorage.getItem('egmmAccessAuth')||'null'); }catch(e){}
+      if(!u) return; $('egUserName').textContent=u.fullName||u.id||'—'; $('egUserId').textContent=u.id||'—';
+      var perm=(Array.isArray(u.perms)&&u.perms.indexOf('*')>=0)?'ALL':((Array.isArray(u.perms)&&u.perms.length)?u.perms.length+' MENU':'');
+      $('egUserRank').textContent=[(typeof u.level==='number')?('LV-'+u.level):'',u.rank||'',perm].filter(Boolean).join(' · ')||'—'; }
+    fillUser(); setTimeout(fillUser,800); setTimeout(fillUser,3000);
+    var lb=$('egLogoutBtn'); if(lb) lb.onclick=function(){ ['egmmGate','egmmUser','egmmAuth','egmmAccessAuth'].forEach(function(k){ try{ sessionStorage.removeItem(k); }catch(e){} }); location.reload(); };
+    function fmt(iso){ var d=new Date(iso); if(isNaN(d)) return String(iso||'').slice(0,16); var p=function(n){ return (n<10?'0':'')+n; }; return p(d.getMonth()+1)+'/'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }
+    var last={};
+    function renderSync(){ var parts=[]; ['UPC-LIST','PLU-LIST'].forEach(function(r){ if(last[r]) parts.push((r==='UPC-LIST'?'UPC':'PLU')+' 최근 기록 '+fmt(last[r].savedAt)+(last[r].total!=null?' · '+Number(last[r].total).toLocaleString('en-US')+'건':'')+(last[r].pack?' · 압축':'')); }); $('egCloudSync').textContent=parts.join('\n'); }
+    if(window.EgmmFB){ window.EgmmFB.ready.then(function(fb){ $('egCloudState').textContent='연결됨 (DB '+(window.EgmmFB.dbId||'')+')';
+        ['UPC-LIST','PLU-LIST'].forEach(function(r){ try{ fb.onSnapshot(fb.doc(fb.db,r,'_META'),function(sn){ var d=(sn.exists()&&sn.data())?sn.data():null; if(d&&d.savedAt){ last[r]={savedAt:d.savedAt,total:d.total,pack:!!d.pack}; renderSync(); } },function(){}); }catch(e){} });
+      }).catch(function(){ $('egCloudState').textContent='CLOUD 설정 없음'; }); }
+    else $('egCloudState').textContent='CLOUD 모듈 없음';
+  })();
   applyTheme(curTheme());
   // 메뉴별 iframe 유지(캐시): 전환 시 재로드 없음
   var __frames={};
