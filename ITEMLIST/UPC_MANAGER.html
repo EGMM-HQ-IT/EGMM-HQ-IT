@@ -927,8 +927,8 @@ html[data-theme=night] .plu-cm-row.cur { border-color:#4d8bea; background:#1e2c4
 
 <!-- [MODULE 23 · FIELD-FX] 필드 기능 추가 -->
 <div class="plu-fe-ov" id="ffOv">
-  <div class="plu-fe-modal" style="max-width:960px;width:min(960px,97vw);">
-    <div class="plu-fe-head"><b>필드 기능 추가 — 카테고리별 설정</b><button class="plu-fe-x" id="ffX" type="button">✕</button></div>
+  <div class="plu-fe-modal" style="max-width:1700px;width:min(1700px,97vw);">
+    <div class="plu-fe-head"><b>POS DESC 설정 — 카테고리별</b><button class="plu-fe-x" id="ffX" type="button">✕</button></div>
     <div class="plu-fe-body" id="ffBody"></div>
   </div>
 </div>
@@ -1560,6 +1560,7 @@ function migrate(st){
     if(typeof c.pos.f1!=='string'||!c.pos.f1) c.pos.f1='BRAND_ENGLISH';
     var __cn=parseInt(c.pos.n1,10); c.pos.n1=(__cn>0&&__cn<17)?__cn:4;
     if(typeof c.pos.f2!=='string'||!c.pos.f2) c.pos.f2='ITEM_ENGLISH';
+    ffxPosNorm(c.pos); /* [2026-10-02] 5필드 + 4문구 구성(v2) — 이전 설정(문구+필드1 N자+')'+필드2 나머지)은 결과가 같도록 1회 이관 */
   });
   /* [B 확정 2026-09] 매장 99 → EGMM 이관 · 가짜 매장(전체·ALL) 제거 */
   if(Array.isArray(st.stores)){
@@ -2007,13 +2008,8 @@ function calcRow(big,row,store){
     if(st){ var sv=row.sv&&row.sv[st]; if(sv&&sv[f.key]!=null) return String(sv[f.key]); }
     return String((row.v&&row.v[f.key]!=null)?row.v[f.key]:'');
   }
-  function FFXPOS(){ /* [MODULE 23] 대분류별 POS DESC 구성 — 필수 문구 + 필드1 n자 + ')' + 필드2 나머지 = 18자 */
-    var c=ffxOf(big), eng=String(F(c.pos.f2)||'');
-    if(eng==='') return '';
-    var rest=18-c.pos.phrase.length-c.pos.n1-1; if(rest<1) rest=1;
-    var b1=String(F(c.pos.f1)||'');
-    var out=c.pos.phrase+(b1===''?'':(b1.slice(0,c.pos.n1)+')'))+eng.slice(0,rest);
-    return out.slice(0,18);
+  function FFXPOS(){ /* [MODULE 23] 대분류별 POS DESC 구성 — 앞 문구 + (필드 N자(왼쪽/오른쪽) + 문구) × 5 = 18자 */
+    return ffxPosBuild(ffxOf(big).pos, F);
   }
   for(var pass=0;pass<2;pass++){ /* 미러 체인(수식→수식 참조) 해결용 2회 통과 */
     for(var i=0;i<lay.length;i++){
@@ -5588,55 +5584,133 @@ function runPrintRows(secs, emptyMsg){
       저장 시 ITEM_POS 수식 교체 + 전 카테고리 재계산(기존 값 덮어쓰기·실시간 유지).
    - 공개: openFieldFxModal(), subCatFieldOf(big), posFormulaFromFfx()
    ═══════════════════════════════════════════════════════════════════════════ */
+function ffxPosNorm(pos){ /* [2026-10-02] POS 구성 v2 정규화 — pre(앞 문구) · fields[5]{f,n,side} · ph[4] */
+  if(!pos||typeof pos!=='object') return pos;
+  if(!pos.v2){
+    pos.v2=1;
+    var n1=parseInt(pos.n1,10); if(!(n1>0)) n1=4;
+    pos.pre=String(pos.phrase==null?'':pos.phrase).replace(/'/g,'');
+    pos.fields=[ {f:pos.f1||'BRAND_ENGLISH',n:n1,side:'L'}, {f:pos.f2||'ITEM_ENGLISH',n:'',side:'L'}, {f:'',n:'',side:'L'}, {f:'',n:'',side:'L'}, {f:'',n:'',side:'L'} ];
+    pos.ph=[')','','',''];
+  }
+  if(typeof pos.pre!=='string') pos.pre='';
+  if(!Array.isArray(pos.fields)) pos.fields=[];
+  if(!Array.isArray(pos.ph)) pos.ph=[];
+  for(var i=0;i<5;i++){
+    var x=pos.fields[i]; if(!x||typeof x!=='object') x=pos.fields[i]={f:'',n:'',side:'L'};
+    if(typeof x.f!=='string') x.f='';
+    if(x.n===''||x.n==null) x.n=''; else { var nn=parseInt(x.n,10); x.n=(nn>0)?nn:''; }
+    x.side=(x.side==='R')?'R':'L';
+    if(i<4&&typeof pos.ph[i]!=='string') pos.ph[i]='';
+  }
+  pos.fields.length=5; pos.ph.length=4;
+  return pos;
+}
+function ffxPosPlan(pos){ /* 구성 → 고정 글자수 · 나머지 필드 위치 · 초과 여부 */
+  ffxPosNorm(pos);
+  var fixed=pos.pre.length, restIdx=-1, restCnt=0, used=0;
+  for(var i=0;i<5;i++){
+    var x=pos.fields[i]; if(!x.f) continue; used++;
+    if(x.n===''){ restCnt++; if(restIdx<0) restIdx=i; } else fixed+=x.n;
+    if(i<4) fixed+=String(pos.ph[i]||'').length;
+  }
+  var rest=restIdx>=0?(18-fixed):0;
+  var bad=(restIdx>=0)?(rest<1):(fixed>18);
+  return { fixed:fixed, restIdx:restIdx, restCnt:restCnt, rest:rest, used:used, bad:bad, total:(restIdx>=0?18:fixed) };
+}
+function ffxPosBuild(pos, F){ /* 행 값(F) 으로 POS DESC 생성 — 문구는 바로 앞 필드 값이 있을 때만 붙음, 나머지 필드가 비면 '' */
+  var pl=ffxPosPlan(pos); if(!pl.used) return '';
+  var out=pos.pre;
+  for(var i=0;i<5;i++){
+    var x=pos.fields[i]; if(!x.f) continue;
+    var v=String(F(x.f)||'');
+    if(x.n===''){ if(v==='') return ''; var r=pl.rest<1?1:pl.rest; out+=v.slice(0,r); }
+    else if(v!==''){ out+=(x.side==='R')?v.slice(-x.n):v.slice(0,x.n); }
+    if(v!==''&&i<4) out+=String(pos.ph[i]||'');
+  }
+  return out.slice(0,18);
+}
 function posFormulaFromFfx(big){ /* 대분류 설정 → 동등한 수식 문자열 (엑셀 함수포함 내보내기용) */
-  var p=ffxOf(big).pos;
-  var ph=String(p.phrase==null?'':p.phrase).replace(/'/g,'');
-  var f1=p.f1||'BRAND_ENGLISH', f2=p.f2||'ITEM_ENGLISH';
-  var n1=parseInt(p.n1,10); if(!(n1>0)) n1=4;
-  var rest=18-ph.length-n1-1; if(rest<1) rest=1;
-  var pre=ph?("'"+ph+"'+"):"";
-  return "LEFT(IF(F('"+f2+"')=='','',"+pre+"IF(F('"+f1+"')=='','',LEFT(F('"+f1+"'),"+n1+")+')')+LEFT(F('"+f2+"'),"+rest+")),18)";
+  var p=ffxOf(big).pos, pl=ffxPosPlan(p);
+  if(!pl.used) return "''";
+  var q=function(t){ return "'"+String(t).replace(/'/g,'')+"'"; };
+  var parts=[]; if(p.pre) parts.push(q(p.pre));
+  for(var i=0;i<5;i++){
+    var x=p.fields[i]; if(!x.f) continue;
+    var Fv="F('"+x.f+"')", ph=(i<4)?String(p.ph[i]||''):'';
+    var take=(x.n==='')?("LEFT("+Fv+","+(pl.rest<1?1:pl.rest)+")"):((x.side==='R')?("RIGHT("+Fv+","+x.n+")"):("LEFT("+Fv+","+x.n+")"));
+    parts.push(ph?("IF("+Fv+"=='','',"+take+"+"+q(ph)+")"):take);
+  }
+  var body=parts.join('+');
+  if(pl.restIdx>=0) body="IF(F('"+p.fields[pl.restIdx].f+"')=='','',"+body+")";
+  return "LEFT("+body+",18)";
 }
 function openFieldFxModal(){
-  /* [요구 2026-09] 모든 카테고리(대분류)를 한 팝업에서 설정 — 작은 글씨의 컴팩트 표,
-     열 너비 고정 + 가로 스크롤로 레이아웃이 무너지지 않게 */
+  /* [요구 2026-09] 모든 카테고리(대분류)를 한 팝업에서 설정 — 작은 글씨의 컴팩트 표
+     [2026-10-02] POS DESC 구성: 앞 문구 + 필드(N자 · 왼쪽/오른쪽) + 문구 + 필드 + 문구 + 필드 + 문구 + 필드 + 문구 + 필드 (최대 5필드 · 4문구)
+     N 비움 = 나머지(18자에서 남는 글자수, 1개만). 합계가 18자를 넘으면 빨간색 에러. */
   var anyLay=S.layouts[curBig()]||[];
-  var fOpts=function(sel){ return anyLay.filter(function(f){ return !f.formula; }).map(function(f){
+  var fOpts=function(sel){ return '<option value="">(없음)</option>'+anyLay.filter(function(f){ return !f.formula; }).map(function(f){
     return '<option value="'+escapeHtml(f.key)+'"'+(f.key===sel?' selected':'')+'>'+escapeHtml((f.group?f.group+' · ':'')+f.label)+'</option>'; }).join(''); };
+  var sampleOf=function(big){ var subs=S.data[big]||{}; for(var k in subs){ if(Array.isArray(subs[k])&&subs[k].length) return subs[k][0]; } return null; };
   var h='<div class="plu-imp-hint" style="margin-bottom:6px;">카테고리(대분류)별로 각각 설정됩니다.<br>'
-    +'<b>기준 필드</b>: 필드리스트 위 카테고리명 칩이 이 필드 값으로 표시·필터됩니다 (중간 카테고리 탭 자동 생성 없음) · '
-    +'<b>POS 구성</b>: 필수 문구 + 필드1 앞 N자 + ")" + 필드2 나머지 = 18자 (저장 시 전체 재생성·실시간 유지)</div>'
-    +'<div style="overflow:auto;max-height:56vh;border:1px solid #dde3ec;border-radius:6px;">'
-    +'<table class="plu-fe-tbl ffx-tbl" style="min-width:860px;width:100%;">'
-    +'<thead><tr><th style="width:78px;">카테고리</th><th style="width:180px;">카테고리명 칩 기준 필드</th>'
-    +'<th style="width:74px;">필수 문구</th><th style="width:180px;">필드1</th><th style="width:44px;">N자</th>'
-    +'<th style="width:180px;">필드2 (나머지)</th><th>배분</th></tr></thead><tbody>';
+    +'<b>기준 필드</b>: 필드리스트 위 카테고리명 칩이 이 필드 값으로 표시·필터됩니다 · '
+    +'<b>POS DESC 구성</b>: 앞 문구 + 필드(N자 · 왼쪽/오른쪽부터) + 문구 + 필드 + 문구 + 필드 + 문구 + 필드 + 문구 + 필드 = 최대 18자. '
+    +'N 을 비우면 그 필드가 나머지 글자수를 모두 받습니다(1개만). 문구는 바로 앞 필드 값이 있을 때만 붙습니다. 18자를 넘으면 <span style="color:#b91c1c;font-weight:800;">빨간색 에러</span>로 저장되지 않습니다 (저장 시 전체 재생성·실시간 유지).</div>'
+    +'<div style="overflow:auto;max-height:60vh;border:1px solid #dde3ec;border-radius:6px;">'
+    +'<table class="plu-fe-tbl ffx-tbl" style="width:1840px;">'
+    +'<thead><tr><th style="width:70px;">카테고리</th><th style="width:150px;">카테고리명 칩 기준 필드</th><th style="width:150px;">합계 · 예시</th><th style="width:64px;">앞 문구</th>';
+  for(var i=0;i<5;i++){
+    h+='<th style="width:128px;">필드'+(i+1)+'</th><th style="width:44px;">N자</th><th style="width:64px;">방향</th>';
+    if(i<4) h+='<th style="width:58px;">문구</th>';
+  }
+  h+='</tr></thead><tbody>';
   S.tabs.forEach(function(t){
-    var c=ffxOf(t.label);
+    var c=ffxOf(t.label), p=ffxPosNorm(c.pos);
     h+='<tr data-big="'+escapeHtml(t.label)+'">'
       +'<td style="font-weight:800;">'+escapeHtml(t.label)+'</td>'
-      +'<td><select class="icp-sel ffx-sub">'+fOpts(c.subCatField)+'</select></td>'
-      +'<td><input type="text" class="icp-sel ffx-ph" value="'+escapeHtml(c.pos.phrase)+'" placeholder="(없음)"></td>'
-      +'<td><select class="icp-sel ffx-f1">'+fOpts(c.pos.f1)+'</select></td>'
-      +'<td><input type="text" inputmode="numeric" class="icp-sel ffx-n1" value="'+c.pos.n1+'"></td>'
-      +'<td><select class="icp-sel ffx-f2">'+fOpts(c.pos.f2)+'</select></td>'
+      +'<td><select class="icp-sel ffx-sub">'+fOpts(c.subCatField).replace('<option value="">(없음)</option>','')+'</select></td>'
       +'<td class="ffx-prev"></td>'
-      +'</tr>';
+      +'<td><input type="text" class="icp-sel ffx-pre" value="'+escapeHtml(p.pre)+'" placeholder="(없음)"></td>';
+    for(var i=0;i<5;i++){
+      var x=p.fields[i];
+      h+='<td><select class="icp-sel ffx-f" data-i="'+i+'">'+fOpts(x.f)+'</select></td>'
+        +'<td><input type="text" inputmode="numeric" class="icp-sel ffx-n" style="padding:3px 2px;text-align:center;" data-i="'+i+'" value="'+(x.n===''?'':x.n)+'" placeholder="나머지" title="비우면 나머지 글자수"></td>'
+        +'<td><select class="icp-sel ffx-side" data-i="'+i+'"><option value="L"'+(x.side!=='R'?' selected':'')+'>왼쪽</option><option value="R"'+(x.side==='R'?' selected':'')+'>오른쪽</option></select></td>';
+      if(i<4) h+='<td><input type="text" class="icp-sel ffx-p" data-i="'+i+'" value="'+escapeHtml(p.ph[i]||'')+'" placeholder="(없음)"></td>';
+    }
+    h+='</tr>';
   });
   h+='</tbody></table></div>'
     +'<div class="plu-imp-foot"><button class="plu-tool-btn" id="ffCancel" type="button">취소</button>'
     +'<button class="plu-tool-btn plu-imp-go" id="ffSave" type="button">전체 저장 — POS 재생성</button></div>';
   $('ffBody').innerHTML=h;
+  function readRow(tr){
+    var pos={ v2:1, pre:tr.querySelector('.ffx-pre').value.replace(/'/g,''), fields:[], ph:[] };
+    for(var i=0;i<5;i++){
+      var nv=tr.querySelector('.ffx-n[data-i="'+i+'"]').value.trim();
+      pos.fields.push({ f:tr.querySelector('.ffx-f[data-i="'+i+'"]').value, n:(nv===''?'':(parseInt(nv,10)||'')), side:tr.querySelector('.ffx-side[data-i="'+i+'"]').value });
+      if(i<4) pos.ph.push(tr.querySelector('.ffx-p[data-i="'+i+'"]').value.replace(/'/g,''));
+    }
+    return ffxPosNorm(pos);
+  }
   function prevRow(tr){
-    var ph=tr.querySelector('.ffx-ph').value.replace(/'/g,''), n1=parseInt(tr.querySelector('.ffx-n1').value,10)||0;
-    var rest=18-ph.length-n1-1;
-    var td=tr.querySelector('.ffx-prev');
-    if(rest<1){ td.innerHTML='<span style="color:#b91c1c;font-weight:800;">⚠ 초과</span>'; td.setAttribute('data-bad','1'); }
-    else { td.textContent=ph.length+'+'+n1+'+1+'+rest+'=18'; td.removeAttribute('data-bad'); }
+    var big=tr.getAttribute('data-big'), pos=readRow(tr), pl=ffxPosPlan(pos), td=tr.querySelector('.ffx-prev');
+    var bad=pl.bad||pl.restCnt>1;
+    var msg=pl.restCnt>1?'⚠ 나머지 필드는 1개만':(pl.bad?('⚠ '+pl.fixed+'자 초과 (최대 18)'):(pl.total+' / 18자'));
+    var ex='';
+    if(!bad){
+      var row=sampleOf(big);
+      if(row){ var Fs=function(k){ var f=fieldByKey(big,k); return f?String((row.v&&row.v[f.key]!=null)?row.v[f.key]:''):''; }; ex=ffxPosBuild(pos,Fs); }
+    }
+    td.innerHTML='<span style="font-weight:800;'+(bad?'color:#b91c1c;':'')+'">'+escapeHtml(msg)+'</span>'+(ex?'<br><span style="color:#64748b;">예: '+escapeHtml(ex)+'</span>':'');
+    if(bad) td.setAttribute('data-bad','1'); else td.removeAttribute('data-bad');
+    tr.querySelectorAll('.ffx-n,.ffx-p,.ffx-pre').forEach(function(el){ el.style.color=bad?'#b91c1c':''; el.style.borderColor=bad?'#b91c1c':''; });
   }
   $('ffBody').querySelectorAll('tbody tr').forEach(function(tr){
-    tr.querySelector('.ffx-ph').oninput=function(){ prevRow(tr); };
-    tr.querySelector('.ffx-n1').oninput=function(){ this.value=this.value.replace(/[^0-9]/g,''); prevRow(tr); };
+    tr.querySelectorAll('.ffx-pre,.ffx-p').forEach(function(el){ el.oninput=function(){ prevRow(tr); }; });
+    tr.querySelectorAll('.ffx-n').forEach(function(el){ el.oninput=function(){ this.value=this.value.replace(/[^0-9]/g,''); prevRow(tr); }; });
+    tr.querySelectorAll('.ffx-f,.ffx-side').forEach(function(el){ el.onchange=function(){ prevRow(tr); }; });
     prevRow(tr);
   });
   $('ffX').onclick=function(){ $('ffOv').classList.remove('show'); };
@@ -5644,20 +5718,14 @@ function openFieldFxModal(){
   $('ffSave').onclick=function(){
     var rows=$('ffBody').querySelectorAll('tbody tr');
     for(var i=0;i<rows.length;i++){
-      var tr=rows[i];
-      var n1=parseInt(tr.querySelector('.ffx-n1').value,10);
-      if(!(n1>0)){ showToast(tr.getAttribute('data-big')+': 필드1 글자수를 입력하세요','error'); return; }
-      if(tr.querySelector('.ffx-prev').getAttribute('data-bad')){ showToast(tr.getAttribute('data-big')+': 문구+글자수가 너무 깁니다','error'); return; }
+      var tr=rows[i], pl=ffxPosPlan(readRow(tr));
+      if(!pl.used){ showToast(tr.getAttribute('data-big')+': 필드를 1개 이상 선택하세요','error'); return; }
+      if(pl.restCnt>1){ showToast(tr.getAttribute('data-big')+': 나머지(N 비움) 필드는 1개만','error'); return; }
+      if(pl.bad){ showToast(tr.getAttribute('data-big')+': 18자를 넘습니다 ('+pl.fixed+'자)','error'); return; }
     }
     rows.forEach(function(tr){
-      var big=tr.getAttribute('data-big');
-      S.ffx.byBig[big]={
-        subCatField:tr.querySelector('.ffx-sub').value,
-        pos:{ phrase:tr.querySelector('.ffx-ph').value.replace(/'/g,'').trim(),
-              f1:tr.querySelector('.ffx-f1').value,
-              n1:parseInt(tr.querySelector('.ffx-n1').value,10),
-              f2:tr.querySelector('.ffx-f2').value }
-      };
+      var big=tr.getAttribute('data-big'), pos=readRow(tr);
+      S.ffx.byBig[big]={ subCatField:tr.querySelector('.ffx-sub').value, pos:pos };
     });
     /* POS 수식 = FFXPOS() (대분류별 구성은 엔진에서 적용) + 전 카테고리 재계산 */
     var m=masterLayoutOf(S);
@@ -5666,12 +5734,13 @@ function openFieldFxModal(){
     S.tabs.forEach(function(t){ calcAll(t.label); });
     saveState(); renderContent();
     $('ffOv').classList.remove('show');
-    showToast('필드 기능 저장 — 카테고리별 설정 적용 · POS 전체 재생성','success');
+    showToast('POS DESC 설정 저장 — 카테고리별 적용 · POS 전체 재생성','success');
   };
   $('ffOv').classList.add('show');
 }
 function ffxOf(big){ /* [MODULE 23] 대분류별 설정 (없으면 기본값 생성) */
   if(!S.ffx.byBig[big]) S.ffx.byBig[big]={subCatField:'CATEGORY_KOREA',pos:{phrase:'',f1:'BRAND_ENGLISH',n1:4,f2:'ITEM_ENGLISH'}};
+  ffxPosNorm(S.ffx.byBig[big].pos);
   return S.ffx.byBig[big];
 }
 function subCatFieldOf(big){ /* [MODULE 23] 하위 카테고리 정리 기준 필드 — 메뉴 "필드 기능 추가"에서 대분류별 지정 */
