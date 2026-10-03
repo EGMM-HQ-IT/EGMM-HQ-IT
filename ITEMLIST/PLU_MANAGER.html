@@ -418,6 +418,7 @@ try{ document.documentElement.setAttribute('data-theme', localStorage.getItem('p
   .plu-table tbody td.plu-c-calc { background:#f5f5ef; color:#666; cursor:default; }
   /* 겹침 순서 수정: 입력/확인 모달(목록 편집 등)은 필드 편집 모달(2500) 위에 */
   .plu-modal-ov { z-index:3200; }
+  #cfOv { z-index:9999 !important; } /* [2026-10-02] 확인/알림 창은 어떤 팝업(TRASH·히스토리·필드 메뉴 등 z 9990)보다 항상 위 */
   /* 입력 · 관리 가이드 */
   .plu-modal.plu-guide { max-width:640px; width:min(640px,94vw); text-align:left; }
   .plu-guide-list { list-style:none; counter-reset:g; margin:6px 0 14px; padding:0; max-height:62vh; overflow:auto; }
