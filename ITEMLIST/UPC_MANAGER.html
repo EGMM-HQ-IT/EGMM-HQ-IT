@@ -1217,9 +1217,9 @@ var DEFAULT_STORES=['TACOMA','FEDERALWAY','BELLEVUE','BALLARD','REDMOND','LYNNWO
 var VENDOR_BY_BIG={'STI':'STI-WA'};
 /* [UPC MANAGER 연계 2026-09] 로컬 전용 모드 — true 면 Firebase 자동 접속·동기화 전부 끔 (로컬 저장만) */
 var FB_LOCAL_ONLY=false;
-var SYNC_LATEST_WINS=true; /* [UPC 2026-10] 동기화: 가장 최근 수정본이 항상 우선(충돌 팝업 없음) + 실시간 반영 + 동기화 로그 */
-var TRASH_ENABLED=true;
-var SYNC_NO_GATES=true;    /* [UPC 2026-10] 전송 조건 없음 — 한글 이름은 자동 ID, 중복 이름은 자동 접미, 0건도 전송 (묻지 않음) */    /* [UPC 2026-10] 삭제 행 → TRASH(UPC·ITEM CODE·VENDER) 보관 · 불러오기 시 TRASH 와 UPC+ITEM CODE 일치 행 무시 */
+var SYNC_LATEST_WINS=true; /* [2026-10-02] PLU · UPC 동일 */ /* [UPC 2026-10] 동기화: 가장 최근 수정본이 항상 우선(충돌 팝업 없음) + 실시간 반영 + 동기화 로그 */
+var TRASH_ENABLED=true;    /* [2026-10-02] PLU · UPC 동일 */
+var SYNC_NO_GATES=true;    /* [2026-10-02] PLU · UPC 동일 */    /* [UPC 2026-10] 전송 조건 없음 — 한글 이름은 자동 ID, 중복 이름은 자동 접미, 0건도 전송 (묻지 않음) */    /* [UPC 2026-10] 삭제 행 → TRASH(UPC·ITEM CODE·VENDER) 보관 · 불러오기 시 TRASH 와 UPC+ITEM CODE 일치 행 무시 */
 /* [UPC MANAGER 연계 2026-09] 앱 모드 — 'PLU' | 'UPC'. UPC 모드 전용 기능:
    ④ 같은 UPC 값 행의 UPC 셀을 같은 바탕색으로 표시 ⑤ USE 열 불러오기 값 정규화(1=사용중 · 0=사용중지) */
 var APP_MODE='UPC';
@@ -2497,25 +2497,28 @@ var PLU_MENU=[
   { id:'delall',  label:'전체삭제',      run:function(){ delAllRows(); } },
   { id:'dept',    label:'DEPARTMENT 설정', run:function(){ openDeptModal(); } },                     /* [MODULE 22] */
   { id:'fieldfx', label:'POS DESC 설정', run:function(){ openFieldFxModal(); } },                           /* [MODULE 23] [2026-10-02] PLU · UPC 동일 */                    /* [MODULE 23] */
-  { id:'trash',   label:'TRASH',         run:function(){ openTrash(); }, only:'TRASH' },                 /* [UPC 2026-10] */
-  { id:'synclog', label:'동기화 로그',   run:function(){ openSyncLog(); }, only:'SYNC' },               /* [UPC 2026-10] */
-  { id:'packmig', label:'CLOUD 압축 변환', run:function(){ fbPackMigrate(); } },                         /* [2026-10-02] 행 문서 → 업체별 압축 묶음 (1회) */
-  { id:'packclr', label:'CLOUD 이전 문서 정리', run:function(){ fbLegacyCleanup(); } },                  /* [2026-10-02] 변환 확인 후 이전 행 문서 삭제 */
+  { id:'trash',   label:'TRASH',         run:function(){ openTrash(); } },                               /* [2026-10-02] PLU · UPC 동일 · 서브메뉴 */
+  { id:'dataedit',label:'데이터 편집',   run:function(){ openDataEdit(); } },                            /* 중복 데이터 보기 · 삭제 */
+  { id:'history', label:'히스토리',      run:function(){ openHistory(); } },                             /* 편집 히스토리 */
   { id:'guide',   label:'입력 · 관리 가이드', run:function(){ openGuide(); } }                         /* [2026-09-30] 서브메뉴 맨 아래 */
 ];
-PLU_MENU=PLU_MENU.filter(function(m){ if(m.notUpc&&APP_MODE==='UPC') return false; return !m.only||(m.only==='TRASH'&&TRASH_ENABLED)||(m.only==='SYNC'&&SYNC_LATEST_WINS); });
+PLU_MENU=PLU_MENU.filter(function(m){ return !m.only||(m.only==='TRASH'&&TRASH_ENABLED)||(m.only==='SYNC'&&SYNC_LATEST_WINS); });
 /* [2026-09-30] 입력 및 관리 가이드 — 번호 목록 팝업 (PLU / UPC 모드별 내용) */
 var GUIDE_PLU=[
   ['필드 우클릭 메뉴','머리글을 우클릭하면 말풍선 메뉴가 뜹니다(필드 숨김 기능은 없어짐). 범위는 지금 화면에 보이는 리스트(검색 중이면 검색 결과, 아니면 현재 중간 카테고리)이고 그 필드만 바뀝니다. ① 특정문자 삭제: 입력한 문자를 셀에서 전부 지움(예: 농심 매운 새우깡 → 매운 새우깡) ② 특정문자 교환: 찾을 문자를 바꿀 문자로 전부 교체 ③ 특정문자 채우기: 모든 셀을 입력한 값으로 채움 ④ SRP 필드에서는 「SRP 가격 생성」: COST 에 마진 %를 적용(판매가 기준 COST÷(1−%) 또는 원가 기준 COST×(1+%))하고 체크한 끝자리(.29 .49 .79 .99) 중 계산값 이상인 가장 가까운 가격으로 만듦. 실행 전 변경 행 수를 확인하고 히스토리에 기록됩니다.'],
   ['카테고리 트리','하위 카테고리(NO · KOR · ENG)는 MART > CATEGORY MANAGER 에서 관리하는 공용 트리(PLU · UPC 공유)입니다. 리스트의 CATEGORY NO 셀을 클릭하면 현재 상위/중간 카테고리의 하위 목록이 드롭다운으로 나오고, 번호를 고르거나 입력하면 KOR · ENG 가 자동으로 채워집니다. 엑셀 불러오기도 NO 만 있으면 KOR · ENG 를 채웁니다. 트리에서 번호·이름을 바꾸면 이 리스트의 상품 행에 실시간으로 반영됩니다.'],
-  ['CLOUD 압축 변환','메뉴 > CLOUD 압축 변환(1회): CLOUD 의 상품 데이터를 행마다 문서 1개에서 소분류별 압축 묶음 1개로 바꿉니다. CLOUD 데이터를 백업 파일로 내려받고, 묶음을 다시 읽어 1:1 대조가 맞을 때만 켭니다. 이후 읽기·쓰기 횟수(Firebase 과금 기준)가 행 수가 아니라 소분류 수 기준으로 줄고, 태블릿 PLU PREVIEW 도 묶음만 받습니다. 이전 행 문서는 모든 기기가 새 버전인 것을 확인한 뒤 「CLOUD 이전 문서 정리」로 삭제.'],
   ['카테고리','상위(대분류) 탭 → 중간 카테고리를 고른 뒤 작업합니다. 청과는 PLU 번호로 중간 카테고리 자동 배치 (1000 야채 · 2000 과일 · 3000 로컬 · 80000 박스 · 90000 유기농).'],
   ['행 입력','행 추가 → 셀을 클릭해 입력. PLU는 자동 증가. 사용(USE) 체크 = 현재 매장에서 사용중, 미체크 행은 회색 취소선.'],
   ['엑셀 불러오기','1행 = 필드명, 2행부터 데이터 (묶음 행 없음). PLU 열 필수 — PLU가 같은 행은 업데이트, 없으면 새 행, PLU가 빈 행은 건너뜀. 실행 전 확인 팝업에서 열 → 필드 대응을 확인하세요.'],
   ['엑셀 내보내기','내보낼 필드를 고르고(프리셋 저장 가능) 1행 필드명 + 데이터로 출력. 목록 값은 번호로 나갑니다. 그대로 수정해 다시 불러올 수 있습니다.'],
   ['매장','상단 매장 버튼으로 전환. 기본(전체)에서 수정 = 전 매장 적용, 매장 선택 후 수정 = 그 매장만. LOCATION 99 = EGMM 매장.'],
   ['필드 편집','필드명 · 너비 · 목록 · 수식 · 숨김은 필드 편집에서 — 전 카테고리 공통 적용.'],
-  ['저장','모든 변경은 즉시 자동 저장되고 CLOUD(PLU-LIST)에 자동 동기화됩니다. 상단 칩에서 상태 확인.']
+  ['저장','모든 변경은 즉시 자동 저장되고 CLOUD(PLU-LIST)에 자동 동기화됩니다. EGMM 왼쪽 USER 박스의 CLOUD 칸에서 상태 확인.'],
+  ['동기화 규칙','수정하면 조건 없이 무조건 CLOUD 로 전송됩니다(0건도 전송). 기본 데이터는 없고 모든 데이터(상품 + 필드 설정값)는 CLOUD 에서 가져옵니다. 열 때마다 무조건 CLOUD 의 최신 기록을 먼저 가져오고, 끝나기 전에는 수정·저장이 잠깁니다. 모든 행은 마지막 편집 시각(분 단위)을 가지며, CLOUD 와 합칠 때 행마다 더 최근에 편집된 쪽이 남습니다(같은 분이면 CLOUD). 이 컴퓨터에서 더 최근에 편집·추가·삭제한 행은 CLOUD 에도 그대로 등록되고, 다른 컴퓨터가 더 최근에 편집한 행은 이 화면에 반영됩니다(실시간 포함). CLOUD 에만 있는 상품은 TRASH 에 있는 것 외에는 지우지 않습니다. 동기화 상태는 EGMM 왼쪽 USER 박스의 CLOUD 칸에서 확인(클릭 = 즉시 동기화).'],
+  ['데이터 편집','메뉴 > 데이터 편집: 현재 보고 있는 중간 카테고리 안에서 ① 중복 데이터 보기 — PLU 기준으로 검색(표시 필드는 오른쪽 칸에서 선택), 별도 팝업에 그룹별로 구분 표시, 그룹 안 번호(NO)와 COST·SRP 높은/낮은순 정렬, 「1번만·2번만·3번만·중복 체크(1번 빼고 전부)」 버튼으로 한 번에 체크 후 삭제. ② 중복 데이터 삭제 — PLU 기준, SRP 또는 COST 높은/낮은 순으로 1개 또는 2개만 남기고 나머지 삭제. 삭제한 행은 모두 TRASH 보관, 사용중(체크) 상품은 보호. PLU 쪽 작업은 UPC LIST 에 영향을 주지 않습니다.'],
+  ['히스토리','메뉴 > 히스토리: 불러오기·행 추가·셀 수정·전체 채우기·삭제·중복 삭제를 날짜·시간(분 단위)·카테고리·행수로 기록합니다(두 컴퓨터 공유). 항목의 「보기」로 그 시간에 편집된 행만 리스트로 보고 체크 삭제, 「삭제」로 그 시간에 편집된 행 전부 삭제(TRASH 보관). 삭제 작업 항목은 삭제된 행의 PLU 를 남깁니다.'],
+  ['TRASH','리스트에서 삭제한 행은 PLU 번호가 TRASH 에 보관됩니다(메뉴 > TRASH). TRASH 는 상위 · 중간 카테고리별로 따로 관리되며, 보고 있는 카테고리의 TRASH 만 표시됩니다. 같은 카테고리로 엑셀 불러오기 때 TRASH 와 PLU 가 같은 행은 무조건 무시되어 쓰레기가 다시 쌓이지 않습니다. TRASH 에서 제거하면 다시 등록 가능.'],
+  ['표시','같은 PLU 행은 PLU 칸이 같은 색. USE 미체크 행은 회색 취소선. 검색은 Enter, 번호는 쉼표로 여러 개.']
 ];
 var GUIDE_UPC=[
   ['구조','대분류 = 영역(STI …), 중간 카테고리 = 업체 축약어(VENDER). 업체명·축약어·영업 품목은 EGMM > SYSTEM > VENDER 에서 관리.'],
@@ -2526,14 +2529,13 @@ var GUIDE_UPC=[
   ['매칭 결과 확인','실행 전 팝업에 열마다 "이 열 → 이 필드" 가 표시됩니다. ✓ = 연결됨(유사 이름이면 표시), ✗ = 매칭 없음 → 그 열은 무시. 같은 필드가 이미 다른 열에 연결되면 뒤의 열은 무시됩니다 (예: PLU 열과 Barcode 열이 함께 있으면 PLU 만 UPC 로). UPC 열이 하나도 없으면 오류로 중단. 매칭 안 되는 열은 엑셀 1행 이름을 앱 필드명과 똑같이 고치면 됩니다.'],
   ['업데이트 규칙','같은 업체(중간 카테고리) 안에서 UPC 와 ITEM CODE 가 모두 같은 행만 업데이트, 그 외는 전부 새 행(파일의 모든 행이 그대로 들어감 — 같은 UPC 에 ITEM CODE 가 다르면 각각 등록). 같은 상품이 STI-WA 에도 JFC 에도 있어도 됨 — 다른 업체의 같은 UPC 는 건드리지 않고 각각 등록(중복 UPC 는 바탕색으로 표시, 쓸모없는 쪽은 직접 삭제 → TRASH). 제외 규칙은 UPC 숫자 6자리 이하(와 TRASH 일치)뿐. UPC가 빈 행은 건너뜀.'],
   ['표시','같은 UPC 행은 UPC 칸이 같은 색. USE 미체크 행은 회색 취소선. 검색은 Enter, 번호는 쉼표로 여러 개.'],
-  ['저장','모든 변경은 즉시 자동 저장되고 CLOUD(UPC-LIST)에 자동 동기화됩니다. 상단 칩에서 상태 확인.'],
-  ['동기화 규칙','수정하면 조건 없이 무조건 CLOUD 로 전송됩니다(업체 이름이 한글이어도 자동 ID, 0건도 전송). 기본 데이터는 없고 모든 데이터(상품 + 필드 설정값)는 CLOUD 에서 가져옵니다. 열 때마다 무조건 CLOUD 의 최신 기록을 먼저 가져오고, 끝나기 전에는 수정·저장이 잠깁니다. 모든 행은 마지막 편집 시각(분 단위)을 가지며, CLOUD 와 합칠 때 행마다 더 최근에 편집된 쪽이 남습니다(같은 분이면 CLOUD). 이 컴퓨터에서 더 최근에 편집·추가·삭제한 행은 CLOUD 에도 그대로 등록되고, 다른 컴퓨터가 더 최근에 편집한 행은 이 화면에 반영됩니다(실시간 포함). CLOUD 에만 있는 상품은 TRASH 에 있는 것 외에는 지우지 않습니다. 동기화 날짜·시간은 메뉴 > 동기화 로그.'],
-  ['데이터 편집','상단 「데이터 편집」 버튼: 현재 보고 있는 중간 카테고리 안에서 ① 중복 데이터 보기 — UPC / ITEM CODE 기준 체크 후 검색(표시 필드는 오른쪽 칸에서 선택), 별도 팝업에 그룹별로 구분 표시, 그룹 안 번호(NO)와 COST·SRP 높은/낮은순 정렬, 「1번만·2번만·3번만·중복 체크(1번 빼고 전부)」 버튼으로 한 번에 체크 후 삭제. ② 중복 데이터 삭제 — UPC / ITEM CODE 기준(둘 다 체크 = 둘 다 같아야 중복), SRP 또는 COST 높은/낮은 순으로 1개 또는 2개만 남기고 나머지 삭제. 삭제한 행은 모두 TRASH 보관, 사용중(체크) 상품은 보호.'],
+  ['저장','모든 변경은 즉시 자동 저장되고 CLOUD(UPC-LIST)에 자동 동기화됩니다. EGMM 왼쪽 USER 박스의 CLOUD 칸에서 상태 확인.'],
+  ['동기화 규칙','수정하면 조건 없이 무조건 CLOUD 로 전송됩니다(업체 이름이 한글이어도 자동 ID, 0건도 전송). 기본 데이터는 없고 모든 데이터(상품 + 필드 설정값)는 CLOUD 에서 가져옵니다. 열 때마다 무조건 CLOUD 의 최신 기록을 먼저 가져오고, 끝나기 전에는 수정·저장이 잠깁니다. 모든 행은 마지막 편집 시각(분 단위)을 가지며, CLOUD 와 합칠 때 행마다 더 최근에 편집된 쪽이 남습니다(같은 분이면 CLOUD). 이 컴퓨터에서 더 최근에 편집·추가·삭제한 행은 CLOUD 에도 그대로 등록되고, 다른 컴퓨터가 더 최근에 편집한 행은 이 화면에 반영됩니다(실시간 포함). CLOUD 에만 있는 상품은 TRASH 에 있는 것 외에는 지우지 않습니다. 동기화 상태는 EGMM 왼쪽 USER 박스의 CLOUD 칸에서 확인(클릭 = 즉시 동기화).'],
+  ['데이터 편집','메뉴 > 데이터 편집: 현재 보고 있는 중간 카테고리 안에서 ① 중복 데이터 보기 — UPC / ITEM CODE 기준 체크 후 검색(표시 필드는 오른쪽 칸에서 선택), 별도 팝업에 그룹별로 구분 표시, 그룹 안 번호(NO)와 COST·SRP 높은/낮은순 정렬, 「1번만·2번만·3번만·중복 체크(1번 빼고 전부)」 버튼으로 한 번에 체크 후 삭제. ② 중복 데이터 삭제 — UPC / ITEM CODE 기준(둘 다 체크 = 둘 다 같아야 중복), SRP 또는 COST 높은/낮은 순으로 1개 또는 2개만 남기고 나머지 삭제. 삭제한 행은 모두 TRASH 보관, 사용중(체크) 상품은 보호.'],
   ['UPC 기준만 업데이트','불러오는 파일에 ITEM CODE 열이 없으면 UPC 기준으로만 매칭합니다: 같은 업체(중간 카테고리)에서 UPC 가 같은 기존 행 전부에 파일에 있는 필드만 덮어쓰고(예: UPC · SRP 2열 파일 → SRP 만 갱신), 새 행은 만들지 않습니다(UPC 가 없을 때만 새 행). ITEM CODE 열이 있으면 업체 + UPC + ITEM CODE 규칙 그대로.'],
   ['필드 우클릭 메뉴','머리글을 우클릭하면 말풍선 메뉴가 뜹니다(필드 숨김 기능은 없어짐). 범위는 지금 화면에 보이는 리스트(검색 중이면 검색 결과, 아니면 현재 중간 카테고리)이고 그 필드만 바뀝니다. ① 특정문자 삭제: 입력한 문자를 셀에서 전부 지움(예: 농심 매운 새우깡 → 매운 새우깡) ② 특정문자 교환: 찾을 문자를 바꿀 문자로 전부 교체 ③ 특정문자 채우기: 모든 셀을 입력한 값으로 채움 ④ SRP 필드에서는 「SRP 가격 생성」: COST 에 마진 %를 적용(판매가 기준 COST÷(1−%) 또는 원가 기준 COST×(1+%))하고 체크한 끝자리(.29 .49 .79 .99) 중 계산값 이상인 가장 가까운 가격으로 만듦. 실행 전 변경 행 수를 확인하고 히스토리에 기록됩니다.'],
   ['카테고리 트리','하위 카테고리(NO · KOR · ENG)는 MART > CATEGORY MANAGER 에서 관리하는 공용 트리(PLU · UPC 공유)입니다. 리스트의 CATEGORY NO 셀을 클릭하면 현재 상위/중간 카테고리의 하위 목록이 드롭다운으로 나오고, 번호를 고르거나 입력하면 KOR · ENG 가 자동으로 채워집니다. 엑셀 불러오기도 NO 만 있으면 KOR · ENG 를 채웁니다. 트리에서 번호·이름을 바꾸면 이 리스트의 상품 행에 실시간으로 반영됩니다.'],
-  ['CLOUD 압축 변환','메뉴 > CLOUD 압축 변환(1회): CLOUD 의 상품 데이터를 행마다 문서 1개에서 업체(중간 카테고리)별 압축 묶음 1개로 바꿉니다. CLOUD 데이터를 백업 파일로 내려받고, 묶음을 다시 읽어 1:1 대조가 맞을 때만 켭니다. 이후 읽기·쓰기 횟수(Firebase 과금 기준)가 행 수가 아니라 업체 수 기준으로 줄고, ITEM ANALYZE · AD LIST · 태블릿도 바뀐 업체 묶음만 받습니다. 이전 행 문서는 모든 컴퓨터·태블릿이 새 버전인 것을 확인한 뒤 「CLOUD 이전 문서 정리」로 삭제.'],
-  ['히스토리','상단 「히스토리」 버튼: 불러오기·행 추가·셀 수정·전체 채우기·삭제·중복 삭제를 날짜·시간(분 단위)·카테고리·행수로 기록합니다(두 컴퓨터 공유). 항목의 「보기」로 그 시간에 편집된 행만 리스트로 보고 체크 삭제, 「삭제」로 그 시간에 편집된 행 전부 삭제(TRASH 보관). 삭제 작업 항목은 삭제된 행의 UPC · ITEM CODE 를 남깁니다.'],
+  ['히스토리','메뉴 > 히스토리: 불러오기·행 추가·셀 수정·전체 채우기·삭제·중복 삭제를 날짜·시간(분 단위)·카테고리·행수로 기록합니다(두 컴퓨터 공유). 항목의 「보기」로 그 시간에 편집된 행만 리스트로 보고 체크 삭제, 「삭제」로 그 시간에 편집된 행 전부 삭제(TRASH 보관). 삭제 작업 항목은 삭제된 행의 UPC · ITEM CODE 를 남깁니다.'],
   ['TRASH','리스트에서 삭제한 행은 UPC · ITEM CODE · VENDER 3개만 TRASH 에 보관됩니다(메뉴 > TRASH). TRASH 는 상위 · 중간 카테고리별로 따로 관리되며, 보고 있는 카테고리의 TRASH 만 표시됩니다. 같은 카테고리로 엑셀 불러오기 때 TRASH 와 UPC·ITEM CODE 가 모두 같은 행은 무조건 무시되어 쓰레기가 다시 쌓이지 않습니다. TRASH 에서 제거하면 다시 등록 가능.']
 ];
 function openGuide(){
@@ -2728,7 +2730,7 @@ function renderContent(){
   var colN=1+(__gs?1:0)+FP.length;
   /* [요구 2026-09 ④ · UPC 모드] 같은 UPC 값이 2행 이상이면 그 UPC 셀들을 같은 바탕색으로 — 값별 색 번호(팔레트 순환) */
   var __dup=null, __pf=null;
-  if(APP_MODE==='UPC'){
+  { /* [2026-10-02] PLU · UPC 동일: 같은 번호 행 바탕색 */
     __pf=fieldByKey(curBig(),'ITEM_PLU')||fieldByKey(curBig(),'PLU');
     if(__pf){
       /* [수정 2026-09-30] 중복 판정은 현재 화면이 아니라 전체 데이터(모든 대분류·소분류) 기준 — 다른 업체 소분류에 같은 UPC 가 있어도 표시 */
@@ -3058,7 +3060,7 @@ function trashAddRows(big,sub,rows){
   return n;
 }
 /* 불러오기용: 같은 상위·중간 카테고리의 TRASH 에 UPC+ITEM CODE 가 모두 같은 행은 무시 */
-function trashIndex(big){ var ix={}; if(TRASH_ENABLED){ (S.trash||[]).forEach(function(t){ if(t.code&&(t.big||big)===big) ix[trashCatKey(big,trashSubOf(t),t.upc,t.code)]=1; }); } return ix; }
+function trashIndex(big){ var ix={}; if(TRASH_ENABLED){ (S.trash||[]).forEach(function(t){ if((t.code||APP_MODE!=='UPC')&&(t.big||big)===big) ix[trashCatKey(big,trashSubOf(t),t.upc,t.code||'')]=1; }); } return ix; } /* PLU: 번호만으로 */
 function openTrash(){
   var __big=curBig(), __sub=curSub();
   var list=(S.trash||[]).filter(function(t){ return (t.big||__big)===__big&&trashSubOf(t)===__sub; }).reverse();
@@ -3121,7 +3123,7 @@ var HIST_TYPES={ imp:'엑셀 불러오기', add:'행 추가', edit:'셀 수정',
 function histMinute(d){ d=d||new Date(); return d.toISOString().slice(0,16)+':00.000Z'; }
 function rowStamp(){ return histMinute(); } /* 행 마지막 편집 시각 (분 단위) */
 function histLog(type,big,sub,ids,delRows,note){
-  if(APP_MODE!=='UPC'||!S) return;
+  if(!S) return;
   if(!Array.isArray(S.history)) S.history=[];
   ids=(ids||[]).map(String); delRows=delRows||[];
   if(!ids.length&&!delRows.length) return;
@@ -4379,11 +4381,11 @@ function renderImportModal(){
   }
   /* [요구 2026-09] 무조건 덮어쓰기: 파일의 빈 셀까지 기존 값을 지우고 덮어씀 (기본 OFF = 빈 셀은 기존 값 유지) */
   h+='<div class="icp-opt"><label style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;"><input type="checkbox" id="impWipe"> 빈 셀도 덮어쓰기</label></div>';
-  if(APP_MODE==='UPC'){
+  { /* [2026-10-02] PLU 도 동일(중복 PLU) */
     /* [요구 2026-10-01] 중복 허용 체크 — 켜면 이미 있는 UPC / ITEM CODE 라도 새 행으로 저장, 끄면 이미 있는 값의 새 행은 건너뜀 (기존 행 업데이트는 그대로) */
     var __dU=(impCtx.allowDupUpc!==false), __dC=(impCtx.allowDupCode!==false);
-    h+='<div class="icp-opt" style="gap:14px;"><label style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;"><input type="checkbox" id="impDupUpc"'+(__dU?' checked':'')+'> 중복 UPC 허용</label>'
-      +'<label style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;"><input type="checkbox" id="impDupCode"'+(__dC?' checked':'')+'> 중복 ITEM CODE 허용</label></div>';
+    h+='<div class="icp-opt" style="gap:14px;"><label style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;"><input type="checkbox" id="impDupUpc"'+(__dU?' checked':'')+'> 중복 '+(APP_MODE==='UPC'?'UPC':'PLU')+' 허용</label>'
+      +(APP_MODE==='UPC'?'<label style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;"><input type="checkbox" id="impDupCode"'+(__dC?' checked':'')+'> 중복 ITEM CODE 허용</label>':'')+'</div>';
   }
 
   h+='<div class="plu-imp-foot"><button class="plu-tool-btn" id="impCancel" type="button">취소</button><button class="plu-tool-btn plu-imp-go" id="impGo" type="button">불러오기</button></div>';
@@ -4658,7 +4660,7 @@ function applyImport(opts){
         });
       }
       /* [요구 2026-09 ⑤ · UPC 모드] 체크 필드(USE): 1 = 사용중 · 0 = 사용중지 (TRUE/Y/YES → 1, FALSE/N/NO → 0) */
-      if(APP_MODE==='UPC'){
+      { /* [2026-10-02] PLU · UPC 동일 */
         for(var __ck in vals){ var __cf=fieldByKey(big,__ck); if(!__cf||__cf.type!=='check') continue;
           var __cv=String(vals[__ck]).trim().toUpperCase();
           if(__cv==='1'||__cv==='TRUE'||__cv==='Y'||__cv==='YES') vals[__ck]='1';
@@ -4725,7 +4727,7 @@ function applyImport(opts){
       /* [2026-10-02] 하위 카테고리 번호(CATEGORY_NO)가 있으면 공유 트리에서 KOR · ENG 자동 채움 (파일에 없을 때) */
       if(vals.CATEGORY_NUMBER!=null&&String(vals.CATEGORY_NUMBER).trim()!==''){ var __cte=catFind(rowBig,dest,vals.CATEGORY_NUMBER); if(__cte){ if(vals.CATEGORY_KOREA==null||String(vals.CATEGORY_KOREA).trim()==='') vals.CATEGORY_KOREA=String(__cte.kor||''); if(vals.CATEGORY_ENGLISH==null||String(vals.CATEGORY_ENGLISH).trim()==='') vals.CATEGORY_ENGLISH=String(__cte.eng||''); } }
       /* [TRASH · 2026-10] 삭제 보관함에 UPC+ITEM CODE 가 모두 있는 행은 무조건 무시 (쓰레기 재등록 방지) */
-      if(TRASH_ENABLED&&mF&&vals.VENDER_ITEM_CODE!=null&&normKey(vals.VENDER_ITEM_CODE)!==''&&__trashIxOf(rowBig)[trashCatKey(rowBig,dest,vals[mF.key],vals.VENDER_ITEM_CODE)]){ stats.trashed=(stats.trashed||0)+1; continue; }
+      if(TRASH_ENABLED&&mF&&((APP_MODE!=='UPC')||(vals.VENDER_ITEM_CODE!=null&&normKey(vals.VENDER_ITEM_CODE)!==''))&&__trashIxOf(rowBig)[trashCatKey(rowBig,dest,vals[mF.key],APP_MODE==='UPC'?vals.VENDER_ITEM_CODE:'')]){ stats.trashed=(stats.trashed||0)+1; continue; }
       /* [2026-10-01 제거] 'UPC·ITEM CODE 모두 같으면 무시' 규칙 삭제 — 조건 없이 전부 처리(같은 값이면 덮어써도 변화 없음) */
       if(hit){
         var __targets=(__upcOnly&&__hitAll&&__hitAll.length>1)?__hitAll:[hit];
@@ -6076,8 +6078,7 @@ function init(){
   $('printX').onclick=function(){ $('printOv').classList.remove('show'); };
   $('puX').onclick=function(){ $('puOv').classList.remove('show'); };
   $('delSelBtn').onclick=function(){ delSelected(); };
-  if(TRASH_ENABLED){ $('trashBtn').style.display=''; $('trashBtn').onclick=function(){ openTrash(); }; }
-  if(APP_MODE==='UPC'){ $('dataEditBtn').style.display=''; $('dataEditBtn').onclick=function(){ openDataEdit(); }; $('histBtn').style.display=''; $('histBtn').onclick=function(){ openHistory(); }; }
+  /* [2026-10-02] TRASH · 데이터 편집 · 히스토리는 서브메뉴에서만 (상단 버튼 없음) */
   $('sortSel').style.display=''; if(APP_MODE!=='UPC'){ var __so=$('sortSel').querySelector('option[value=upc]'); if(__so) __so.textContent='PLU 순'; } $('sortSel').onchange=function(){ var v=$('sortSel').value; $('sortSel').value=''; if(!v) return; sortCurrentSub(v); }; /* [2026-10-02] PLU · UPC 동일 */
   $('printOv').addEventListener('click',function(ev){ if(ev.target===this) this.classList.remove('show'); });
   $('menuPop').addEventListener('click',function(ev){ if(ev.target===this) toggleMenuPop(false); }); /* 바깥(오버레이) 클릭 닫기 */
