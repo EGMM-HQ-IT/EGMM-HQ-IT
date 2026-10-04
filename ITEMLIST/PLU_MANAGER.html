@@ -2493,7 +2493,7 @@ var PLU_MENU=[
 PLU_MENU=PLU_MENU.filter(function(m){ return !m.only||(m.only==='TRASH'&&TRASH_ENABLED)||(m.only==='SYNC'&&SYNC_LATEST_WINS); });
 /* [2026-09-30] 입력 및 관리 가이드 — 번호 목록 팝업 (PLU / UPC 모드별 내용) */
 var GUIDE_PLU=[
-  ['필드 우클릭 메뉴','머리글을 우클릭하면 말풍선 메뉴가 뜹니다(필드 숨김 기능은 없어짐). 범위는 지금 화면에 보이는 리스트(검색 중이면 검색 결과, 아니면 현재 중간 카테고리)이고 그 필드만 바뀝니다. ① 특정문자 삭제: 입력한 문자를 셀에서 전부 지움(예: 농심 매운 새우깡 → 매운 새우깡) ② 특정문자 교환: 찾을 문자를 바꿀 문자로 전부 교체 ③ 특정문자 채우기: 모든 셀을 입력한 값으로 채움 ④ SRP 필드에서는 「SRP 가격 생성」: COST 에 마진 %를 적용(판매가 기준 COST÷(1−%) 또는 원가 기준 COST×(1+%))하고 체크한 끝자리(.29 .49 .79 .99) 중 계산값 이상인 가장 가까운 가격으로 만듦. 실행 전 변경 행 수를 확인하고 히스토리에 기록됩니다.'],
+  ['필드 우클릭 메뉴','머리글을 우클릭하면 말풍선 메뉴가 뜹니다(필드 숨김 기능은 없어짐). 범위는 지금 화면에 보이는 리스트(검색 중이면 검색 결과, 아니면 현재 중간 카테고리)이고 그 필드만 바뀝니다. ① 특정문자 삭제: 입력한 문자를 셀에서 전부 지움(예: 농심 매운 새우깡 → 매운 새우깡) ② 특정문자 교환: 찾을 문자를 바꿀 문자로 전부 교체 ③ 특정문자 채우기: 모든 셀을 입력한 값으로 채움 ④ 특정문자 추가: 현재 값의 맨 앞 또는 맨 뒤에 문자를 붙임(빈 셀은 그 문자만) ⑤ 특정문자 자동추가: 다른 필드 값 + 문자 + 현재 값 + 다른 필드 값 + 문자… 처럼 앞·뒤 항목을 몇 개든 순서대로 붙여 일괄 변경(필드 값이 빈 행은 그 항목만 건너뜀) ⑥ SRP 필드에서는 「SRP 가격 생성」: COST 에 마진 %를 적용(판매가 기준 COST÷(1−%) 또는 원가 기준 COST×(1+%))하고 체크한 끝자리(.29 .49 .79 .99) 중 계산값 이상인 가장 가까운 가격으로 만듦. 실행 전 변경 행 수를 확인하고 히스토리에 기록됩니다.'],
   ['카테고리 트리','하위 카테고리(NO · KOR · ENG)는 MART > CATEGORY MANAGER 에서 관리하는 공용 트리(PLU · UPC 공유)입니다. 리스트의 CATEGORY NO 셀을 클릭하면 현재 상위/중간 카테고리의 하위 목록이 드롭다운으로 나오고, 번호를 고르거나 입력하면 KOR · ENG 가 자동으로 채워집니다. 엑셀 불러오기도 NO 만 있으면 KOR · ENG 를 채웁니다. 트리에서 번호·이름을 바꾸면 이 리스트의 상품 행에 실시간으로 반영됩니다.'],
   ['카테고리','상위(대분류) 탭 → 중간 카테고리를 고른 뒤 작업합니다. 청과는 PLU 번호로 중간 카테고리 자동 배치 (1000 야채 · 2000 과일 · 3000 로컬 · 80000 박스 · 90000 유기농).'],
   ['행 입력','행 추가 → 셀을 클릭해 입력. PLU는 자동 증가. 사용(USE) 체크 = 현재 매장에서 사용중, 미체크 행은 회색 취소선.'],
@@ -2521,7 +2521,7 @@ var GUIDE_UPC=[
   ['동기화 규칙','수정하면 조건 없이 무조건 CLOUD 로 전송됩니다(업체 이름이 한글이어도 자동 ID, 0건도 전송). 기본 데이터는 없고 모든 데이터(상품 + 필드 설정값)는 CLOUD 에서 가져옵니다. 열 때마다 무조건 CLOUD 의 최신 기록을 먼저 가져오고, 끝나기 전에는 수정·저장이 잠깁니다. 모든 행은 마지막 편집 시각(분 단위)을 가지며, CLOUD 와 합칠 때 행마다 더 최근에 편집된 쪽이 남습니다(같은 분이면 CLOUD). 이 컴퓨터에서 더 최근에 편집·추가·삭제한 행은 CLOUD 에도 그대로 등록되고, 다른 컴퓨터가 더 최근에 편집한 행은 이 화면에 반영됩니다(실시간 포함). CLOUD 에만 있는 상품은 TRASH 에 있는 것 외에는 지우지 않습니다. 동기화 상태는 EGMM 왼쪽 USER 박스의 CLOUD 칸에서 확인(클릭 = 즉시 동기화).'],
   ['데이터 편집','메뉴 > 데이터 편집: 현재 보고 있는 중간 카테고리 안에서 ① 중복 데이터 보기 — UPC / ITEM CODE 기준 체크 후 검색(표시 필드는 오른쪽 칸에서 선택), 별도 팝업에 그룹별로 구분 표시, 그룹 안 번호(NO)와 COST·SRP 높은/낮은순 정렬, 「1번만·2번만·3번만·중복 체크(1번 빼고 전부)」 버튼으로 한 번에 체크 후 삭제. ② 중복 데이터 삭제 — UPC / ITEM CODE 기준(둘 다 체크 = 둘 다 같아야 중복), SRP 또는 COST 높은/낮은 순으로 1개 또는 2개만 남기고 나머지 삭제. 삭제한 행은 모두 TRASH 보관, 사용중(체크) 상품은 보호.'],
   ['UPC 기준만 업데이트','불러오는 파일에 ITEM CODE 열이 없으면 UPC 기준으로만 매칭합니다: 같은 업체(중간 카테고리)에서 UPC 가 같은 기존 행 전부에 파일에 있는 필드만 덮어쓰고(예: UPC · SRP 2열 파일 → SRP 만 갱신), 새 행은 만들지 않습니다(UPC 가 없을 때만 새 행). ITEM CODE 열이 있으면 업체 + UPC + ITEM CODE 규칙 그대로.'],
-  ['필드 우클릭 메뉴','머리글을 우클릭하면 말풍선 메뉴가 뜹니다(필드 숨김 기능은 없어짐). 범위는 지금 화면에 보이는 리스트(검색 중이면 검색 결과, 아니면 현재 중간 카테고리)이고 그 필드만 바뀝니다. ① 특정문자 삭제: 입력한 문자를 셀에서 전부 지움(예: 농심 매운 새우깡 → 매운 새우깡) ② 특정문자 교환: 찾을 문자를 바꿀 문자로 전부 교체 ③ 특정문자 채우기: 모든 셀을 입력한 값으로 채움 ④ SRP 필드에서는 「SRP 가격 생성」: COST 에 마진 %를 적용(판매가 기준 COST÷(1−%) 또는 원가 기준 COST×(1+%))하고 체크한 끝자리(.29 .49 .79 .99) 중 계산값 이상인 가장 가까운 가격으로 만듦. 실행 전 변경 행 수를 확인하고 히스토리에 기록됩니다.'],
+  ['필드 우클릭 메뉴','머리글을 우클릭하면 말풍선 메뉴가 뜹니다(필드 숨김 기능은 없어짐). 범위는 지금 화면에 보이는 리스트(검색 중이면 검색 결과, 아니면 현재 중간 카테고리)이고 그 필드만 바뀝니다. ① 특정문자 삭제: 입력한 문자를 셀에서 전부 지움(예: 농심 매운 새우깡 → 매운 새우깡) ② 특정문자 교환: 찾을 문자를 바꿀 문자로 전부 교체 ③ 특정문자 채우기: 모든 셀을 입력한 값으로 채움 ④ 특정문자 추가: 현재 값의 맨 앞 또는 맨 뒤에 문자를 붙임(빈 셀은 그 문자만) ⑤ 특정문자 자동추가: 다른 필드 값 + 문자 + 현재 값 + 다른 필드 값 + 문자… 처럼 앞·뒤 항목을 몇 개든 순서대로 붙여 일괄 변경(필드 값이 빈 행은 그 항목만 건너뜀) ⑥ SRP 필드에서는 「SRP 가격 생성」: COST 에 마진 %를 적용(판매가 기준 COST÷(1−%) 또는 원가 기준 COST×(1+%))하고 체크한 끝자리(.29 .49 .79 .99) 중 계산값 이상인 가장 가까운 가격으로 만듦. 실행 전 변경 행 수를 확인하고 히스토리에 기록됩니다.'],
   ['카테고리 트리','하위 카테고리(NO · KOR · ENG)는 MART > CATEGORY MANAGER 에서 관리하는 공용 트리(PLU · UPC 공유)입니다. 리스트의 CATEGORY NO 셀을 클릭하면 현재 상위/중간 카테고리의 하위 목록이 드롭다운으로 나오고, 번호를 고르거나 입력하면 KOR · ENG 가 자동으로 채워집니다. 엑셀 불러오기도 NO 만 있으면 KOR · ENG 를 채웁니다. 트리에서 번호·이름을 바꾸면 이 리스트의 상품 행에 실시간으로 반영됩니다.'],
   ['히스토리','메뉴 > 히스토리: 불러오기·행 추가·셀 수정·전체 채우기·삭제·중복 삭제를 날짜·시간(분 단위)·카테고리·행수로 기록합니다(두 컴퓨터 공유). 항목의 「보기」로 그 시간에 편집된 행만 리스트로 보고 체크 삭제, 「삭제」로 그 시간에 편집된 행 전부 삭제(TRASH 보관). 삭제 작업 항목은 삭제된 행의 UPC · ITEM CODE 를 남깁니다.'],
   ['TRASH','리스트에서 삭제한 행은 UPC · ITEM CODE · VENDER 3개만 TRASH 에 보관됩니다(메뉴 > TRASH). TRASH 는 상위 · 중간 카테고리별로 따로 관리되며, 보고 있는 카테고리의 TRASH 만 표시됩니다. 같은 카테고리로 엑셀 불러오기 때 TRASH 와 UPC·ITEM CODE 가 모두 같은 행은 무조건 무시되어 쓰레기가 다시 쌓이지 않습니다. TRASH 에서 제거하면 다시 등록 가능.']
@@ -3225,10 +3225,10 @@ function openFieldMenu(f,x,y){
   var m=document.createElement('div'); m.id='pluFieldMenu'; m.className='plu-fmenu';
   m.innerHTML='<div class="fm-title">'+escapeHtml(f.label||f.key)+' · '+(gsActive()?'검색 결과':escapeHtml(curSub()))+' '+fieldMenuRows().length+'행</div>'
     +(isCalc?'<div style="padding:6px 9px;color:var(--ink-dim,#777)">수식(자동 계산) 필드 — 문자 편집 불가</div>'
-      :'<button data-op="del">특정문자 삭제</button><button data-op="rep">특정문자 교환</button><button data-op="fill">특정문자 채우기</button>'+(isSrp?'<button data-op="srp">SRP 가격 생성 (COST 기준)</button>':''));
+      :'<button data-op="del">특정문자 삭제</button><button data-op="rep">특정문자 교환</button><button data-op="fill">특정문자 채우기</button><button data-op="add">특정문자 추가 (앞/뒤)</button><button data-op="auto">특정문자 자동추가 (필드+문자 조합)</button>'+(isSrp?'<button data-op="srp">SRP 가격 생성 (COST 기준)</button>':''));
   document.body.appendChild(m);
   var W=m.offsetWidth, H=m.offsetHeight; m.style.left=Math.max(6,Math.min(x-16,window.innerWidth-W-6))+'px'; m.style.top=Math.max(6,Math.min(y+10,window.innerHeight-H-6))+'px';
-  Array.prototype.forEach.call(m.querySelectorAll('button[data-op]'),function(b){ b.onclick=function(){ var op=b.getAttribute('data-op'); closeFieldMenu(); if(op==='srp') openSrpGen(f); else openFieldTextOp(f,op); }; });
+  Array.prototype.forEach.call(m.querySelectorAll('button[data-op]'),function(b){ b.onclick=function(){ var op=b.getAttribute('data-op'); closeFieldMenu(); if(op==='srp') openSrpGen(f); else if(op==='auto') openFieldAutoAdd(f); else openFieldTextOp(f,op); }; });
   setTimeout(function(){ document.addEventListener('mousedown',__fmOut,true); document.addEventListener('keydown',__fmKey,true); },0);
 }
 function __fmApply(f,rows,fn,note,type){
@@ -3240,23 +3240,78 @@ function __fmApply(f,rows,fn,note,type){
 function __fmCount(f,rows,fn){ var n=0, stCtx=S.curStore; rows.forEach(function(r){ var cur=String(getCell(r,f,stCtx)==null?'':getCell(r,f,stCtx)); var nv=fn(cur,r); if(nv!=null&&nv!==cur) n++; }); return n; }
 function __reEsc(s){ return String(s).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
 function openFieldTextOp(f,op){
-  var rows=fieldMenuRows(), scope=(gsActive()?'검색 결과':curSub())+' '+rows.length+'행', title={del:'특정문자 삭제',rep:'특정문자 교환',fill:'특정문자 채우기'}[op];
+  var rows=fieldMenuRows(), scope=(gsActive()?'검색 결과':curSub())+' '+rows.length+'행', title={del:'특정문자 삭제',rep:'특정문자 교환',fill:'특정문자 채우기',add:'특정문자 추가'}[op];
   var h='<b style="font-size:15px">'+title+' — '+escapeHtml(f.label||f.key)+'</b><div style="margin:4px 0 10px;color:var(--ink-dim,#777)">범위: '+escapeHtml(scope)+' · 이 필드만'+(S.curStore?' · 매장 '+escapeHtml(S.curStore):'')+'</div>';
   if(op==='del') h+='<div class="icp-lbl">삭제할 문자</div><input type="text" class="icp-sel" id="fmA" placeholder="예: 농심" autocomplete="off"><div class="plu-imp-hint" style="margin-top:6px">셀 값에서 이 문자를 전부 지웁니다 (앞뒤 빈칸 정리). 예: 농심 매운 새우깡 → 매운 새우깡</div>';
   else if(op==='rep') h+='<div class="icp-lbl">찾을 문자</div><input type="text" class="icp-sel" id="fmA" placeholder="예: 농심" autocomplete="off"><div class="icp-lbl" style="margin-top:8px">바꿀 문자</div><input type="text" class="icp-sel" id="fmB" placeholder="예: 농심)" autocomplete="off"><div class="plu-imp-hint" style="margin-top:6px">셀 값의 모든 "찾을 문자"를 "바꿀 문자"로 바꿉니다.</div>';
+  else if(op==='add') h+='<div class="icp-lbl">추가할 문자</div><input type="text" class="icp-sel" id="fmA" placeholder="예: 농심 " autocomplete="off"><div style="display:flex;gap:14px;margin-top:8px"><label style="display:inline-flex;align-items:center;gap:5px"><input type="radio" name="fmPos" value="pre" checked> 맨 앞에 추가</label><label style="display:inline-flex;align-items:center;gap:5px"><input type="radio" name="fmPos" value="suf"> 맨 뒤에 추가</label></div><div class="plu-imp-hint" style="margin-top:6px">현재 값의 맨 앞 또는 맨 뒤에 이 문자를 붙입니다 (빈칸 포함 입력한 그대로). 빈 셀은 이 문자만 들어갑니다.</div>';
   else h+='<div class="icp-lbl">채울 문자</div><input type="text" class="icp-sel" id="fmA" placeholder="예: 농심" autocomplete="off"><div class="plu-imp-hint" style="margin-top:6px">범위의 모든 셀을 이 값으로 채웁니다 (빈 셀 포함, 기존 값 덮어씀).</div>';
   h+='<div id="fmPrev" style="margin-top:8px;color:var(--ink-dim,#777)"></div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button id="fmCancel" class="plu-tool-btn">취소</button><button id="fmGo" class="plu-tool-btn plu-imp-go">실행</button></div>';
   __fbOverlay('fmOv',h); setTimeout(function(){ var a=$('fmA'); if(a) a.focus(); },30);
   function mk(){ var a=$('fmA')?$('fmA').value:'', b=$('fmB')?$('fmB').value:'';
     if(op==='del'){ if(!a) return null; var re=new RegExp(__reEsc(a),'g'); return function(cur){ if(cur.indexOf(a)<0) return null; return cur.replace(re,'').replace(/\s{2,}/g,' ').trim(); }; }
     if(op==='rep'){ if(!a) return null; var re2=new RegExp(__reEsc(a),'g'); return function(cur){ if(cur.indexOf(a)<0) return null; return cur.replace(re2,b); }; }
+    if(op==='add'){ if(!a) return null; var suf=(($('fmOv')||document).querySelector('input[name=fmPos]:checked')||{}).value==='suf'; return function(cur){ return cur===''?a:(suf?cur+a:a+cur); }; }
     return function(cur){ return a; }; }
   function prev(){ var fn=mk(); var c=fn?__fmCount(f,rows,fn):0; $('fmPrev').textContent=fn?('변경 예정: '+c+'행 / '+rows.length+'행'):'문자를 입력하세요'; $('fmGo').textContent=c?('실행 ('+c+'행)'):'실행'; }
-  ['fmA','fmB'].forEach(function(id){ if($(id)){ $(id).oninput=prev; $(id).onkeydown=function(ev){ if(ev.key==='Enter') $('fmGo').click(); if(ev.key==='Escape') __fbClose('fmOv'); }; } }); prev();
+  ['fmA','fmB'].forEach(function(id){ if($(id)){ $(id).oninput=prev; $(id).onkeydown=function(ev){ if(ev.key==='Enter') $('fmGo').click(); if(ev.key==='Escape') __fbClose('fmOv'); }; } });
+  Array.prototype.forEach.call(($('fmOv')||document).querySelectorAll('input[name=fmPos]'),function(r){ r.onchange=prev; }); prev();
   $('fmCancel').onclick=function(){ __fbClose('fmOv'); };
   $('fmGo').onclick=function(){ var fn=mk(); if(!fn){ showToast('문자를 입력하세요','error'); return; } var cnt=__fmCount(f,rows,fn); if(!cnt){ showToast('변경될 행이 없습니다','error'); return; }
     /* [2026-10-02] 이 팝업에서 바로 실행 — 별도 확인 팝업 없음(변경 행 수는 버튼에 표시) */
     var a=$('fmA')?$('fmA').value:''; __fbClose('fmOv'); var n=__fmApply(f,rows,fn,title+' "'+a+'"'); showToast(title+' — '+n+'행 변경','success'); };
+}
+/* [2026-10-04] 특정문자 자동추가 — 앞 항목들(필드 값 / 문자, 순서대로) + 현재 값 + 뒤 항목들(필드 값 / 문자). 항목은 몇 개든 추가 가능.
+   같은 필드에서 마지막으로 쓴 구성은 세션 안에서 기억(__faLast). 필드 항목의 값이 비면 그 항목만 건너뜀. */
+var __faLast={};
+function openFieldAutoAdd(f){
+  var big=curBig(), rows=fieldMenuRows(), lay=S.layouts[big]||[];
+  var scope=(gsActive()?'검색 결과':curSub())+' '+rows.length+'행';
+  var st=__faLast[f.key]||{ pre:[{t:'f',v:''},{t:'s',v:' '}], suf:[{t:'f',v:''},{t:'s',v:''}] };
+  st=JSON.parse(JSON.stringify(st));
+  var fOpts=function(sel){ return '<option value="">(필드 선택)</option>'+lay.filter(function(x){ return x.key!==f.key; }).map(function(x){ return '<option value="'+escapeHtml(x.key)+'"'+(x.key===sel?' selected':'')+'>'+escapeHtml((x.group?x.group+' · ':'')+x.label)+'</option>'; }).join(''); };
+  function itemHtml(side,i,it){
+    return '<div class="fa-item" data-side="'+side+'" data-i="'+i+'" style="display:flex;gap:6px;align-items:center;margin-bottom:5px">'
+      +'<span style="width:18px;text-align:right;color:var(--ink-dim,#777);font-size:11px">'+(i+1)+'</span>'
+      +'<select class="icp-sel fa-t" style="width:76px"><option value="f"'+(it.t==='f'?' selected':'')+'>필드</option><option value="s"'+(it.t==='s'?' selected':'')+'>문자</option></select>'
+      +(it.t==='f'?'<select class="icp-sel fa-v" style="flex:1">'+fOpts(it.v)+'</select>':'<input type="text" class="icp-sel fa-v" style="flex:1" value="'+escapeHtml(it.v)+'" placeholder="추가할 문자 (빈칸 포함)" autocomplete="off">')
+      +'<button type="button" class="plu-tool-btn fa-up" title="위로" style="padding:2px 7px">▲</button><button type="button" class="plu-tool-btn fa-dn" title="아래로" style="padding:2px 7px">▼</button><button type="button" class="plu-tool-btn fa-x" title="삭제" style="padding:2px 7px;color:#c33">✕</button></div>';
+  }
+  function listHtml(side){ var arr=st[side]; return arr.map(function(it,i){ return itemHtml(side,i,it); }).join('')+'<div style="display:flex;gap:6px;margin-top:4px"><button type="button" class="plu-tool-btn fa-add" data-side="'+side+'" data-t="f" style="padding:3px 9px">+ 필드</button><button type="button" class="plu-tool-btn fa-add" data-side="'+side+'" data-t="s" style="padding:3px 9px">+ 문자</button></div>'; }
+  var h='<b style="font-size:15px">특정문자 자동추가 — '+escapeHtml(f.label||f.key)+'</b><div style="margin:4px 0 10px;color:var(--ink-dim,#777)">범위: '+escapeHtml(scope)+' · 이 필드만'+(S.curStore?' · 매장 '+escapeHtml(S.curStore):'')+'</div>'
+    +'<div class="plu-imp-hint" style="margin-bottom:10px">새 값 = <b>앞 항목들</b>(위에서부터 순서대로) + <b>현재 값</b> + <b>뒤 항목들</b>. 항목은 다른 필드의 값 또는 문자(빈칸 포함)이고, 몇 개든 추가할 수 있습니다. 필드 값이 빈 행은 그 항목만 건너뜁니다.</div>'
+    +'<div style="display:flex;gap:16px;align-items:flex-start"><div style="flex:1;min-width:300px"><div class="icp-lbl">앞에 붙일 항목</div><div id="faPre">'+listHtml('pre')+'</div></div>'
+    +'<div style="align-self:center;padding:0 4px;font-weight:800;color:var(--ink-dim,#777)">+ 현재 값 +</div>'
+    +'<div style="flex:1;min-width:300px"><div class="icp-lbl">뒤에 붙일 항목</div><div id="faSuf">'+listHtml('suf')+'</div></div></div>'
+    +'<div id="faPrev" style="margin-top:10px;color:var(--ink-dim,#777);white-space:pre-line"></div>'
+    +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button id="faCancel" class="plu-tool-btn">취소</button><button id="faGo" class="plu-tool-btn plu-imp-go">실행</button></div>';
+  var ov=__fbOverlay('faOv',h); ov.firstChild.style.maxWidth='860px'; ov.firstChild.style.width='min(860px,96vw)';
+  function read(){ ['pre','suf'].forEach(function(side){ var arr=[]; Array.prototype.forEach.call(ov.querySelectorAll('.fa-item[data-side="'+side+'"]'),function(el){ arr.push({ t:el.querySelector('.fa-t').value, v:el.querySelector('.fa-v').value }); }); st[side]=arr; }); }
+  function mk(){ var any=false; ['pre','suf'].forEach(function(side){ st[side].forEach(function(it){ if((it.t==='f'&&it.v)||(it.t==='s'&&it.v!=='')) any=true; }); }); if(!any) return null;
+    var stCtx=S.curStore;
+    var part=function(it,r){ if(it.t==='s') return it.v; if(!it.v) return ''; var ff=fieldByKey(big,it.v); if(!ff) return ''; var v=getCell(r,ff,stCtx); return v==null?'':String(v); };
+    return function(cur,r){ var a='',b=''; st.pre.forEach(function(it){ a+=part(it,r); }); st.suf.forEach(function(it){ b+=part(it,r); }); return a+cur+b; }; }
+  function prev(){ read(); var fn=mk(); if(!fn){ $('faPrev').textContent='항목을 입력하세요'; $('faGo').textContent='실행'; return; }
+    var c=__fmCount(f,rows,fn), ex=[]; for(var i=0;i<rows.length&&ex.length<2;i++){ var cur=String(getCell(rows[i],f,S.curStore)==null?'':getCell(rows[i],f,S.curStore)); var nv=fn(cur,rows[i]); if(nv!==cur) ex.push('"'+cur+'" → "'+nv+'"'); }
+    $('faPrev').textContent='변경 예정: '+c+'행 / '+rows.length+'행'+(ex.length?'\n예: '+ex.join('\n예: '):''); $('faGo').textContent=c?('실행 ('+c+'행)'):'실행'; }
+  function render(){ $('faPre').innerHTML=listHtml('pre'); $('faSuf').innerHTML=listHtml('suf'); bind(); prev(); }
+  function bind(){
+    Array.prototype.forEach.call(ov.querySelectorAll('.fa-item'),function(el){
+      var side=el.getAttribute('data-side'), i=parseInt(el.getAttribute('data-i'),10);
+      el.querySelector('.fa-t').onchange=function(){ read(); st[side][i].v=''; render(); };
+      var v=el.querySelector('.fa-v'); v.oninput=prev; v.onchange=prev; v.onkeydown=function(ev){ if(ev.key==='Enter') $('faGo').click(); if(ev.key==='Escape') __fbClose('faOv'); };
+      el.querySelector('.fa-x').onclick=function(){ read(); st[side].splice(i,1); render(); };
+      el.querySelector('.fa-up').onclick=function(){ if(i<1) return; read(); var t=st[side][i-1]; st[side][i-1]=st[side][i]; st[side][i]=t; render(); };
+      el.querySelector('.fa-dn').onclick=function(){ read(); if(i>=st[side].length-1) return; var t=st[side][i+1]; st[side][i+1]=st[side][i]; st[side][i]=t; render(); };
+    });
+    Array.prototype.forEach.call(ov.querySelectorAll('.fa-add'),function(b){ b.onclick=function(){ read(); st[b.getAttribute('data-side')].push({t:b.getAttribute('data-t'),v:''}); render(); }; });
+  }
+  bind(); prev();
+  $('faCancel').onclick=function(){ __fbClose('faOv'); };
+  $('faGo').onclick=function(){ read(); var fn=mk(); if(!fn){ showToast('항목을 입력하세요','error'); return; } var cnt=__fmCount(f,rows,fn); if(!cnt){ showToast('변경될 행이 없습니다','error'); return; }
+    __faLast[f.key]=JSON.parse(JSON.stringify(st));
+    var desc=st.pre.concat([{t:'s',v:'[현재값]'}]).concat(st.suf).filter(function(it){ return it.t==='s'?it.v!=='':!!it.v; }).map(function(it){ return it.t==='f'?('{'+it.v+'}'):('"'+it.v+'"'); }).join('+');
+    __fbClose('faOv'); var n=__fmApply(f,rows,fn,'특정문자 자동추가 '+desc); showToast('특정문자 자동추가 — '+n+'행 변경','success'); };
 }
 /* SRP 가격 생성: COST 기준 마진 % + 끝자리(.29 .49 .79 .99) 선택 → 계산값 이상인 가장 가까운 끝자리 가격 */
 var __srpOpt={ margin:30, base:'price', ends:{'0.29':true,'0.49':true,'0.79':true,'0.99':true}, onlyEmpty:false };
