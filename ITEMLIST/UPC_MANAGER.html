@@ -599,6 +599,7 @@ try{ document.documentElement.setAttribute('data-theme', localStorage.getItem('p
   .plu-table.hasgr thead tr.plu-th-frow th .plu-th-in { height:100%; }
   .plu-table th.plu-gbs, .plu-table td.plu-gbs { border-left:2px solid #000 !important; }
   /* [필드 고정 2026-10-04] 고정 열: 머리글은 위+왼쪽, 셀은 왼쪽 sticky. 바탕은 불투명(줄무늬·hover 유지) */
+  .plu-table.frz { border-collapse:separate; border-spacing:0; } /* collapse 모델은 고정 셀 뒤로 다른 열의 테두리가 비쳐 보임(그림자) → 고정 중엔 separate */
   .plu-table.frz thead th.plu-frz { z-index:36; }
   .plu-table.frz tbody td.plu-frz { position:sticky; z-index:6; background:var(--bg-elev,#fff); }
   .plu-table.frz tbody tr:nth-child(even) td.plu-frz { background:var(--bg-elev-2,#f3f3ee); }
@@ -610,6 +611,7 @@ try{ document.documentElement.setAttribute('data-theme', localStorage.getItem('p
   .plu-fmenu .fm-title { font-weight:800; padding:4px 8px 6px; border-bottom:1px solid var(--line,#e5e8ee); margin-bottom:4px; color:var(--ink-dim,#666); font-size:11.5px; }
   .plu-fmenu button { display:block; width:100%; text-align:left; background:transparent; border:none; padding:7px 9px; border-radius:8px; font:inherit; font-size:12.5px; cursor:pointer; color:inherit; }
   .plu-fmenu button:hover { background:var(--panel-2,#f1f4f8); }
+  .plu-fmenu .fm-sep { border-top:1px solid var(--line,#e5e8ee); margin:4px 0; }
   .plu-fmenu button.danger { color:#c33; }
   /* [요구 2026-10-02] 선택 체크박스 열과 그 다음 열 사이 굵은 구분선 (어떤 필드가 와도) */
   .plu-table th.plu-c-sel, .plu-table td.plu-c-sel { border-right:2px solid #000 !important; }
@@ -3263,9 +3265,9 @@ function openFieldMenu(f,x,y){
   var isCalc=!!f.formula||(!!f.share&&f.share!==f.key), isSrp=normKey(f.key)==='PRICE_SRP'||normKey(f.key)==='SRP';
   var m=document.createElement('div'); m.id='pluFieldMenu'; m.className='plu-fmenu';
   m.innerHTML='<div class="fm-title">'+escapeHtml(f.label||f.key)+' · '+(gsActive()?'검색 결과':escapeHtml(curSub()))+' '+fieldMenuRows().length+'행</div>'
-    +'<button data-op="freeze">'+(S.freezeKey===f.key?'필드 고정 해제':'필드 고정 (여기까지 왼쪽)')+'</button>'
     +(isCalc?'<div style="padding:6px 9px;color:var(--ink-dim,#777)">수식(자동 계산) 필드 — 문자 편집 불가</div>'
-      :'<button data-op="del">특정문자 삭제</button><button data-op="rep">특정문자 교환</button><button data-op="fill">특정문자 채우기</button><button data-op="add">특정문자 추가 (앞/뒤)</button><button data-op="auto">특정문자 자동추가 (필드+문자 조합)</button>'+(isSrp?'<button data-op="srp">SRP 가격 생성 (COST 기준)</button>':''));
+      :'<button data-op="del">특정문자 삭제</button><button data-op="rep">특정문자 교환</button><button data-op="fill">특정문자 채우기</button><button data-op="add">특정문자 추가 (앞/뒤)</button><button data-op="auto">특정문자 자동추가 (필드+문자 조합)</button>'+(isSrp?'<button data-op="srp">SRP 가격 생성 (COST 기준)</button>':''))
+    +'<div class="fm-sep"></div><button data-op="freeze">'+(S.freezeKey===f.key?'필드 고정 해제':'필드 고정 (여기까지 왼쪽)')+'</button>';
   document.body.appendChild(m);
   var W=m.offsetWidth, H=m.offsetHeight; m.style.left=Math.max(6,Math.min(x-16,window.innerWidth-W-6))+'px'; m.style.top=Math.max(6,Math.min(y+10,window.innerHeight-H-6))+'px';
   Array.prototype.forEach.call(m.querySelectorAll('button[data-op]'),function(b){ b.onclick=function(){ var op=b.getAttribute('data-op'); closeFieldMenu(); if(op==='freeze') toggleFreeze(f); else if(op==='srp') openSrpGen(f); else if(op==='auto') openFieldAutoAdd(f); else openFieldTextOp(f,op); }; });
