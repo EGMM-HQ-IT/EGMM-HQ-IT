@@ -467,7 +467,11 @@ try{ document.documentElement.setAttribute('data-theme', localStorage.getItem('p
   #feOv .plu-fe-body { overflow-x:auto; }
   #feOv .plu-fe-tbl { min-width:1240px; }
   /* [MODULE 23] 필드 기능 표 — 작은 글씨·고정 폭으로 한 화면에 전 카테고리 */
-  #faOv, #faOv .icp-lbl, #faOv .icp-sel, #faOv input, #faOv select, #faOv button, #fmOv.fm-add, #fmOv.fm-add .icp-lbl, #fmOv.fm-add .icp-sel, #fmOv.fm-add input, #fmOv.fm-add button { font-size:13px; } /* [2026-10-04] 특정문자 추가 · 자동추가 팝업 글씨 크기 통일 */
+  #faOv, #faOv .icp-lbl, #faOv .icp-sel, #faOv input, #faOv select, #faOv button, #fmOv.fm-add, #fmOv.fm-add .icp-lbl, #fmOv.fm-add .icp-sel, #fmOv.fm-add input, #fmOv.fm-add button { font-size:13px; }
+  #faOv .fa-item { display:flex; gap:4px; align-items:center; margin-bottom:3px; }
+  #faOv .fa-item .icp-sel { padding:3px 6px; height:26px; line-height:18px; border-radius:6px; font-weight:600; }
+  #faOv .fa-btn { height:26px; padding:0 7px; border:1px solid var(--border,#d7d7d0); background:var(--bg-elev,#fff); color:var(--text-dim,#555); border-radius:6px; cursor:pointer; font:inherit; line-height:24px; }
+  #faOv .fa-btn:hover { background:var(--accent-soft,#f0eee5); } /* [2026-10-04] 특정문자 추가 · 자동추가 팝업 글씨 크기 통일 */
   .ffx-tbl { font-size:11px; table-layout:fixed; }
   .ffx-tbl th { font-size:11px; padding:5px 4px; white-space:nowrap; }
   .ffx-tbl td { padding:3px 4px; overflow:hidden; }
@@ -3335,24 +3339,30 @@ function __reEsc(s){ return String(s).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
 function openFieldTextOp(f,op){
   var rows=fieldMenuRows(), scope=(gsActive()?'검색 결과':curSub())+' '+rows.length+'행', title={del:'특정문자 삭제',rep:'특정문자 교환',fill:'특정문자 채우기',add:'특정문자 추가'}[op];
   var h='<b'+(op==='add'?'':' style="font-size:15px"')+'>'+title+' — '+escapeHtml(f.label||f.key)+'</b><div style="margin:4px 0 10px;color:var(--ink-dim,#777)">범위: '+escapeHtml(scope)+' · 이 필드만'+(S.curStore?' · 매장 '+escapeHtml(S.curStore):'')+'</div>';
-  if(op==='del') h+='<div class="icp-lbl">삭제할 문자</div><input type="text" class="icp-sel" id="fmA" placeholder="예: 농심" autocomplete="off"><div class="plu-imp-hint" style="margin-top:6px">셀 값에서 이 문자를 전부 지웁니다 (앞뒤 빈칸 정리). 예: 농심 매운 새우깡 → 매운 새우깡</div>';
+  if(op==='del') h+='<div class="icp-lbl">삭제할 문자</div><input type="text" class="icp-sel" id="fmA" placeholder="예: 농심 · (*) · NEW" autocomplete="off"><label style="display:inline-flex;align-items:center;gap:5px;margin-top:8px"><input type="checkbox" id="fmWord"'+(__fmWordOpt?' checked':'')+'> 단독 단어만 (앞뒤가 빈칸·특수문자일 때만 — NEW DISPLAY 의 NEW 는 지우고 NEWYEAR 의 NEW 는 남김)</label><div class="plu-imp-hint" style="margin-top:6px">* = 아무 글자나 (엑셀과 동일). 예: (*) → 괄호와 괄호 안 전부 삭제 · 지운 뒤 앞뒤 빈칸 정리</div>';
   else if(op==='rep') h+='<div class="icp-lbl">찾을 문자</div><input type="text" class="icp-sel" id="fmA" placeholder="예: 농심" autocomplete="off"><div class="icp-lbl" style="margin-top:8px">바꿀 문자</div><input type="text" class="icp-sel" id="fmB" placeholder="예: 농심)" autocomplete="off"><div class="plu-imp-hint" style="margin-top:6px">셀 값의 모든 "찾을 문자"를 "바꿀 문자"로 바꿉니다.</div>';
   else if(op==='add') h+='<div class="icp-lbl">추가할 문자</div><input type="text" class="icp-sel" id="fmA" autocomplete="off"><div style="display:flex;gap:14px;margin-top:8px"><label style="display:inline-flex;align-items:center;gap:5px"><input type="radio" name="fmPos" value="pre" checked> 맨 앞</label><label style="display:inline-flex;align-items:center;gap:5px"><input type="radio" name="fmPos" value="suf"> 맨 뒤</label></div>';
   else h+='<div class="icp-lbl">채울 문자</div><input type="text" class="icp-sel" id="fmA" placeholder="예: 농심" autocomplete="off"><div class="plu-imp-hint" style="margin-top:6px">범위의 모든 셀을 이 값으로 채웁니다 (빈 셀 포함, 기존 값 덮어씀).</div>';
   h+='<div id="fmPrev" style="margin-top:8px;color:var(--ink-dim,#777)"></div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button id="fmCancel" class="plu-tool-btn">취소</button><button id="fmGo" class="plu-tool-btn plu-imp-go">실행</button></div>';
   var __fmov=__fbOverlay('fmOv',h); __fmov.classList.toggle('fm-add',op==='add'); setTimeout(function(){ var a=$('fmA'); if(a) a.focus(); },30);
   function mk(){ var a=$('fmA')?$('fmA').value:'', b=$('fmB')?$('fmB').value:'';
-    if(op==='del'){ if(!a) return null; var re=new RegExp(__reEsc(a),'g'); return function(cur){ if(cur.indexOf(a)<0) return null; return cur.replace(re,'').replace(/\s{2,}/g,' ').trim(); }; }
+    if(op==='del'){ if(!a) return null; var word=!!($('fmWord')&&$('fmWord').checked); __fmWordOpt=word;
+      var body=a.split('*').map(__reEsc).join('.*?'); /* [2026-10-04] * = 아무 글자(엑셀 와일드카드) */
+      var W='[A-Za-z0-9\\uAC00-\\uD7A3\\u3131-\\u318E]'; /* 단어 글자: 영문·숫자·한글 */
+      var re=new RegExp(word?('(^|(?!'+W+')[\\s\\S])'+body+'(?!'+W+')'):body,'g');
+      return function(cur){ if(!re.test(cur)){ re.lastIndex=0; return null; } re.lastIndex=0; return cur.replace(re,word?'$1':'').replace(/\s{2,}/g,' ').trim(); }; }
     if(op==='rep'){ if(!a) return null; var re2=new RegExp(__reEsc(a),'g'); return function(cur){ if(cur.indexOf(a)<0) return null; return cur.replace(re2,b); }; }
     if(op==='add'){ if(!a) return null; var suf=(($('fmOv')||document).querySelector('input[name=fmPos]:checked')||{}).value==='suf'; return function(cur){ return cur===''?a:(suf?cur+a:a+cur); }; }
     return function(cur){ return a; }; }
   function prev(){ var fn=mk(); var c=fn?__fmCount(f,rows,fn):0; $('fmPrev').textContent=fn?('변경 예정: '+c+'행 / '+rows.length+'행'):'문자를 입력하세요'; $('fmGo').textContent=c?('실행 ('+c+'행)'):'실행'; }
   ['fmA','fmB'].forEach(function(id){ if($(id)){ $(id).oninput=prev; $(id).onkeydown=function(ev){ if(ev.key==='Enter') $('fmGo').click(); if(ev.key==='Escape') __fbClose('fmOv'); }; } });
-  Array.prototype.forEach.call(($('fmOv')||document).querySelectorAll('input[name=fmPos]'),function(r){ r.onchange=prev; }); prev();
-  $('fmCancel').onclick=function(){ __fbClose('fmOv'); };
+  Array.prototype.forEach.call(($('fmOv')||document).querySelectorAll('input[name=fmPos],#fmWord'),function(r){ r.onchange=prev; }); prev();
+  $('fmCancel').textContent='닫기'; $('fmCancel').onclick=function(){ __fbClose('fmOv'); };
   $('fmGo').onclick=function(){ var fn=mk(); if(!fn){ showToast('문자를 입력하세요','error'); return; } var cnt=__fmCount(f,rows,fn); if(!cnt){ showToast('변경될 행이 없습니다','error'); return; }
     /* [2026-10-02] 이 팝업에서 바로 실행 — 별도 확인 팝업 없음(변경 행 수는 버튼에 표시) */
-    var a=$('fmA')?$('fmA').value:''; __fbClose('fmOv'); var n=__fmApply(f,rows,fn,title+' "'+a+'"'); showToast(title+' — '+n+'행 변경','success'); };
+    var a=$('fmA')?$('fmA').value:''; var n=__fmApply(f,rows,fn,title+' "'+a+'"'); showToast(title+' — '+n+'행 변경','success');
+    /* [2026-10-04] 연속 작업 — 팝업을 닫지 않고 바로 다음 문자 입력 가능 */
+    prev(); var __a=$('fmA'); if(__a){ __a.focus(); __a.select(); } };
 }
 /* [2026-10-04] 특정문자 자동추가 — 앞 항목들(필드 값 / 문자, 순서대로) + 현재 값 + 뒤 항목들(필드 값 / 문자). 항목은 몇 개든 추가 가능.
    같은 필드에서 마지막으로 쓴 구성은 세션 안에서 기억(__faLast). 필드 항목의 값이 비면 그 항목만 건너뜀. */
@@ -3364,13 +3374,12 @@ function openFieldAutoAdd(f){
   st=JSON.parse(JSON.stringify(st));
   var fOpts=function(sel){ return '<option value="">(필드 선택)</option>'+lay.filter(function(x){ return x.key!==f.key; }).map(function(x){ return '<option value="'+escapeHtml(x.key)+'"'+(x.key===sel?' selected':'')+'>'+escapeHtml((x.group?x.group+' · ':'')+x.label)+'</option>'; }).join(''); };
   function itemHtml(side,i,it){
-    return '<div class="fa-item" data-side="'+side+'" data-i="'+i+'" style="display:flex;gap:6px;align-items:center;margin-bottom:5px">'
-      +'<span style="width:18px;text-align:right;color:var(--ink-dim,#777)">'+(i+1)+'</span>'
-      +'<select class="icp-sel fa-t" style="width:76px"><option value="f"'+(it.t==='f'?' selected':'')+'>필드</option><option value="s"'+(it.t==='s'?' selected':'')+'>문자</option></select>'
+    return '<div class="fa-item" data-side="'+side+'" data-i="'+i+'">'
+      +'<select class="icp-sel fa-t" style="width:62px"><option value="f"'+(it.t==='f'?' selected':'')+'>필드</option><option value="s"'+(it.t==='s'?' selected':'')+'>문자</option></select>'
       +(it.t==='f'?'<select class="icp-sel fa-v" style="flex:1">'+fOpts(it.v)+'</select>':'<input type="text" class="icp-sel fa-v" style="flex:1" value="'+escapeHtml(it.v)+'" autocomplete="off">')
-      +'<button type="button" class="plu-tool-btn fa-up" title="위로" style="padding:2px 7px">▲</button><button type="button" class="plu-tool-btn fa-dn" title="아래로" style="padding:2px 7px">▼</button><button type="button" class="plu-tool-btn fa-x" title="삭제" style="padding:2px 7px;color:#c33">✕</button></div>';
+      +'<button type="button" class="fa-btn fa-up" title="위로">▲</button><button type="button" class="fa-btn fa-dn" title="아래로">▼</button><button type="button" class="fa-btn fa-x" title="삭제" style="color:#c33">✕</button></div>';
   }
-  function listHtml(side){ var arr=st[side]; return arr.map(function(it,i){ return itemHtml(side,i,it); }).join('')+'<div style="display:flex;gap:6px;margin-top:4px"><button type="button" class="plu-tool-btn fa-add" data-side="'+side+'" data-t="f" style="padding:3px 9px">+ 필드</button><button type="button" class="plu-tool-btn fa-add" data-side="'+side+'" data-t="s" style="padding:3px 9px">+ 문자</button></div>'; }
+  function listHtml(side){ var arr=st[side]; return arr.map(function(it,i){ return itemHtml(side,i,it); }).join('')+'<div style="display:flex;gap:4px;margin-top:2px"><button type="button" class="fa-btn fa-add" data-side="'+side+'" data-t="f">+ 필드</button><button type="button" class="fa-btn fa-add" data-side="'+side+'" data-t="s">+ 문자</button></div>'; }
   var h='<b>특정문자 자동추가 — '+escapeHtml(f.label||f.key)+'</b><div style="margin:4px 0 10px;color:var(--ink-dim,#777)">범위: '+escapeHtml(scope)+' · 이 필드만'+(S.curStore?' · 매장 '+escapeHtml(S.curStore):'')+'</div>'
     +'<div style="display:flex;gap:16px;align-items:flex-start"><div style="flex:1;min-width:300px"><div class="icp-lbl">앞</div><div id="faPre">'+listHtml('pre')+'</div></div>'
     +'<div style="align-self:center;padding:0 4px;color:var(--ink-dim,#777)">+ 현재 값 +</div>'
@@ -3399,13 +3408,14 @@ function openFieldAutoAdd(f){
     Array.prototype.forEach.call(ov.querySelectorAll('.fa-add'),function(b){ b.onclick=function(){ read(); st[b.getAttribute('data-side')].push({t:b.getAttribute('data-t'),v:''}); render(); }; });
   }
   bind(); prev();
-  $('faCancel').onclick=function(){ __fbClose('faOv'); };
+  $('faCancel').textContent='닫기'; $('faCancel').onclick=function(){ __fbClose('faOv'); };
   $('faGo').onclick=function(){ read(); var fn=mk(); if(!fn){ showToast('항목을 입력하세요','error'); return; } var cnt=__fmCount(f,rows,fn); if(!cnt){ showToast('변경될 행이 없습니다','error'); return; }
     __faLast[f.key]=JSON.parse(JSON.stringify(st));
     var desc=st.pre.concat([{t:'s',v:'[현재값]'}]).concat(st.suf).filter(function(it){ return it.t==='s'?it.v!=='':!!it.v; }).map(function(it){ return it.t==='f'?('{'+it.v+'}'):('"'+it.v+'"'); }).join('+');
-    __fbClose('faOv'); var n=__fmApply(f,rows,fn,'특정문자 자동추가 '+desc); showToast('특정문자 자동추가 — '+n+'행 변경','success'); };
+    var n=__fmApply(f,rows,fn,'특정문자 자동추가 '+desc); showToast('특정문자 자동추가 — '+n+'행 변경','success'); prev(); /* [2026-10-04] 연속 작업 — 팝업 유지 */ };
 }
 /* SRP 가격 생성: COST 기준 마진 % + 끝자리(.29 .49 .79 .99) 선택 → 계산값 이상인 가장 가까운 끝자리 가격 */
+var __fmWordOpt=false; /* 특정문자 삭제 — 단독 단어만 (세션 기억) */
 var __srpOpt={ margin:30, base:'price', ends:{'0.29':true,'0.49':true,'0.79':true,'0.99':true}, onlyEmpty:false };
 function srpCalc(cost,opt){
   var c=parseFloat(String(cost==null?'':cost).replace(/[^0-9.\-]/g,'')); if(!isFinite(c)||c<=0) return null;
