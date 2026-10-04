@@ -586,6 +586,12 @@ try{ document.documentElement.setAttribute('data-theme', localStorage.getItem('p
   .plu-table.hasgr thead tr.plu-th-frow th { height:26px; box-sizing:border-box; padding-top:0; padding-bottom:0; top:26px; }
   .plu-table.hasgr thead tr.plu-th-frow th .plu-th-in { height:100%; }
   .plu-table th.plu-gbs, .plu-table td.plu-gbs { border-left:2px solid #000 !important; }
+  /* [필드 고정 2026-10-04] 고정 열: 머리글은 위+왼쪽, 셀은 왼쪽 sticky. 바탕은 불투명(줄무늬·hover 유지) */
+  .plu-table.frz thead th.plu-frz { z-index:36; }
+  .plu-table.frz tbody td.plu-frz { position:sticky; z-index:6; background:var(--bg-elev,#fff); }
+  .plu-table.frz tbody tr:nth-child(even) td.plu-frz { background:var(--bg-elev-2,#f3f3ee); }
+  .plu-table.frz tbody tr:hover td.plu-frz { background:var(--accent-soft,#f0eee5); }
+  .plu-table.frz th.plu-frz-last, .plu-table.frz td.plu-frz-last { border-right:3px double #000 !important; }
   /* [2026-10-02] 필드 우클릭 말풍선 메뉴 */
   .plu-fmenu { position:fixed; z-index:9800; background:var(--panel,#fff); color:var(--ink,#222); border:1.5px solid var(--line,#cfd6e0); border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.22); padding:8px; min-width:190px; font-size:12.5px; }
   .plu-fmenu:before { content:''; position:absolute; top:-7px; left:16px; width:12px; height:12px; background:var(--panel,#fff); border-left:1.5px solid var(--line,#cfd6e0); border-top:1.5px solid var(--line,#cfd6e0); transform:rotate(45deg); }
@@ -1567,6 +1573,7 @@ function migrate(st){
   if(!Array.isArray(st.trash)) st.trash=[];       /* [TRASH] {upc,code,vender,at} */
   if(!Array.isArray(st.syncLog)) st.syncLog=[];   /* [SYNC LOG] {at,dir,n,by,note} — 로컬 사본 */
   if(!Array.isArray(st.history)) st.history=[];
+  if(typeof st.freezeKey!=='string') st.freezeKey='';   /* [필드 고정 2026-10-04] 이 필드까지 왼쪽 열 전부 가로 스크롤 고정(엑셀 틀 고정) — 전 카테고리 공통 */
   if(st.catLogAt==null) st.catLogAt='';   /* [HISTORY · UPC 2026-10] {at(분 단위),type,big,sub,ids[],n,del[],by} — CLOUD 동기화 */
   if(st.dirtyAt===undefined) st.dirtyAt=null;
   if(st.seeded===undefined) st.seeded=false;    /* 내장 데이터만 들어 있고 Firebase 와 한 번도 맞춘 적 없음 */
@@ -2494,7 +2501,7 @@ var PLU_MENU=[
 PLU_MENU=PLU_MENU.filter(function(m){ return !m.only||(m.only==='TRASH'&&TRASH_ENABLED)||(m.only==='SYNC'&&SYNC_LATEST_WINS); });
 /* [2026-09-30] 입력 및 관리 가이드 — 번호 목록 팝업 (PLU / UPC 모드별 내용) */
 var GUIDE_PLU=[
-  ['필드 우클릭 메뉴','머리글을 우클릭하면 말풍선 메뉴가 뜹니다(필드 숨김 기능은 없어짐). 범위는 지금 화면에 보이는 리스트(검색 중이면 검색 결과, 아니면 현재 중간 카테고리)이고 그 필드만 바뀝니다. ① 특정문자 삭제: 입력한 문자를 셀에서 전부 지움(예: 농심 매운 새우깡 → 매운 새우깡) ② 특정문자 교환: 찾을 문자를 바꿀 문자로 전부 교체 ③ 특정문자 채우기: 모든 셀을 입력한 값으로 채움 ④ 특정문자 추가: 현재 값의 맨 앞 또는 맨 뒤에 문자를 붙임(빈 셀은 그 문자만) ⑤ 특정문자 자동추가: 다른 필드 값 + 문자 + 현재 값 + 다른 필드 값 + 문자… 처럼 앞·뒤 항목을 몇 개든 순서대로 붙여 일괄 변경(필드 값이 빈 행은 그 항목만 건너뜀) ⑥ SRP 필드에서는 「SRP 가격 생성」: COST 에 마진 %를 적용(판매가 기준 COST÷(1−%) 또는 원가 기준 COST×(1+%))하고 체크한 끝자리(.29 .49 .79 .99) 중 계산값 이상인 가장 가까운 가격으로 만듦. 실행 전 변경 행 수를 확인하고 히스토리에 기록됩니다.'],
+  ['필드 우클릭 메뉴','머리글을 우클릭하면 말풍선 메뉴가 뜹니다(필드 숨김 기능은 없어짐). 「필드 고정」: 엑셀 틀 고정처럼 그 필드까지 왼쪽 열 전부(선택열 포함)가 가로 스크롤에서 고정됩니다(검색·카테고리와 무관한 열 설정, 다시 누르면 해제). 범위는 지금 화면에 보이는 리스트(검색 중이면 검색 결과, 아니면 현재 중간 카테고리)이고 그 필드만 바뀝니다. ① 특정문자 삭제: 입력한 문자를 셀에서 전부 지움(예: 농심 매운 새우깡 → 매운 새우깡) ② 특정문자 교환: 찾을 문자를 바꿀 문자로 전부 교체 ③ 특정문자 채우기: 모든 셀을 입력한 값으로 채움 ④ 특정문자 추가: 현재 값의 맨 앞 또는 맨 뒤에 문자를 붙임(빈 셀은 그 문자만) ⑤ 특정문자 자동추가: 다른 필드 값 + 문자 + 현재 값 + 다른 필드 값 + 문자… 처럼 앞·뒤 항목을 몇 개든 순서대로 붙여 일괄 변경(필드 값이 빈 행은 그 항목만 건너뜀) ⑥ SRP 필드에서는 「SRP 가격 생성」: COST 에 마진 %를 적용(판매가 기준 COST÷(1−%) 또는 원가 기준 COST×(1+%))하고 체크한 끝자리(.29 .49 .79 .99) 중 계산값 이상인 가장 가까운 가격으로 만듦. 실행 전 변경 행 수를 확인하고 히스토리에 기록됩니다.'],
   ['카테고리 트리','하위 카테고리(NO · KOR · ENG)는 MART > CATEGORY MANAGER 에서 관리하는 공용 트리(PLU · UPC 공유)입니다. 리스트의 CATEGORY NO 셀을 클릭하면 현재 상위/중간 카테고리의 하위 목록이 드롭다운으로 나오고, 번호를 고르거나 입력하면 KOR · ENG 가 자동으로 채워집니다. 엑셀 불러오기도 NO 만 있으면 KOR · ENG 를 채웁니다. 트리에서 번호·이름을 바꾸면 이 리스트의 상품 행에 실시간으로 반영됩니다.'],
   ['카테고리','상위(대분류) 탭 → 중간 카테고리를 고른 뒤 작업합니다. 청과는 PLU 번호로 중간 카테고리 자동 배치 (1000 야채 · 2000 과일 · 3000 로컬 · 80000 박스 · 90000 유기농).'],
   ['행 입력','행 추가 → 셀을 클릭해 입력. PLU는 자동 증가. 사용(USE) 체크 = 현재 매장에서 사용중, 미체크 행은 회색 취소선.'],
@@ -2522,7 +2529,7 @@ var GUIDE_UPC=[
   ['동기화 규칙','수정하면 조건 없이 무조건 CLOUD 로 전송됩니다(업체 이름이 한글이어도 자동 ID, 0건도 전송). 기본 데이터는 없고 모든 데이터(상품 + 필드 설정값)는 CLOUD 에서 가져옵니다. 열 때마다 무조건 CLOUD 의 최신 기록을 먼저 가져오고, 끝나기 전에는 수정·저장이 잠깁니다. 모든 행은 마지막 편집 시각(분 단위)을 가지며, CLOUD 와 합칠 때 행마다 더 최근에 편집된 쪽이 남습니다(같은 분이면 CLOUD). 이 컴퓨터에서 더 최근에 편집·추가·삭제한 행은 CLOUD 에도 그대로 등록되고, 다른 컴퓨터가 더 최근에 편집한 행은 이 화면에 반영됩니다(실시간 포함). CLOUD 에만 있는 상품은 TRASH 에 있는 것 외에는 지우지 않습니다. 동기화 상태는 EGMM 왼쪽 USER 박스의 CLOUD 칸에서 확인(클릭 = 즉시 동기화).'],
   ['데이터 편집','메뉴 > 데이터 편집: 현재 보고 있는 중간 카테고리 안에서 ① 중복 데이터 보기 — UPC / ITEM CODE 기준 체크 후 검색(표시 필드는 오른쪽 칸에서 선택), 별도 팝업에 그룹별로 구분 표시, 그룹 안 번호(NO)와 COST·SRP 높은/낮은순 정렬, 「1번만·2번만·3번만·중복 체크(1번 빼고 전부)」 버튼으로 한 번에 체크 후 삭제. ② 중복 데이터 삭제 — UPC / ITEM CODE 기준(둘 다 체크 = 둘 다 같아야 중복), SRP 또는 COST 높은/낮은 순으로 1개 또는 2개만 남기고 나머지 삭제. 삭제한 행은 모두 TRASH 보관, 사용중(체크) 상품은 보호.'],
   ['UPC 기준만 업데이트','불러오는 파일에 ITEM CODE 열이 없으면 UPC 기준으로만 매칭합니다: 같은 업체(중간 카테고리)에서 UPC 가 같은 기존 행 전부에 파일에 있는 필드만 덮어쓰고(예: UPC · SRP 2열 파일 → SRP 만 갱신), 새 행은 만들지 않습니다(UPC 가 없을 때만 새 행). ITEM CODE 열이 있으면 업체 + UPC + ITEM CODE 규칙 그대로.'],
-  ['필드 우클릭 메뉴','머리글을 우클릭하면 말풍선 메뉴가 뜹니다(필드 숨김 기능은 없어짐). 범위는 지금 화면에 보이는 리스트(검색 중이면 검색 결과, 아니면 현재 중간 카테고리)이고 그 필드만 바뀝니다. ① 특정문자 삭제: 입력한 문자를 셀에서 전부 지움(예: 농심 매운 새우깡 → 매운 새우깡) ② 특정문자 교환: 찾을 문자를 바꿀 문자로 전부 교체 ③ 특정문자 채우기: 모든 셀을 입력한 값으로 채움 ④ 특정문자 추가: 현재 값의 맨 앞 또는 맨 뒤에 문자를 붙임(빈 셀은 그 문자만) ⑤ 특정문자 자동추가: 다른 필드 값 + 문자 + 현재 값 + 다른 필드 값 + 문자… 처럼 앞·뒤 항목을 몇 개든 순서대로 붙여 일괄 변경(필드 값이 빈 행은 그 항목만 건너뜀) ⑥ SRP 필드에서는 「SRP 가격 생성」: COST 에 마진 %를 적용(판매가 기준 COST÷(1−%) 또는 원가 기준 COST×(1+%))하고 체크한 끝자리(.29 .49 .79 .99) 중 계산값 이상인 가장 가까운 가격으로 만듦. 실행 전 변경 행 수를 확인하고 히스토리에 기록됩니다.'],
+  ['필드 우클릭 메뉴','머리글을 우클릭하면 말풍선 메뉴가 뜹니다(필드 숨김 기능은 없어짐). 「필드 고정」: 엑셀 틀 고정처럼 그 필드까지 왼쪽 열 전부(선택열 포함)가 가로 스크롤에서 고정됩니다(검색·카테고리와 무관한 열 설정, 다시 누르면 해제). 범위는 지금 화면에 보이는 리스트(검색 중이면 검색 결과, 아니면 현재 중간 카테고리)이고 그 필드만 바뀝니다. ① 특정문자 삭제: 입력한 문자를 셀에서 전부 지움(예: 농심 매운 새우깡 → 매운 새우깡) ② 특정문자 교환: 찾을 문자를 바꿀 문자로 전부 교체 ③ 특정문자 채우기: 모든 셀을 입력한 값으로 채움 ④ 특정문자 추가: 현재 값의 맨 앞 또는 맨 뒤에 문자를 붙임(빈 셀은 그 문자만) ⑤ 특정문자 자동추가: 다른 필드 값 + 문자 + 현재 값 + 다른 필드 값 + 문자… 처럼 앞·뒤 항목을 몇 개든 순서대로 붙여 일괄 변경(필드 값이 빈 행은 그 항목만 건너뜀) ⑥ SRP 필드에서는 「SRP 가격 생성」: COST 에 마진 %를 적용(판매가 기준 COST÷(1−%) 또는 원가 기준 COST×(1+%))하고 체크한 끝자리(.29 .49 .79 .99) 중 계산값 이상인 가장 가까운 가격으로 만듦. 실행 전 변경 행 수를 확인하고 히스토리에 기록됩니다.'],
   ['카테고리 트리','하위 카테고리(NO · KOR · ENG)는 MART > CATEGORY MANAGER 에서 관리하는 공용 트리(PLU · UPC 공유)입니다. 리스트의 CATEGORY NO 셀을 클릭하면 현재 상위/중간 카테고리의 하위 목록이 드롭다운으로 나오고, 번호를 고르거나 입력하면 KOR · ENG 가 자동으로 채워집니다. 엑셀 불러오기도 NO 만 있으면 KOR · ENG 를 채웁니다. 트리에서 번호·이름을 바꾸면 이 리스트의 상품 행에 실시간으로 반영됩니다.'],
   ['히스토리','메뉴 > 히스토리: 불러오기·행 추가·셀 수정·전체 채우기·삭제·중복 삭제를 날짜·시간(분 단위)·카테고리·행수로 기록합니다(두 컴퓨터 공유). 항목의 「보기」로 그 시간에 편집된 행만 리스트로 보고 체크 삭제, 「삭제」로 그 시간에 편집된 행 전부 삭제(TRASH 보관). 삭제 작업 항목은 삭제된 행의 UPC · ITEM CODE 를 남깁니다.'],
   ['TRASH','리스트에서 삭제한 행은 UPC · ITEM CODE · VENDER 3개만 TRASH 에 보관됩니다(메뉴 > TRASH). TRASH 는 상위 · 중간 카테고리별로 따로 관리되며, 보고 있는 카테고리의 TRASH 만 표시됩니다. 같은 카테고리로 엑셀 불러오기 때 TRASH 와 UPC·ITEM CODE 가 모두 같은 행은 무조건 무시되어 쓰레기가 다시 쌓이지 않습니다. TRASH 에서 제거하면 다시 등록 가능.']
@@ -2606,6 +2613,25 @@ function fitTableHeight(wrap){
   try{ var tb=document.querySelector('.page-topbar'); if(tb) document.documentElement.style.setProperty('--pluTopH',tb.offsetHeight+'px'); }catch(e){}
 }
 window.addEventListener('resize',function(){ clearTimeout(window.__fitT); window.__fitT=setTimeout(function(){ fitTableHeight(); },120); });
+/* [필드 고정 2026-10-04] 엑셀 틀 고정 — S.freezeKey 필드까지(그 왼쪽 전부 + 선택열) 가로 스크롤에서 제외. 검색·카테고리와 무관한 열 설정(전 카테고리 공통, CLOUD 동기화) */
+function freezeIndex(fs){ if(!S||!S.freezeKey) return -1; for(var i=0;i<fs.length;i++){ if(fs[i].key===S.freezeKey) return i; } return -1; }
+function applyFreeze(root,fs){
+  var tbl=root.querySelector('table.plu-table'); if(!tbl) return;
+  var fi=freezeIndex(fs), css='';
+  if(fi>=0){
+    var gs=gsActive(), left=0;
+    css+='.plu-table.frz .plu-c-sel{position:sticky;left:0}'; left+=34;
+    if(gs){ css+='.plu-table.frz .plu-c-loc{position:sticky;left:'+left+'px}'; left+=150; }
+    for(var i=0;i<=fi;i++){ css+='.plu-table.frz th[data-fi="'+i+'"],.plu-table.frz td[data-fi="'+i+'"]{left:'+left+'px}'; css+='.plu-table.frz th[data-gfi="'+i+'"]{left:'+left+'px}'; left+=(fs[i].w>0?fs[i].w:100); }
+  }
+  var st=$('pluFrzCss'); if(!st){ st=document.createElement('style'); st.id='pluFrzCss'; document.head.appendChild(st); }
+  st.textContent=css;
+}
+function toggleFreeze(f){
+  S.freezeKey=(S.freezeKey===f.key)?'':f.key;
+  saveState(); renderContent();
+  showToast(S.freezeKey?('필드 고정 — '+(f.label||f.key)+' 까지 왼쪽 열 고정'):'필드 고정 해제','success');
+}
 function renderContent(){
   var el=$('pluContent');
   el.classList.remove('plu-list-on'); /* 표가 그려질 때만 다시 붙는다 (빈 화면은 기존 가운데 정렬) */
@@ -2652,7 +2678,7 @@ function renderContent(){
      전체 폭(선택열 34 + 각 필드 너비 합)을 인라인으로 지정 (실제 브라우저 너비 미적용 버그 수정) */
   var __gs=gsActive();
   var totalW=34+(__gs?150:0); fs.forEach(function(f){ totalW+=(f.w>0?f.w:100); });
-  h+='<div class="plu-table-wrap" style="align-self:stretch;"><table class="plu-table fixed'+(fs.some(function(f){return (f.group||'')!=='';})?' hasgr':'')+'" style="width:'+totalW+'px" data-basew="'+totalW+'"><colgroup>';
+  h+='<div class="plu-table-wrap" style="align-self:stretch;"><table class="plu-table fixed'+(fs.some(function(f){return (f.group||'')!=='';})?' hasgr':'')+(freezeIndex(fs)>=0?' frz':'')+'" style="width:'+totalW+'px" data-basew="'+totalW+'"><colgroup>';
   h+='<col style="width:34px">';
   if(__gs) h+='<col style="width:150px">'; /* [전역 검색] 위치(대분류/중간) 열 */
   fs.forEach(function(f){ h+='<col style="width:'+(f.w>0?f.w:100)+'px" data-key="'+escapeHtml(f.key)+'">'; });
@@ -2661,25 +2687,26 @@ function renderContent(){
   h+='</colgroup><thead>';
   if(hasGr){
     h+='<tr class="plu-th-grrow">';
-    h+='<th class="plu-c-sel" rowspan="2"><button type="button" class="plu-selclr" title="체크 전체 취소">✕</button></th>'; /* 필드 라인 체크박스 없음(요구 1) */
-    if(__gs) h+='<th rowspan="2" class="plu-gbs plu-gbe">위치 (대분류/중간)</th>';
-    var gi=0;
+    h+='<th class="plu-c-sel plu-frz" rowspan="2"><button type="button" class="plu-selclr" title="체크 전체 취소">✕</button></th>'; /* 필드 라인 체크박스 없음(요구 1) */
+    if(__gs) h+='<th rowspan="2" class="plu-gbs plu-gbe plu-c-loc plu-frz">위치 (대분류/중간)</th>';
+    var gi=0, __frzI=freezeIndex(fs);
     while(gi<fs.length){
       var g=fs[gi].group||'';
       var span=1;
-      while(gi+span<fs.length && (fs[gi+span].group||'')===g) span++;
+      while(gi+span<fs.length && (fs[gi+span].group||'')===g && gi+span!==__frzI+1) span++; /* [필드 고정] 고정 경계에서 묶음 머리글 분할 */
       var gc=(S.gcolors[big]&&S.gcolors[big][normKey(g)])||{};
       /* 글씨색은 --thx 변수로: 원본 CSS의 color:#000 !important 를 넘어서기 위함 */
       var gsty=(gc.bg?'background:'+escapeHtml(gc.bg)+';':'')+(gc.tx?'--thx:'+escapeHtml(gc.tx)+';':'');
-      if(g!=='') h+='<th class="plu-th-group plu-gbs plu-gbe" colspan="'+span+'"'+(gsty?' style="'+gsty+'"':'')+'>'+escapeHtml(g)+'</th>';
-      else h+='<th class="plu-th-group empty" colspan="'+span+'"></th>';
+      var __gfz=(gi<=__frzI)?' plu-frz'+(gi+span-1===__frzI?' plu-frz-last':''):'';
+      if(g!=='') h+='<th class="plu-th-group plu-gbs plu-gbe'+__gfz+'" data-gfi="'+gi+'" colspan="'+span+'"'+(gsty?' style="'+gsty+'"':'')+'>'+escapeHtml(g)+'</th>';
+      else h+='<th class="plu-th-group empty'+__gfz+'" data-gfi="'+gi+'" colspan="'+span+'"></th>';
       gi+=span;
     }
     h+='</tr><tr class="plu-th-frow">';
   } else {
     h+='<tr>';
-    h+='<th class="plu-c-sel"><button type="button" class="plu-selclr" title="체크 전체 취소">✕</button></th>'; /* 필드 라인 체크박스 없음(요구 1) */
-    if(__gs) h+='<th>위치 (대분류/중간)</th>';
+    h+='<th class="plu-c-sel plu-frz"><button type="button" class="plu-selclr" title="체크 전체 취소">✕</button></th>'; /* 필드 라인 체크박스 없음(요구 1) */
+    if(__gs) h+='<th class="plu-c-loc plu-frz">위치 (대분류/중간)</th>';
   }
   /* [요구 3] 묶음 경계: 묶음이 지정된 필드 블록의 시작/끝에 두꺼운 세로 라인 */
   var gEdge=fs.map(function(f,i){
@@ -2687,10 +2714,11 @@ function renderContent(){
     var s=(i===0||(fs[i-1].group||'')!==g), e=(i===fs.length-1||(fs[i+1].group||'')!==g);
     return (s?' plu-gbs':'')+(e?' plu-gbe':'');
   });
+  var __frzIdx=freezeIndex(fs);
   fs.forEach(function(f,i){
     /* 모든 데이터가 매장별 관리 — 개별 배지 대신 상단 매장 버튼이 문맥 표시 */
     var fsty=(f.color?'background:'+escapeHtml(f.color)+';':'')+(f.tcolor?'--thx:'+escapeHtml(f.tcolor)+';':'');
-    h+='<th data-fi="'+i+'" class="'+gEdge[i].trim()+'" title="더블클릭: 필드 편집 · 오른쪽 경계 드래그: 너비 조절 · 우클릭: 필드 메뉴(문자 삭제·교환·채우기)"'+(fsty?' style="'+fsty+'"':'')+'><div class="plu-th-in"><span class="plu-th-name">'+escapeHtml(f.label)+'</span></div><div class="plu-resizer" data-key="'+escapeHtml(f.key)+'"></div></th>';
+    h+='<th data-fi="'+i+'" class="'+(gEdge[i]+(i<=__frzIdx?' plu-frz'+(i===__frzIdx?' plu-frz-last':''):'')).trim()+'" title="더블클릭: 필드 편집 · 오른쪽 경계 드래그: 너비 조절 · 우클릭: 필드 메뉴(문자 삭제·교환·채우기)"'+(fsty?' style="'+fsty+'"':'')+'><div class="plu-th-in"><span class="plu-th-name">'+escapeHtml(f.label)+'</span></div><div class="plu-resizer" data-key="'+escapeHtml(f.key)+'"></div></th>';
   });
   h+='</tr></thead><tbody>';
   /* [요구 2026-09] 표시 상한 제거 — 행 수와 무관하게 전체 리스트를 한 번에 렌더
@@ -2702,11 +2730,11 @@ function renderContent(){
   var st0=S.curStore;
   var FP=fs.map(function(f,i){
     var isCalc=!!f.formula||(!!f.share&&f.share!==f.key);
-    var cls=(isCalc?'plu-c-calc':'editable')+gEdge[i]+(f.bold?' plu-c-bold':'')+(normKey(f.key)==='PLU'?' plu-c-no':'');
+    var cls=(isCalc?'plu-c-calc':'editable')+gEdge[i]+(f.bold?' plu-c-bold':'')+(normKey(f.key)==='PLU'?' plu-c-no':'')+(i<=__frzIdx?' plu-frz'+(i===__frzIdx?' plu-frz-last':''):'');
     var sf=null; try{ sf=(f.type==='check')?null:selSrcSelect(f); }catch(e){}
     return {
       f:f, key:f.key, isCalc:isCalc, isChk:(f.type==='check'&&!isCalc), all:!!f.allStores,
-      open:'<td class="'+cls, openChk:'<td class="plu-c-check',
+      open:'<td class="'+cls, openChk:'<td class="plu-c-check'+(i<=__frzIdx?' plu-frz'+(i===__frzIdx?' plu-frz-last':''):''),
       /* [요구 2026-10-01] 필드 편집의 바탕색·글씨색은 머리글뿐 아니라 그 열의 모든 셀에 적용 */
       mid:'" data-fi="'+i+'"'+((f.align||f.color||f.tcolor)?' style="'+(f.align?'text-align:'+f.align+';':'')+(f.color?'background:'+escapeHtml(f.color)+';':'')+(f.tcolor?'color:'+escapeHtml(f.tcolor)+';':'')+'"':'')+' title="'+(f.formula?'수식(자동 계산)':(isCalc?'쉐어(참조 자동)':''))+'">',
       midChk:'" data-fi="'+i+'"'+(f.color?' style="background:'+escapeHtml(f.color)+';"':'')+'><input type="checkbox" class="cellChk"',
@@ -2729,7 +2757,7 @@ function renderContent(){
       if(!__ci) __dup=null;
     }
   }
-  __virt={ rows:shown, FP:FP, gs:__gs, useFld:useFld, st0:st0, colN:colN, start:-1, end:-1, rowH:(__virt&&__virt.rowH)||33, wrap:null, tbody:null, dup:__dup, dupKey:__dup?__pf.key:null };
+  __virt={ rows:shown, FP:FP, gs:__gs, frz:(__frzIdx>=0), useFld:useFld, st0:st0, colN:colN, start:-1, end:-1, rowH:(__virt&&__virt.rowH)||33, wrap:null, tbody:null, dup:__dup, dupKey:__dup?__pf.key:null };
   h+='</tbody></table></div>';
 
   el.style.display=''; el.classList.add('plu-list-on'); el.style.textAlign='left'; el.style.padding='18px';
@@ -2740,6 +2768,7 @@ function renderContent(){
     __virt.wrap=__wrapNew; __virt.tbody=__wrapNew.querySelector('tbody');
     __wrapNew.addEventListener('scroll', virtOnScroll, { passive:true });
     fitTableHeight(__wrapNew); /* 리스트 영역만 화면 높이에 맞춰 내부 스크롤 */
+    applyFreeze(el,fs);
     if(__lastRenderKey===__rkey){ __wrapNew.scrollLeft=__sl; __wrapNew.scrollTop=__st; } /* 같은 화면 재렌더 → 위치 복원 */
     /* 다른 탭으로 이동한 경우엔 처음 위치(0) 유지 */
     virtRender(true);
@@ -2756,8 +2785,8 @@ function __rowHtml(r){
   var sv=(st0&&r.sv)?r.sv[st0]:null, v=r.v||{};
   var unused=V.useFld&&String(getCell(r,V.useFld))!=='1';
   var out='<tr data-id="'+escapeHtml(r.id)+'"'+(unused?' class="plu-row-unused"':'')+'>'+
-    '<td class="plu-c-sel"><input type="checkbox" class="rowSel"'+(selRows[r.id]?' checked':'')+'></td>';
-  if(V.gs){ var __loc=__gsMap[r.id]; out+='<td style="color:#1e7a46;font-weight:700;">'+escapeHtml(__loc?(__loc.big+' / '+__loc.sub):'')+'</td>'; }
+    '<td class="plu-c-sel'+(V.frz?' plu-frz':'')+'"><input type="checkbox" class="rowSel"'+(selRows[r.id]?' checked':'')+'></td>';
+  if(V.gs){ var __loc=__gsMap[r.id]; out+='<td class="plu-c-loc'+(V.frz?' plu-frz':'')+'" style="color:#1e7a46;font-weight:700;">'+escapeHtml(__loc?(__loc.big+' / '+__loc.sub):'')+'</td>'; }
   for(var ci=0;ci<FP.length;ci++){
     var P=FP[ci], k=P.key;
     var hasSv=!!(sv&&sv[k]!=null);                       /* 이 매장에 별도 저장된 값 표시 (원래 hasStoreVal 과 동일) */
@@ -2971,6 +3000,7 @@ function startColResize(rz,root,ev){
       var w=Math.max(36,Math.min(600,Math.round(startW+(e.clientX-startX))));
       f.w=w; if(col) col.style.width=w+'px';
       if(tbl&&baseTW) tbl.style.width=(baseTW+(w-startW))+'px'; /* 확정 폭 동기화 */
+      if(tbl&&tbl.classList.contains('frz')) applyFreeze(root,visibleFields());
     }
     function up(){ document.removeEventListener('mousemove',mv); document.removeEventListener('mouseup',up); document.body.classList.remove('plu-resizing'); rz.classList.remove('on'); saveState(); }
     document.addEventListener('mousemove',mv); document.addEventListener('mouseup',up);
@@ -3225,11 +3255,12 @@ function openFieldMenu(f,x,y){
   var isCalc=!!f.formula||(!!f.share&&f.share!==f.key), isSrp=normKey(f.key)==='PRICE_SRP'||normKey(f.key)==='SRP';
   var m=document.createElement('div'); m.id='pluFieldMenu'; m.className='plu-fmenu';
   m.innerHTML='<div class="fm-title">'+escapeHtml(f.label||f.key)+' · '+(gsActive()?'검색 결과':escapeHtml(curSub()))+' '+fieldMenuRows().length+'행</div>'
+    +'<button data-op="freeze">'+(S.freezeKey===f.key?'필드 고정 해제':'필드 고정 (여기까지 왼쪽)')+'</button>'
     +(isCalc?'<div style="padding:6px 9px;color:var(--ink-dim,#777)">수식(자동 계산) 필드 — 문자 편집 불가</div>'
       :'<button data-op="del">특정문자 삭제</button><button data-op="rep">특정문자 교환</button><button data-op="fill">특정문자 채우기</button><button data-op="add">특정문자 추가 (앞/뒤)</button><button data-op="auto">특정문자 자동추가 (필드+문자 조합)</button>'+(isSrp?'<button data-op="srp">SRP 가격 생성 (COST 기준)</button>':''));
   document.body.appendChild(m);
   var W=m.offsetWidth, H=m.offsetHeight; m.style.left=Math.max(6,Math.min(x-16,window.innerWidth-W-6))+'px'; m.style.top=Math.max(6,Math.min(y+10,window.innerHeight-H-6))+'px';
-  Array.prototype.forEach.call(m.querySelectorAll('button[data-op]'),function(b){ b.onclick=function(){ var op=b.getAttribute('data-op'); closeFieldMenu(); if(op==='srp') openSrpGen(f); else if(op==='auto') openFieldAutoAdd(f); else openFieldTextOp(f,op); }; });
+  Array.prototype.forEach.call(m.querySelectorAll('button[data-op]'),function(b){ b.onclick=function(){ var op=b.getAttribute('data-op'); closeFieldMenu(); if(op==='freeze') toggleFreeze(f); else if(op==='srp') openSrpGen(f); else if(op==='auto') openFieldAutoAdd(f); else openFieldTextOp(f,op); }; });
   setTimeout(function(){ document.addEventListener('mousedown',__fmOut,true); document.addEventListener('keydown',__fmKey,true); },0);
 }
 function __fmApply(f,rows,fn,note,type){
