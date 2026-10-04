@@ -592,7 +592,11 @@ try{ document.documentElement.setAttribute('data-theme', localStorage.getItem('p
   .plu-table.frz tbody td.plu-frz { position:sticky; z-index:6; background:var(--bg-elev,#fff); }
   .plu-table.frz tbody tr:nth-child(even) td.plu-frz { background:var(--bg-elev-2,#f3f3ee); }
   .plu-table.frz tbody tr:hover td.plu-frz { background:var(--accent-soft,#f0eee5); }
-  .plu-table.frz th.plu-frz-last, .plu-table.frz td.plu-frz-last { border-right:3px double #000 !important; }
+  .plu-table.frz th.plu-frz-last, .plu-table.frz td.plu-frz-last { border-right:2px solid #000 !important; }
+  /* separate 모델에선 이웃 테두리가 합쳐지지 않으므로 묶음 시작 왼쪽선은 끄고, 바로 앞 셀(plu-gbp)의 오른쪽선을 2px 로 — collapse 때와 같은 굵기 */
+  .plu-table.frz th.plu-gbs, .plu-table.frz td.plu-gbs { border-left:0 !important; }
+  .plu-table.frz th.plu-gbp, .plu-table.frz td.plu-gbp { border-right:2px solid #000 !important; }
+  html[data-theme=night] .plu-table.frz th.plu-gbp, html[data-theme=night] .plu-table.frz td.plu-gbp, html[data-theme=night] .plu-table.frz th.plu-frz-last, html[data-theme=night] .plu-table.frz td.plu-frz-last { border-right-color:#5a6580 !important; }
   /* [2026-10-02] 필드 우클릭 말풍선 메뉴 */
   .plu-fmenu { position:fixed; z-index:9800; background:var(--panel,#fff); color:var(--ink,#222); border:1.5px solid var(--line,#cfd6e0); border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.22); padding:8px; min-width:190px; font-size:12.5px; }
   .plu-fmenu:before { content:''; position:absolute; top:-7px; left:16px; width:12px; height:12px; background:var(--panel,#fff); border-left:1.5px solid var(--line,#cfd6e0); border-top:1.5px solid var(--line,#cfd6e0); transform:rotate(45deg); }
@@ -2699,7 +2703,7 @@ function renderContent(){
       var gc=(S.gcolors[big]&&S.gcolors[big][normKey(g)])||{};
       /* 글씨색은 --thx 변수로: 원본 CSS의 color:#000 !important 를 넘어서기 위함 */
       var gsty=(gc.bg?'background:'+escapeHtml(gc.bg)+';':'')+(gc.tx?'--thx:'+escapeHtml(gc.tx)+';':'');
-      var __gfz=(gi<=__frzI)?' plu-frz'+(gi+span-1===__frzI?' plu-frz-last':''):'';
+      var __gfz=((gi<=__frzI)?' plu-frz'+(gi+span-1===__frzI?' plu-frz-last':''):'')+((gi+span<fs.length&&(fs[gi+span].group||'')!==''&&(fs[gi+span].group||'')!==g)?' plu-gbp':'');
       if(g!=='') h+='<th class="plu-th-group plu-gbs plu-gbe'+__gfz+'" data-gfi="'+gi+'" colspan="'+span+'"'+(gsty?' style="'+gsty+'"':'')+'>'+escapeHtml(g)+'</th>';
       else h+='<th class="plu-th-group empty'+__gfz+'" data-gfi="'+gi+'" colspan="'+span+'"></th>';
       gi+=span;
@@ -2715,6 +2719,8 @@ function renderContent(){
     var g=f.group||''; if(g==='') return '';
     var s=(i===0||(fs[i-1].group||'')!==g), e=(i===fs.length-1||(fs[i+1].group||'')!==g);
     return (s?' plu-gbs':'')+(e?' plu-gbe':'');
+  }).map(function(c,i){ /* [필드 고정] 다음 필드가 묶음 시작이면 plu-gbp (separate 모델용 오른쪽 2px) */
+    var nx=fs[i+1]; return c+((nx&&(nx.group||'')!==''&&(nx.group||'')!==(fs[i].group||''))?' plu-gbp':'');
   });
   var __frzIdx=freezeIndex(fs);
   fs.forEach(function(f,i){
