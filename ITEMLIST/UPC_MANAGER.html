@@ -479,6 +479,7 @@ try{ document.documentElement.setAttribute('data-theme', localStorage.getItem('p
   #feOv .plu-fe-body { overflow-x:auto; }
   #feOv .plu-fe-tbl { min-width:1240px; }
   /* [MODULE 23] 필드 기능 표 — 작은 글씨·고정 폭으로 한 화면에 전 카테고리 */
+  #faOv, #faOv .icp-lbl, #faOv .icp-sel, #faOv input, #faOv select, #faOv button, #fmOv.fm-add, #fmOv.fm-add .icp-lbl, #fmOv.fm-add .icp-sel, #fmOv.fm-add input, #fmOv.fm-add button { font-size:13px; } /* [2026-10-04] 특정문자 추가 · 자동추가 팝업 글씨 크기 통일 */
   .ffx-tbl { font-size:11px; table-layout:fixed; }
   .ffx-tbl th { font-size:11px; padding:5px 4px; white-space:nowrap; }
   .ffx-tbl td { padding:3px 4px; overflow:hidden; }
@@ -3249,13 +3250,13 @@ function __fmCount(f,rows,fn){ var n=0, stCtx=S.curStore; rows.forEach(function(
 function __reEsc(s){ return String(s).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
 function openFieldTextOp(f,op){
   var rows=fieldMenuRows(), scope=(gsActive()?'검색 결과':curSub())+' '+rows.length+'행', title={del:'특정문자 삭제',rep:'특정문자 교환',fill:'특정문자 채우기',add:'특정문자 추가'}[op];
-  var h='<b style="font-size:15px">'+title+' — '+escapeHtml(f.label||f.key)+'</b><div style="margin:4px 0 10px;color:var(--ink-dim,#777)">범위: '+escapeHtml(scope)+' · 이 필드만'+(S.curStore?' · 매장 '+escapeHtml(S.curStore):'')+'</div>';
+  var h='<b'+(op==='add'?'':' style="font-size:15px"')+'>'+title+' — '+escapeHtml(f.label||f.key)+'</b><div style="margin:4px 0 10px;color:var(--ink-dim,#777)">범위: '+escapeHtml(scope)+' · 이 필드만'+(S.curStore?' · 매장 '+escapeHtml(S.curStore):'')+'</div>';
   if(op==='del') h+='<div class="icp-lbl">삭제할 문자</div><input type="text" class="icp-sel" id="fmA" placeholder="예: 농심" autocomplete="off"><div class="plu-imp-hint" style="margin-top:6px">셀 값에서 이 문자를 전부 지웁니다 (앞뒤 빈칸 정리). 예: 농심 매운 새우깡 → 매운 새우깡</div>';
   else if(op==='rep') h+='<div class="icp-lbl">찾을 문자</div><input type="text" class="icp-sel" id="fmA" placeholder="예: 농심" autocomplete="off"><div class="icp-lbl" style="margin-top:8px">바꿀 문자</div><input type="text" class="icp-sel" id="fmB" placeholder="예: 농심)" autocomplete="off"><div class="plu-imp-hint" style="margin-top:6px">셀 값의 모든 "찾을 문자"를 "바꿀 문자"로 바꿉니다.</div>';
-  else if(op==='add') h+='<div class="icp-lbl">추가할 문자</div><input type="text" class="icp-sel" id="fmA" placeholder="예: 농심 " autocomplete="off"><div style="display:flex;gap:14px;margin-top:8px"><label style="display:inline-flex;align-items:center;gap:5px"><input type="radio" name="fmPos" value="pre" checked> 맨 앞에 추가</label><label style="display:inline-flex;align-items:center;gap:5px"><input type="radio" name="fmPos" value="suf"> 맨 뒤에 추가</label></div><div class="plu-imp-hint" style="margin-top:6px">현재 값의 맨 앞 또는 맨 뒤에 이 문자를 붙입니다 (빈칸 포함 입력한 그대로). 빈 셀은 이 문자만 들어갑니다.</div>';
+  else if(op==='add') h+='<div class="icp-lbl">추가할 문자</div><input type="text" class="icp-sel" id="fmA" autocomplete="off"><div style="display:flex;gap:14px;margin-top:8px"><label style="display:inline-flex;align-items:center;gap:5px"><input type="radio" name="fmPos" value="pre" checked> 맨 앞</label><label style="display:inline-flex;align-items:center;gap:5px"><input type="radio" name="fmPos" value="suf"> 맨 뒤</label></div>';
   else h+='<div class="icp-lbl">채울 문자</div><input type="text" class="icp-sel" id="fmA" placeholder="예: 농심" autocomplete="off"><div class="plu-imp-hint" style="margin-top:6px">범위의 모든 셀을 이 값으로 채웁니다 (빈 셀 포함, 기존 값 덮어씀).</div>';
   h+='<div id="fmPrev" style="margin-top:8px;color:var(--ink-dim,#777)"></div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button id="fmCancel" class="plu-tool-btn">취소</button><button id="fmGo" class="plu-tool-btn plu-imp-go">실행</button></div>';
-  __fbOverlay('fmOv',h); setTimeout(function(){ var a=$('fmA'); if(a) a.focus(); },30);
+  var __fmov=__fbOverlay('fmOv',h); __fmov.classList.toggle('fm-add',op==='add'); setTimeout(function(){ var a=$('fmA'); if(a) a.focus(); },30);
   function mk(){ var a=$('fmA')?$('fmA').value:'', b=$('fmB')?$('fmB').value:'';
     if(op==='del'){ if(!a) return null; var re=new RegExp(__reEsc(a),'g'); return function(cur){ if(cur.indexOf(a)<0) return null; return cur.replace(re,'').replace(/\s{2,}/g,' ').trim(); }; }
     if(op==='rep'){ if(!a) return null; var re2=new RegExp(__reEsc(a),'g'); return function(cur){ if(cur.indexOf(a)<0) return null; return cur.replace(re2,b); }; }
@@ -3280,17 +3281,16 @@ function openFieldAutoAdd(f){
   var fOpts=function(sel){ return '<option value="">(필드 선택)</option>'+lay.filter(function(x){ return x.key!==f.key; }).map(function(x){ return '<option value="'+escapeHtml(x.key)+'"'+(x.key===sel?' selected':'')+'>'+escapeHtml((x.group?x.group+' · ':'')+x.label)+'</option>'; }).join(''); };
   function itemHtml(side,i,it){
     return '<div class="fa-item" data-side="'+side+'" data-i="'+i+'" style="display:flex;gap:6px;align-items:center;margin-bottom:5px">'
-      +'<span style="width:18px;text-align:right;color:var(--ink-dim,#777);font-size:11px">'+(i+1)+'</span>'
+      +'<span style="width:18px;text-align:right;color:var(--ink-dim,#777)">'+(i+1)+'</span>'
       +'<select class="icp-sel fa-t" style="width:76px"><option value="f"'+(it.t==='f'?' selected':'')+'>필드</option><option value="s"'+(it.t==='s'?' selected':'')+'>문자</option></select>'
-      +(it.t==='f'?'<select class="icp-sel fa-v" style="flex:1">'+fOpts(it.v)+'</select>':'<input type="text" class="icp-sel fa-v" style="flex:1" value="'+escapeHtml(it.v)+'" placeholder="추가할 문자 (빈칸 포함)" autocomplete="off">')
+      +(it.t==='f'?'<select class="icp-sel fa-v" style="flex:1">'+fOpts(it.v)+'</select>':'<input type="text" class="icp-sel fa-v" style="flex:1" value="'+escapeHtml(it.v)+'" autocomplete="off">')
       +'<button type="button" class="plu-tool-btn fa-up" title="위로" style="padding:2px 7px">▲</button><button type="button" class="plu-tool-btn fa-dn" title="아래로" style="padding:2px 7px">▼</button><button type="button" class="plu-tool-btn fa-x" title="삭제" style="padding:2px 7px;color:#c33">✕</button></div>';
   }
   function listHtml(side){ var arr=st[side]; return arr.map(function(it,i){ return itemHtml(side,i,it); }).join('')+'<div style="display:flex;gap:6px;margin-top:4px"><button type="button" class="plu-tool-btn fa-add" data-side="'+side+'" data-t="f" style="padding:3px 9px">+ 필드</button><button type="button" class="plu-tool-btn fa-add" data-side="'+side+'" data-t="s" style="padding:3px 9px">+ 문자</button></div>'; }
-  var h='<b style="font-size:15px">특정문자 자동추가 — '+escapeHtml(f.label||f.key)+'</b><div style="margin:4px 0 10px;color:var(--ink-dim,#777)">범위: '+escapeHtml(scope)+' · 이 필드만'+(S.curStore?' · 매장 '+escapeHtml(S.curStore):'')+'</div>'
-    +'<div class="plu-imp-hint" style="margin-bottom:10px">새 값 = <b>앞 항목들</b>(위에서부터 순서대로) + <b>현재 값</b> + <b>뒤 항목들</b>. 항목은 다른 필드의 값 또는 문자(빈칸 포함)이고, 몇 개든 추가할 수 있습니다. 필드 값이 빈 행은 그 항목만 건너뜁니다.</div>'
-    +'<div style="display:flex;gap:16px;align-items:flex-start"><div style="flex:1;min-width:300px"><div class="icp-lbl">앞에 붙일 항목</div><div id="faPre">'+listHtml('pre')+'</div></div>'
-    +'<div style="align-self:center;padding:0 4px;font-weight:800;color:var(--ink-dim,#777)">+ 현재 값 +</div>'
-    +'<div style="flex:1;min-width:300px"><div class="icp-lbl">뒤에 붙일 항목</div><div id="faSuf">'+listHtml('suf')+'</div></div></div>'
+  var h='<b>특정문자 자동추가 — '+escapeHtml(f.label||f.key)+'</b><div style="margin:4px 0 10px;color:var(--ink-dim,#777)">범위: '+escapeHtml(scope)+' · 이 필드만'+(S.curStore?' · 매장 '+escapeHtml(S.curStore):'')+'</div>'
+    +'<div style="display:flex;gap:16px;align-items:flex-start"><div style="flex:1;min-width:300px"><div class="icp-lbl">앞</div><div id="faPre">'+listHtml('pre')+'</div></div>'
+    +'<div style="align-self:center;padding:0 4px;color:var(--ink-dim,#777)">+ 현재 값 +</div>'
+    +'<div style="flex:1;min-width:300px"><div class="icp-lbl">뒤</div><div id="faSuf">'+listHtml('suf')+'</div></div></div>'
     +'<div id="faPrev" style="margin-top:10px;color:var(--ink-dim,#777);white-space:pre-line"></div>'
     +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button id="faCancel" class="plu-tool-btn">취소</button><button id="faGo" class="plu-tool-btn plu-imp-go">실행</button></div>';
   var ov=__fbOverlay('faOv',h); ov.firstChild.style.maxWidth='860px'; ov.firstChild.style.width='min(860px,96vw)';
