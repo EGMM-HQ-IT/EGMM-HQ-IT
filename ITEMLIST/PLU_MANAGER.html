@@ -3320,7 +3320,7 @@ function openFieldMenu(f,x,y){
   var m=document.createElement('div'); m.id='pluFieldMenu'; m.className='plu-fmenu';
   m.innerHTML='<div class="fm-title">'+escapeHtml(f.label||f.key)+' · '+(gsActive()?'검색 결과':escapeHtml(curSub()))+' '+fieldMenuRows().length+'행</div>'
     +(isCalc?'<div style="padding:6px 9px;color:var(--ink-dim,#777)">수식(자동 계산) 필드 — 문자 편집 불가</div>'
-      :'<button data-op="del">특정문자 삭제</button><button data-op="rep">특정문자 교환</button><button data-op="fill">특정문자 채우기</button><button data-op="add">특정문자 추가 (앞/뒤)</button><button data-op="auto">특정문자 자동추가 (필드+문자 조합)</button>'+(isSrp?'<button data-op="srp">SRP 가격 생성 (COST 기준)</button>':''))
+      :'<button data-op="fill">문자 채우기</button><button data-op="add">문자 추가 (앞/뒤)</button><button data-op="auto">문자 자동추가 (필드+문자 조합)</button><div class="fm-sep"></div><button data-op="del">문자 삭제</button><button data-op="rep">문자 교체</button>'+(isSrp?'<div class="fm-sep"></div><button data-op="srp">SRP 가격 생성 (COST 기준)</button>':''))
     +'<div class="fm-sep"></div><button data-op="freeze">'+(S.freezeKey===f.key?'필드 고정 해제':'필드 고정 (여기까지 왼쪽)')+'</button>';
   document.body.appendChild(m);
   var W=m.offsetWidth, H=m.offsetHeight; m.style.left=Math.max(6,Math.min(x-16,window.innerWidth-W-6))+'px'; m.style.top=Math.max(6,Math.min(y+10,window.innerHeight-H-6))+'px';
