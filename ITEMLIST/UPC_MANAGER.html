@@ -2558,7 +2558,7 @@ var GUIDE_PLU=[
   ['필드 편집','필드명 · 너비 · 목록 · 수식 · 숨김은 필드 편집에서 — 전 카테고리 공통 적용.'],
   ['저장','모든 변경은 즉시 자동 저장되고 CLOUD(PLU-LIST)에 자동 동기화됩니다. EGMM 왼쪽 USER 박스의 CLOUD 칸에서 상태 확인.'],
   ['동기화 규칙','수정하면 조건 없이 무조건 CLOUD 로 전송됩니다(0건도 전송). 기본 데이터는 없고 모든 데이터(상품 + 필드 설정값)는 CLOUD 에서 가져옵니다. 열 때마다 무조건 CLOUD 의 최신 기록을 먼저 가져오고, 끝나기 전에는 수정·저장이 잠깁니다. 모든 행은 마지막 편집 시각(분 단위)을 가지며, CLOUD 와 합칠 때 행마다 더 최근에 편집된 쪽이 남습니다(같은 분이면 CLOUD). 이 컴퓨터에서 더 최근에 편집·추가·삭제한 행은 CLOUD 에도 그대로 등록되고, 다른 컴퓨터가 더 최근에 편집한 행은 이 화면에 반영됩니다(실시간 포함). CLOUD 에만 있는 상품은 TRASH 에 있는 것 외에는 지우지 않습니다. 동기화 상태는 EGMM 왼쪽 USER 박스의 CLOUD 칸에서 확인(클릭 = 즉시 동기화).'],
-  ['데이터 편집','메뉴 > 데이터 편집: 현재 보고 있는 중간 카테고리 안에서 ① 중복 데이터 보기 — PLU 기준으로 검색(표시 필드는 오른쪽 칸에서 선택), 별도 팝업에 그룹별로 구분 표시, 그룹 안 번호(NO)와 COST·SRP 높은/낮은순 정렬, 「1번만·2번만·3번만·중복 체크(1번 빼고 전부)」 버튼으로 한 번에 체크 후 삭제. ② 중복 데이터 삭제 — PLU 기준, SRP 또는 COST 높은/낮은 순으로 1개 또는 2개만 남기고 나머지 삭제. 삭제한 행은 모두 TRASH 보관, 사용중(체크) 상품은 보호. PLU 쪽 작업은 UPC LIST 에 영향을 주지 않습니다.'],
+  ['데이터 편집','메뉴 > 데이터 편집: 현재 보고 있는 중간 카테고리 안에서 ① 중복 데이터 보기 — PLU 기준으로 검색(표시 필드는 오른쪽 칸에서 선택), 별도 팝업에 그룹별로 구분 표시, 그룹 안 번호(NO)와 COST·SRP 높은/낮은순 정렬, 「1번만·2번만·3번만·중복 체크(1번 빼고 전부)」 버튼으로 한 번에 체크 후 삭제. ② 중복 데이터 삭제 — PLU 기준, SRP 또는 COST 높은/낮은 순으로 1개 또는 2개만 남기고 나머지 삭제. 삭제한 행은 모두 TRASH 보관. 사용중(USE 체크) 상품이 섞여 있으면 「강제로 함께 삭제할까요?」를 물은 뒤 확인하면 함께 삭제, 취소하면 사용중은 남기고 나머지만 삭제. PLU 쪽 작업은 UPC LIST 에 영향을 주지 않습니다.'],
   ['검색 범위','검색창을 우클릭하면 상위 카테고리 체크 목록이 뜹니다. 체크한 카테고리에서만 검색되며(기본 전체), 검색 결과 개수 옆에 범위가 표시됩니다. 이 컴퓨터 화면 설정이라 CLOUD 로는 전송되지 않습니다.'],
   ['전체 화면','상단 「⛶ FULL」: 이 화면을 브라우저 전체 화면으로 채웁니다. 전체 화면 동안은 마우스 뒤로/앞으로 버튼이 막혀 화면이 빠져나가지 않습니다. 「⛶ 원래대로」 또는 Esc 로 복귀(복귀 후엔 뒤로 가기 정상).'],
   ['Ctrl+S','모든 수정은 자동 저장·자동 전송되지만, Ctrl+S 를 누르면 기다리지 않고 지금 바로 이 컴퓨터에 저장하고 CLOUD 로 전송합니다 (셀 입력 중이면 먼저 확정).'],
@@ -2578,7 +2578,7 @@ var GUIDE_UPC=[
   ['표시','같은 UPC 행은 UPC 칸이 같은 색. USE 미체크 행은 회색 취소선. 검색은 Enter, 번호는 쉼표로 여러 개.'],
   ['저장','모든 변경은 즉시 자동 저장되고 CLOUD(UPC-LIST)에 자동 동기화됩니다. EGMM 왼쪽 USER 박스의 CLOUD 칸에서 상태 확인.'],
   ['동기화 규칙','수정하면 조건 없이 무조건 CLOUD 로 전송됩니다(업체 이름이 한글이어도 자동 ID, 0건도 전송). 기본 데이터는 없고 모든 데이터(상품 + 필드 설정값)는 CLOUD 에서 가져옵니다. 열 때마다 무조건 CLOUD 의 최신 기록을 먼저 가져오고, 끝나기 전에는 수정·저장이 잠깁니다. 모든 행은 마지막 편집 시각(분 단위)을 가지며, CLOUD 와 합칠 때 행마다 더 최근에 편집된 쪽이 남습니다(같은 분이면 CLOUD). 이 컴퓨터에서 더 최근에 편집·추가·삭제한 행은 CLOUD 에도 그대로 등록되고, 다른 컴퓨터가 더 최근에 편집한 행은 이 화면에 반영됩니다(실시간 포함). CLOUD 에만 있는 상품은 TRASH 에 있는 것 외에는 지우지 않습니다. 동기화 상태는 EGMM 왼쪽 USER 박스의 CLOUD 칸에서 확인(클릭 = 즉시 동기화).'],
-  ['데이터 편집','메뉴 > 데이터 편집: 현재 보고 있는 중간 카테고리 안에서 ① 중복 데이터 보기 — UPC / ITEM CODE 기준 체크 후 검색(표시 필드는 오른쪽 칸에서 선택), 별도 팝업에 그룹별로 구분 표시, 그룹 안 번호(NO)와 COST·SRP 높은/낮은순 정렬, 「1번만·2번만·3번만·중복 체크(1번 빼고 전부)」 버튼으로 한 번에 체크 후 삭제. ② 중복 데이터 삭제 — UPC / ITEM CODE 기준(둘 다 체크 = 둘 다 같아야 중복), SRP 또는 COST 높은/낮은 순으로 1개 또는 2개만 남기고 나머지 삭제. 삭제한 행은 모두 TRASH 보관, 사용중(체크) 상품은 보호.'],
+  ['데이터 편집','메뉴 > 데이터 편집: 현재 보고 있는 중간 카테고리 안에서 ① 중복 데이터 보기 — UPC / ITEM CODE 기준 체크 후 검색(표시 필드는 오른쪽 칸에서 선택), 별도 팝업에 그룹별로 구분 표시, 그룹 안 번호(NO)와 COST·SRP 높은/낮은순 정렬, 「1번만·2번만·3번만·중복 체크(1번 빼고 전부)」 버튼으로 한 번에 체크 후 삭제. ② 중복 데이터 삭제 — UPC / ITEM CODE 기준(둘 다 체크 = 둘 다 같아야 중복), SRP 또는 COST 높은/낮은 순으로 1개 또는 2개만 남기고 나머지 삭제. 삭제한 행은 모두 TRASH 보관. 사용중(USE 체크) 상품이 섞여 있으면 「강제로 함께 삭제할까요?」를 물은 뒤 확인하면 함께 삭제, 취소하면 사용중은 남기고 나머지만 삭제.'],
   ['UPC 기준만 업데이트','불러오는 파일에 ITEM CODE 열이 없으면 UPC 기준으로만 매칭합니다: 같은 업체(중간 카테고리)에서 UPC 가 같은 기존 행 전부에 파일에 있는 필드만 덮어쓰고(예: UPC · SRP 2열 파일 → SRP 만 갱신), 새 행은 만들지 않습니다(UPC 가 없을 때만 새 행). ITEM CODE 열이 있으면 업체 + UPC + ITEM CODE 규칙 그대로.'],
   ['필드 우클릭 메뉴','머리글을 우클릭하면 말풍선 메뉴가 뜹니다(필드 숨김 기능은 없어짐). 「필드 고정」: 엑셀 틀 고정처럼 그 필드까지 왼쪽 열 전부(선택열 포함)가 가로 스크롤에서 고정됩니다(검색·카테고리와 무관한 열 설정, 다시 누르면 해제). 범위는 지금 화면에 보이는 리스트(검색 중이면 검색 결과, 아니면 현재 중간 카테고리)이고 그 필드만 바뀝니다. ① 특정문자 삭제: 입력한 문자를 셀에서 전부 지움(예: 농심 매운 새우깡 → 매운 새우깡) ② 특정문자 교환: 찾을 문자를 바꿀 문자로 전부 교체 ③ 특정문자 채우기: 모든 셀을 입력한 값으로 채움 ④ 특정문자 추가: 현재 값의 맨 앞 또는 맨 뒤에 문자를 붙임(빈 셀은 그 문자만) ⑤ 특정문자 자동추가: 다른 필드 값 + 문자 + 현재 값 + 다른 필드 값 + 문자… 처럼 앞·뒤 항목을 몇 개든 순서대로 붙여 일괄 변경(필드 값이 빈 행은 그 항목만 건너뜀) ⑥ SRP 필드에서는 「SRP 가격 생성」: COST 에 마진 %를 적용(판매가 기준 COST÷(1−%) 또는 원가 기준 COST×(1+%))하고 체크한 끝자리(.29 .49 .79 .99) 중 계산값 이상인 가장 가까운 가격으로 만듦. 실행 전 변경 행 수를 확인하고 히스토리에 기록됩니다.'],
   ['카테고리 트리','하위 카테고리(NO · KOR · ENG)는 MART > CATEGORY MANAGER 에서 관리하는 공용 트리(PLU · UPC 공유)입니다. 리스트의 CATEGORY NO 셀을 클릭하면 현재 상위/중간 카테고리의 하위 목록이 드롭다운으로 나오고, 번호를 고르거나 입력하면 KOR · ENG 가 자동으로 채워집니다. 엑셀 불러오기도 NO 만 있으면 KOR · ENG 를 채웁니다. 트리에서 번호·이름을 바꾸면 이 리스트의 상품 행에 실시간으로 반영됩니다.'],
@@ -3643,11 +3643,13 @@ function openDataEdit(){
   $('deDelRun').onclick=async function(){
     readOpt(); if(!__deOpt.dUpc&&!__deOpt.dCode){ showToast('중복 기준을 하나 이상 체크하세요','error'); return; }
     var big=curBig(), sub=curSub(), gs=dupGroups(__deOpt.dUpc,__deOpt.dCode), del=[], prot=0;
-    gs.forEach(function(g){ var sorted=__deSortGroup(g.rows,__deOpt.metric); sorted.slice(__deOpt.keep).forEach(function(r){ if(isRowInUse(r)) prot++; else del.push(r); }); });
+    var protRows=[];
+    gs.forEach(function(g){ var sorted=__deSortGroup(g.rows,__deOpt.metric); sorted.slice(__deOpt.keep).forEach(function(r){ if(isRowInUse(r)){ prot++; protRows.push(r); } else del.push(r); }); });
     if(!gs.length){ showToast('중복 데이터가 없습니다','success'); return; }
-    if(!del.length){ uiAlert('삭제 대상이 모두 사용중(체크) 상품이라 삭제할 수 없습니다. (보호 '+prot+'행)','사용중 상품 보호'); return; }
+    var force=await protForceAsk(prot); if(force){ del=del.concat(protRows); prot=0; }
+    if(!del.length){ showToast('삭제할 행이 없습니다 (사용중 '+prot+'행은 남김)','error'); return; }
     var crit=(__deOpt.dUpc&&__deOpt.dCode)?'UPC + ITEM CODE':(__deOpt.dUpc?'UPC':'ITEM CODE');
-    if(!(await uiConfirm(big+' / '+sub+'\n중복 기준: '+crit+' · 그룹 '+gs.length+'개\n'+__deMetricLabel(__deOpt.metric)+' 순으로 '+__deOpt.keep+'개 남기고 '+del.length+'행 삭제'+(prot?' (사용중 '+prot+'행은 보호)':'')+'\n\n삭제한 행은 TRASH 에 보관됩니다. 진행할까요?','중복 데이터 삭제'))) return;
+    if(!(await uiConfirm(big+' / '+sub+'\n중복 기준: '+crit+' · 그룹 '+gs.length+'개\n'+__deMetricLabel(__deOpt.metric)+' 순으로 '+__deOpt.keep+'개 남기고 '+del.length+'행 삭제'+(force?' (사용중 포함 · 강제)':'')+(prot?' (사용중 '+prot+'행은 남김)':'')+'\n\n삭제한 행은 TRASH 에 보관됩니다. 진행할까요?','중복 데이터 삭제'))) return;
     undoMark('중복 데이터 삭제',[big]);
     var tr=trashAddRows(big,sub,del), ids={}; del.forEach(function(r){ ids[r.id]=1; }); histLog('dup',big,sub,[],del.map(function(r){ return histRowMini(big,r); }),crit+' · '+__deMetricLabel(__deOpt.metric)+' '+__deOpt.keep+'개 남김');
     var arr=curRows(); for(var i=arr.length-1;i>=0;i--){ if(ids[arr[i].id]) arr.splice(i,1); }
@@ -3703,9 +3705,10 @@ function openDupList(){
   $('dupDel').onclick=async function(){
     var ids={}, n=0; cks().forEach(function(c){ if(c.checked){ ids[c.getAttribute('data-id')]=1; n++; } });
     if(!n){ showToast('삭제할 행을 체크하세요','error'); return; }
-    var rows=curRows(), del=[], prot=0; rows.forEach(function(r){ if(ids[r.id]){ if(isRowInUse(r)) prot++; else del.push(r); } });
-    if(!del.length){ uiAlert('체크한 행이 모두 사용중(체크) 상품이라 삭제할 수 없습니다. (보호 '+prot+'행)','사용중 상품 보호'); return; }
-    if(!(await uiConfirm(del.length+'행을 삭제할까요?'+(prot?'\n(사용중 체크 '+prot+'행은 보호되어 삭제되지 않습니다)':'')+'\n삭제한 행은 TRASH 에 보관됩니다.','중복 데이터 삭제'))) return;
+    var rows=curRows(), del=[], prot=0, protRows=[]; rows.forEach(function(r){ if(ids[r.id]){ if(isRowInUse(r)){ prot++; protRows.push(r); } else del.push(r); } });
+    var force=await protForceAsk(prot); if(force){ del=del.concat(protRows); prot=0; }
+    if(!del.length){ showToast('삭제할 행이 없습니다 (사용중 '+prot+'행은 남김)','error'); return; }
+    if(!(await uiConfirm(del.length+'행을 삭제할까요?'+(force?' (사용중 포함 · 강제)':'')+(prot?'\n(사용중 체크 '+prot+'행은 남기고 삭제)':'')+'\n삭제한 행은 TRASH 에 보관됩니다.','중복 데이터 삭제'))) return;
     undoMark('중복 리스트 삭제',[big]);
     var tr=trashAddRows(big,sub,del), dset={}; del.forEach(function(r){ dset[r.id]=1; }); histLog('dup',big,sub,[],del.map(function(r){ return histRowMini(big,r); }),'중복 리스트에서 체크 삭제');
     for(var i=rows.length-1;i>=0;i--){ if(dset[rows[i].id]) rows.splice(i,1); }
@@ -3715,18 +3718,18 @@ function openDupList(){
     if($('deOv')&&$('deDelInfo')){ $('deDUpc').dispatchEvent(new Event('change')); }
   };
 }
+/* [2026-10-06] 사용중(USE 체크) 상품 삭제 — 막지 않고 "강제 삭제할까요?" 를 물은 뒤 삭제 가능 (아니오 = 사용중은 남기고 나머지만) */
+async function protForceAsk(prot){ if(!prot) return false; return await uiConfirm('사용중(USE 체크) 상품 '+prot+'행이 포함되어 있습니다.\n사용중 상품도 강제로 함께 삭제할까요?\n\n[확인] 사용중 포함 전부 삭제 · [취소] 사용중은 남기고 나머지만 삭제','사용중 상품 강제 삭제'); }
 async function delSelected(){
   var ids=Object.keys(selRows); if(!ids.length){ showToast('삭제할 행을 선택하세요','error'); return; }
   var rows=gsActive()?filteredRows():curRows(); /* [전역 검색] 검색 결과의 선택 행도 삭제 대상 */
   /* [요구 2026-09] 사용중(체크) 행 절대 삭제 금지 — 삭제 대상에서 제외하고 보호 안내 */
-  var prot=0, delIds={};
-  rows.forEach(function(r){ if(selRows[r.id]){ if(isRowInUse(r)) prot++; else delIds[r.id]=1; } });
+  var prot=0, delIds={}, protIds={};
+  rows.forEach(function(r){ if(selRows[r.id]){ if(isRowInUse(r)){ prot++; protIds[r.id]=1; } else delIds[r.id]=1; } });
+  var force=await protForceAsk(prot); if(force){ for(var __pk in protIds) delIds[__pk]=1; prot=0; }
   var delCnt=Object.keys(delIds).length;
-  if(!delCnt){
-    uiAlert('선택한 행이 모두 사용중(체크) 상품이라 삭제할 수 없습니다.\n삭제하려면 먼저 사용 체크를 해제하세요. (보호 '+prot+'행)','사용중 상품 보호');
-    return;
-  }
-  if(!(await uiConfirm(delCnt+'개 행을 삭제할까요?'+(prot?'\n(사용중 체크 '+prot+'행은 보호되어 삭제되지 않습니다)':'')))) return;
+  if(!delCnt){ showToast('삭제할 행이 없습니다 (사용중 '+prot+'행은 남김)','error'); return; }
+  if(!(await uiConfirm(delCnt+'개 행을 삭제할까요?'+(force?' (사용중 포함 · 강제)':'')+(prot?'\n(사용중 체크 '+prot+'행은 남기고 삭제)':'')))) return;
   var __tr=0;
   { var __ub2={}; if(gsActive()){ for(var __g in delIds){ var __gm=__gsMap[__g]; if(__gm) __ub2[__gm.big]=1; } } else __ub2[curBig()]=1; undoMark('선택삭제',Object.keys(__ub2)); }
   if(gsActive()){ /* [전역 검색] 각 행을 원래 카테고리에서 제거 */
