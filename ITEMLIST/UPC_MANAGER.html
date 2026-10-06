@@ -905,7 +905,7 @@ html[data-theme=night] .plu-cm-row.cur { border-color:#4d8bea; background:#1e2c4
     <div class="plu-topright-row">
       <!-- [요구 3] 검색: 매장 버튼 왼쪽 -->
       <div class="plu-search-col" id="pluSearchTop">
-        <input class="plu-search" id="pluSearch" type="text" placeholder="🔍 검색어 입력 후 Enter (번호,번호 가능 · 전 카테고리)" autocomplete="off">
+        <input class="plu-search" id="pluSearch" type="text" placeholder="🔍 검색어 입력 후 Enter (번호,번호 · 단어+단어 · 전 카테고리)" autocomplete="off">
         <span class="plu-count-top" id="pluCountTop"></span>
       </div>
       <!-- [UPC 2026-10-02] 정렬 — 누를 때만 현재 중간 카테고리 정렬 (자동 정렬 없음) -->
@@ -1396,34 +1396,50 @@ var __lsWarned=false, __lsTimer=0;
    · notifySaved()(저장 칩 시각 + plu-data.json 기록 예약)는 종전대로 즉시 실행
    · 창 닫기/숨김 직전에는 무조건 즉시 플러시(__lsFlush) — 데이터 유실 없음
    · 다른 창 동기화(MODULE 17)는 기록 완료 시점의 :ver 갱신을 그대로 사용 */
-function __lsWriteNow(){
+var __lsDeferred=false, __fbDeferred=false, __gzWorker=null, __gzSeq=0, __gzDone=0;
+function __gzWorkerGet(){ /* [2026-10-05] gzip 을 워커에서 — 로컬 저장 때 메인 스레드(입력)가 멈추지 않게. 실패하면 null(동기 gzip) */
+  if(__gzWorker!==null) return __gzWorker||null;
+  try{
+    var src="importScripts('https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js');function b64(u){var s='',C=8192;for(var i=0;i<u.length;i+=C)s+=String.fromCharCode.apply(null,u.subarray(i,i+C));return btoa(s);}onmessage=function(e){try{var g=pako.gzip(new TextEncoder().encode(e.data.json));postMessage({id:e.data.id,out:'GZ:'+b64(g)});}catch(x){postMessage({id:e.data.id,err:String(x)});}};";
+    var w=new Worker(URL.createObjectURL(new Blob([src],{type:'application/javascript'})));
+    w.onmessage=function(ev){ var d=ev.data||{}; if(d.id<__gzDone) return; __gzDone=d.id; if(d.err||!d.out){ __lsCommit(null); return; } __lsCommit(d.out); };
+    w.onerror=function(){ try{ w.terminate(); }catch(e){} __gzWorker=false; if(!__lsTimer) __lsTimer=setTimeout(__lsWriteNow,50); };
+    __gzWorker=w; return w;
+  }catch(e){ __gzWorker=false; return null; }
+}
+function __lsCommit(out){ /* 완성된 문자열을 localStorage 에 기록 */
+  var wrote=false;
+  try{ if(out==null) throw 0; localStorage.setItem(LS_KEY,out); wrote=true; }
+  catch(e){ try{ localStorage.setItem(LS_KEY,'JS:'+JSON.stringify(S)); wrote=true; }catch(e2){} }
+  if(wrote){ try{ localStorage.setItem(LS_KEY+':ver', SYNC_ID+':'+Date.now()); }catch(e3){} }
+  if(!wrote && !__lsWarned){ __lsWarned=true; showToast('브라우저 저장 불가 — 파일 연결을 사용하세요 (저장 칩 클릭)','error'); }
+  try{ if(window.__pluBC) window.__pluBC.postMessage('changed'); }catch(e4){}
+}
+function __lsWriteNow(mode){ /* mode: undefined=예약(한가할 때) · 'idle'=한가한 때 호출됨 · true=강제 동기(창 닫기) */
   __lsTimer=0;
   if(!S) return;
-  var wrote=false;
-  try{
-    var json=JSON.stringify(S), out;
-    /* TextEncoder 명시 사용: pako 2.x/3.x 모두 호환 */
-    if(typeof pako!=='undefined'){ out='GZ:'+__u8ToB64(pako.gzip(new TextEncoder().encode(json))); } else { out='JS:'+json; }
-    localStorage.setItem(LS_KEY,out);
-    wrote=true;
-  }catch(e){
-    try{ localStorage.setItem(LS_KEY,'JS:'+JSON.stringify(S)); wrote=true; }catch(e2){}
-  }
-  if(wrote){ try{ localStorage.setItem(LS_KEY+':ver', SYNC_ID+':'+Date.now()); }catch(e3){} }
-  try{ if(window.__pluBC) window.__pluBC.postMessage('changed'); }catch(e4){}
-  if(!wrote && !__lsWarned){ __lsWarned=true; showToast('브라우저 저장 불가 — 파일 연결을 사용하세요 (저장 칩 클릭)','error'); }
+  if(mode!==true&&__cellEditing){ __lsDeferred=true; return; } /* [편집 보호] 입력 중엔 저장 미룸 */
+  if(!mode&&typeof requestIdleCallback==='function'&&!__lsIdle){ __lsIdle=true; requestIdleCallback(function(){ __lsIdle=false; __lsWriteNow('idle'); },{timeout:1500}); return; }
+  var json;
+  try{ json=JSON.stringify(S); }catch(e){ return; }
+  var w=(!__lsSyncOnly&&typeof pako!=='undefined')?__gzWorkerGet():null;
+  if(w&&!__lsSyncOnly){ w.postMessage({id:++__gzSeq,json:json}); return; }
+  var out=null;
+  try{ if(typeof pako!=='undefined'){ out='GZ:'+__u8ToB64(pako.gzip(new TextEncoder().encode(json))); } else { out='JS:'+json; } }catch(e){ out=null; }
+  __lsCommit(out);
 }
-function __lsFlush(){ if(__lsTimer){ clearTimeout(__lsTimer); __lsWriteNow(); } }
+function __lsFlush(){ if(__lsTimer||__lsDeferred||__lsIdle){ clearTimeout(__lsTimer); __lsTimer=0; __lsDeferred=false; __lsSyncOnly=true; try{ __lsWriteNow(true); }catch(e){} __lsSyncOnly=false; } } /* 즉시·동기 저장 (창 닫기·탭 숨김·백업 전) */
 /* [속도 2026-09] 탭·카테고리 이동은 데이터 변경이 아니므로 전체 상태 저장(JSON+gzip)·Firebase 동기화를 돌리지 않는다.
    화면 위치(S.ui)만 작은 키에 따로 기록 → 이동이 즉시 끝난다. loadState 가 이 키를 덮어 읽는다. */
 function saveUi(){
   if(!S) return;
   try{ localStorage.setItem(LS_KEY+':ui', JSON.stringify(S.ui||{})); }catch(e){}
 }
+var __lsIdle=false, __lsSyncOnly=false;
 function saveState(){
   if(!S) return;
   notifySaved();
-  if(!__lsTimer) __lsTimer=setTimeout(__lsWriteNow,250);
+  if(!__lsTimer) __lsTimer=setTimeout(__lsWriteNow,600);
   fbSyncTouch(); /* [MODULE 26] 수정 발생 → Firebase 자동 전송 예약 */
 }
 function loadState(){
@@ -2611,7 +2627,7 @@ function openSearchScope(x,y){
   function save(){ var sel=[]; Array.prototype.forEach.call(m.querySelectorAll('.ss-ck'),function(c){ if(c.checked) sel.push(c.value); });
     if(!sel.length){ showToast('최소 1개는 체크해야 합니다','error'); Array.prototype.forEach.call(m.querySelectorAll('.ss-ck'),function(c){ c.checked=true; }); sel=S.tabs.map(function(t){ return t.label; }); }
     S.ui.searchBigs=(sel.length===S.tabs.length)?null:sel; saveUi();
-    $('pluSearch').placeholder='🔍 검색어 입력 후 Enter (번호,번호 가능 · '+(S.ui.searchBigs?S.ui.searchBigs.join('·'):'전 카테고리')+')';
+    $('pluSearch').placeholder='🔍 검색어 입력 후 Enter (번호,번호 · 단어+단어 · '+(S.ui.searchBigs?S.ui.searchBigs.join('·'):'전 카테고리')+')';
     if(gsActive()) renderContent(); }
   Array.prototype.forEach.call(m.querySelectorAll('.ss-ck'),function(c){ c.onchange=save; });
   m.querySelector('button[data-op=all]').onclick=function(){ Array.prototype.forEach.call(m.querySelectorAll('.ss-ck'),function(c){ c.checked=true; }); save(); };
@@ -2620,6 +2636,9 @@ function openSearchScope(x,y){
 function globalSearchRows(){
   __gsMap={};
   var q=normKey(searchQ), tokens=parseSearchTokens(), __sset=searchBigsSet();
+  /* [2026-10-05] "삼양 + 라면" — '+' 로 나눈 단어가 전부 들어 있는 행만 (AND). 쉼표(OR)·번호 규칙은 그대로 */
+  var andTerms=null; if(String(searchQ).indexOf('+')>=0){ andTerms=[]; String(searchQ).split('+').forEach(function(t){ t=t.trim(); if(t!=='') andTerms.push(t); }); if(!andTerms.length) andTerms=null; }
+  function termHit(r,sf,tk){ if(/^[0-9]+$/.test(tk)) return !!(pf&&matchNorm(getCell(r,pf,''))===matchNorm(tk)); var tn=normKey(tk); for(var i2=0;i2<sf.length;i2++){ if(normKey(getCell(r,sf[i2])).indexOf(tn)>=0) return true; } return false; }
   var fsBase=visibleFields(); /* 레이아웃 공유 → 전 대분류 동일 필드 */
   var pf=fieldByKey(curBig(),'ITEM_PLU')||fieldByKey(curBig(),'PLU');
   var out=[];
@@ -2631,7 +2650,8 @@ function globalSearchRows(){
       ((S.data[big]||{})[sb]||[]).forEach(function(r){
         if(!rowInStore(big,r,S.curStore)) return;
         var hitOK=false;
-        if(tokens){
+        if(andTerms){ hitOK=true; for(var ai=0;ai<andTerms.length;ai++){ if(!termHit(r,sf,andTerms[ai])){ hitOK=false; break; } } }
+        else if(tokens){
           /* "번호, 번호, …" — 숫자 토큰은 PLU 정확 일치(0패딩 무시), 문자 토큰은 부분 일치 */
           for(var ti=0;ti<tokens.length&&!hitOK;ti++){
             var tk=tokens[ti];
@@ -2680,6 +2700,7 @@ function toggleFreeze(f){
   showToast(S.freezeKey?('필드 고정 — '+(f.label||f.key)+' 까지 왼쪽 열 고정'):'필드 고정 해제','success');
 }
 function renderContent(){
+  if(__cellEditing){ __renderDeferred=true; return; } /* [편집 보호] 입력 중 재렌더 금지 — 편집 끝나면 실행 */
   var el=$('pluContent');
   el.classList.remove('plu-list-on'); /* 표가 그려질 때만 다시 붙는다 (빈 화면은 기존 가운데 정렬) */
   var big=curBig(), sub=curSub();
@@ -2962,12 +2983,19 @@ function refreshCalcCells(td,r,fs){
   /* [요구 3] 쉐어 원본 값이 비어 있으면 팝업 에러 */
   /* [요구] 수정 시 '참조 값 비어 있음' 경고 팝업 제거 — 조용히 계산만 갱신 */
 }
+/* [편집 보호 · 2026-10-05] 셀 입력 중에는 (1) 리스트 재렌더 (2) 로컬 저장(JSON+gzip) (3) CLOUD 전송·수신 을 모두 미룬다.
+   — 입력 중 재렌더로 입력칸이 사라져 끝 글자가 빠지거나, 저장·전송 작업이 메인 스레드를 잡아 입력이 끊기던 문제의 원인 제거.
+   편집이 끝나면(Enter·Tab·클릭·Esc) 미뤄 둔 렌더·저장·전송이 바로 이어진다. */
+var __cellEditing=false, __renderDeferred=false;
+function isCellEditing(){ return __cellEditing; }
+function __editBegin(){ __cellEditing=true; }
+function __editEnd(){ __cellEditing=false; setTimeout(function(){ if(__cellEditing) return; if(__renderDeferred){ __renderDeferred=false; renderContent(); } if(__lsDeferred){ __lsDeferred=false; if(!__lsTimer) __lsTimer=setTimeout(__lsWriteNow,100); } if(__fbDeferred){ __fbDeferred=false; fbSyncQueue(300); } },0); }
 function startCellEdit(td,id,fs){
   if(td.classList.contains('editing')) return;
   var fi=parseInt(td.getAttribute('data-fi'),10);
   var f=fs[fi]; var r=rowById(id); if(!f||!r) return;
   var raw=String(getCell(r,f));
-  td.classList.add('editing');
+  td.classList.add('editing'); __editBegin();
   var __catL=(normKey(f.key)==='CATEGORY_NUMBER'&&!gsActive())?catSubsOf(curBig(),curSub()):[];
   if(f.type==='select'||__catL.length){ /* 드롭다운(데이터 유효성) 필드 · [2026-10-02] CATEGORY_NO = 공유 트리의 하위 카테고리 목록 */
     var sh='<select class="plu-cell-input"><option value=""></option>';
@@ -2979,7 +3007,7 @@ function startCellEdit(td,id,fs){
     sel.focus();
     var sdone=false;
     function scommit(){
-      if(sdone) return; sdone=true;
+      if(sdone) return; sdone=true; __editEnd();
       var nv=sel.value;
       if(nv!==raw){ undoMarkRows('셀 수정 '+(f.label||f.key),rowBigOfRow(r),[r]); setCell(r,f,nv); refreshCalcCells(td,r,fs); histLog('edit',curBig(),curSub(),[r.id]);
         if(__catL.length){ var __ce=catFind(curBig(),curSub(),nv); if(__ce&&catApplyRow(curBig(),r,__ce,true)){ saveState(); renderContent(); showToast('카테고리 '+nv+' — '+(__ce.kor||'')+' / '+(__ce.eng||'')+' 채움','success'); return; } }
@@ -2990,7 +3018,7 @@ function startCellEdit(td,id,fs){
     }
     sel.onchange=scommit;
     sel.onblur=scommit;
-    sel.onkeydown=function(ev){ if(ev.key==='Escape'){ sdone=true; td.classList.remove('editing'); td.textContent=dispCell(r,f); } };
+    sel.onkeydown=function(ev){ if(ev.key==='Escape'){ sdone=true; __editEnd(); td.classList.remove('editing'); td.textContent=dispCell(r,f); } };
     return;
   }
   td.innerHTML='<input class="plu-cell-input" type="text">';
@@ -3000,7 +3028,7 @@ function startCellEdit(td,id,fs){
   inp.focus(); inp.select();
   var done=false;
   function commit(){
-    if(done) return false; done=true;
+    if(done) return false; done=true; __editEnd();
     var nv=inp.value;
     if(nv!==raw){ undoMarkRows('셀 수정 '+(f.label||f.key),rowBigOfRow(r),[r]); setCell(r,f,nv); refreshCalcCells(td,r,fs); histLog('edit',curBig(),curSub(),[r.id]);
       if(normKey(f.key)==='CATEGORY_NUMBER'&&!gsActive()){ var __ce2=catFind(curBig(),curSub(),nv); if(__ce2&&catApplyRow(curBig(),r,__ce2,true)){ saveState(); renderContent(); showToast('카테고리 '+nv+' — '+(__ce2.kor||'')+' / '+(__ce2.eng||'')+' 채움','success'); return true; } }
@@ -3024,7 +3052,7 @@ function startCellEdit(td,id,fs){
       var tr=td.closest('tr'), nx=tr&&tr.nextElementSibling;
       if(nx){ var ntd=nx.querySelector('td[data-fi="'+fi+'"].editable'); if(ntd) ntd.click(); }
     }
-    else if(ev.key==='Escape'){ done=true; td.classList.remove('editing'); td.textContent=dispCell(r,f); }
+    else if(ev.key==='Escape'){ done=true; __editEnd(); td.classList.remove('editing'); td.textContent=dispCell(r,f); }
     else if(ev.key==='Tab'){ ev.preventDefault(); if(commit()) return;
       var tds=td.parentElement.querySelectorAll('td.editable');
       var arr=Array.prototype.slice.call(tds), ix=arr.indexOf(td);
@@ -6289,7 +6317,7 @@ function init(){
   });
   /* [2026-10-04] 검색 범위 — 검색창 우클릭: 상위 카테고리 체크 (체크한 카테고리에서만 검색, 기본 전체). 이 컴퓨터 화면 설정(S.ui) */
   $('pluSearch').addEventListener('contextmenu',function(e){ e.preventDefault(); openSearchScope(e.clientX,e.clientY); });
-  try{ if(searchBigsSet()) $('pluSearch').placeholder='🔍 검색어 입력 후 Enter (번호,번호 가능 · '+S.ui.searchBigs.join('·')+')'; }catch(e){}
+  try{ if(searchBigsSet()) $('pluSearch').placeholder='🔍 검색어 입력 후 Enter (번호,번호 · 단어+단어 · '+S.ui.searchBigs.join('·')+')'; }catch(e){}
   $('pluSearch').addEventListener('input',function(){
     if(String(this.value).trim()===''&&searchQ!==''){ searchQ=''; renderContent(); } /* 지우면 즉시 해제 */
   });
@@ -6371,6 +6399,7 @@ window.__PLU={
   pluSortKey:pluSortKey, sortRowsByPlu:sortRowsByPlu, sortAllByPlu:sortAllByPlu, xlToEngine:xlToEngine,
   isRowInUse:isRowInUse, delSelected:delSelected, delAllRows:delAllRows, runExport:runExport, prFilterRows:prFilterRows, buildPrintSections:buildPrintSections,
   outSortRows:outSortRows, outNameField:outNameField,
+  gzWorkerOn:function(){ return !!(__gzWorker&&__gzWorker!==false); }, lsWriteNow:__lsWriteNow, isCellEditing:isCellEditing,
   qeFields:qeFields, openQuickEntry:openQuickEntry, openDeptModal:openDeptModal, openFieldFxModal:openFieldFxModal, posFormulaFromFfx:posFormulaFromFfx, subCatFieldOf:subCatFieldOf, openOptEditor:openOptEditor, optSave:optSave, optByNum:optByNum, optResolve:optResolve, qeAddItem:qeAddItem, qeSaveAll:qeSaveAll, qeExportGroup:qeExportGroup, qeDelSelected:qeDelSelected, feSetEno:function(f,n){ return feSetEno(f,n); },
   get prSortMode(){ return prSortMode; }, set prSortMode(v){ prSortMode=v; },
   get selRows(){ return selRows; }, set selRows(v){ selRows=v; },
@@ -6983,6 +7012,7 @@ function fbWatchStart(conn){
     if(!S||__fbSyncRunning||__fbWatchBusy) return;
     var meta=(sn.exists()&&sn.data()&&sn.data().ver==='v3')?sn.data():null;
     if(!meta||!meta.savedAt||meta.savedAt===S.fbLastSync) return;
+    if(__cellEditing){ __fbDeferred=true; return; } /* [편집 보호] 입력 중 실시간 반영 미룸 — 편집 끝나면 fbSyncRun 이 새 기록을 가져온다 */
     __fbWatchBusy=true;
     fbDeltaApply(conn,meta).then(function(r){ if(r) return r; return fbPullApply(conn); })
       .then(function(r){ if(r&&r.delta){ fbLogSync('pull',r.got+r.del,'다른 컴퓨터 수정 실시간 반영 (변경분 '+r.got+' · 삭제 '+r.del+')'); showToast('다른 컴퓨터 수정 반영 — 변경 '+r.got+'건'+(r.del?' · 삭제 '+r.del+'건':''),'success'); }
@@ -7094,6 +7124,7 @@ async function fbListStale(conn,plan,m,meta){
 }
 async function fbSyncRun(){
   clearTimeout(__fbSyncTimer); __fbSyncTimer=0;
+  if(__cellEditing){ __fbDeferred=true; return; } /* [편집 보호] 입력 중엔 전송·수신 미룸 — 편집 끝나면 바로 실행 */
   if(__fbSyncRunning){ __fbSyncPending=true; return; }
   if(!S||__fbState==='conflict') return;
   if(!fbCfgCur()){ __fbState='off'; renderSaveChip(); return; }
