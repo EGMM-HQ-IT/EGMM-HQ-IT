@@ -910,6 +910,8 @@ html[data-theme=night] .plu-cm-row.cur { border-color:#4d8bea; background:#1e2c4
       <button class="plu-tool-btn" id="dataEditBtn" type="button" style="display:none" title="중복 데이터 보기 · 삭제 (현재 중간 카테고리)">✎ 데이터 편집</button>
       <!-- [HISTORY · UPC 2026-10] 편집 히스토리 (날짜·시간·분 단위) -->
       <button class="plu-tool-btn" id="histBtn" type="button" style="display:none" title="편집 히스토리 — 분 단위로 기록, 그 시간에 편집된 데이터만 보기·삭제">🕘 히스토리</button>
+      <!-- [FULL SCREEN 2026-10-05] 리스트를 화면 전체로 · 전체 화면 동안 마우스 뒤로 가기 차단 -->
+      <button class="plu-tool-btn" id="fullBtn" type="button" title="전체 화면 (다시 누르거나 Esc = 원래대로)">⛶ FULL</button>
       <!-- [선택삭제] 메뉴 버튼 왼쪽 -->
       <button class="plu-tool-btn plu-delsel" id="delSelBtn" type="button">🗑 선택삭제</button>
       <!-- [MODULE 08] 기능 메뉴 버튼 (팝업은 아래 모달) -->
@@ -2542,6 +2544,7 @@ var GUIDE_PLU=[
   ['동기화 규칙','수정하면 조건 없이 무조건 CLOUD 로 전송됩니다(0건도 전송). 기본 데이터는 없고 모든 데이터(상품 + 필드 설정값)는 CLOUD 에서 가져옵니다. 열 때마다 무조건 CLOUD 의 최신 기록을 먼저 가져오고, 끝나기 전에는 수정·저장이 잠깁니다. 모든 행은 마지막 편집 시각(분 단위)을 가지며, CLOUD 와 합칠 때 행마다 더 최근에 편집된 쪽이 남습니다(같은 분이면 CLOUD). 이 컴퓨터에서 더 최근에 편집·추가·삭제한 행은 CLOUD 에도 그대로 등록되고, 다른 컴퓨터가 더 최근에 편집한 행은 이 화면에 반영됩니다(실시간 포함). CLOUD 에만 있는 상품은 TRASH 에 있는 것 외에는 지우지 않습니다. 동기화 상태는 EGMM 왼쪽 USER 박스의 CLOUD 칸에서 확인(클릭 = 즉시 동기화).'],
   ['데이터 편집','메뉴 > 데이터 편집: 현재 보고 있는 중간 카테고리 안에서 ① 중복 데이터 보기 — PLU 기준으로 검색(표시 필드는 오른쪽 칸에서 선택), 별도 팝업에 그룹별로 구분 표시, 그룹 안 번호(NO)와 COST·SRP 높은/낮은순 정렬, 「1번만·2번만·3번만·중복 체크(1번 빼고 전부)」 버튼으로 한 번에 체크 후 삭제. ② 중복 데이터 삭제 — PLU 기준, SRP 또는 COST 높은/낮은 순으로 1개 또는 2개만 남기고 나머지 삭제. 삭제한 행은 모두 TRASH 보관, 사용중(체크) 상품은 보호. PLU 쪽 작업은 UPC LIST 에 영향을 주지 않습니다.'],
   ['검색 범위','검색창을 우클릭하면 상위 카테고리 체크 목록이 뜹니다. 체크한 카테고리에서만 검색되며(기본 전체), 검색 결과 개수 옆에 범위가 표시됩니다. 이 컴퓨터 화면 설정이라 CLOUD 로는 전송되지 않습니다.'],
+  ['전체 화면','상단 「⛶ FULL」: 이 화면을 브라우저 전체 화면으로 채웁니다. 전체 화면 동안은 마우스 뒤로/앞으로 버튼이 막혀 화면이 빠져나가지 않습니다. 「⛶ 원래대로」 또는 Esc 로 복귀(복귀 후엔 뒤로 가기 정상).'],
   ['Ctrl+S','모든 수정은 자동 저장·자동 전송되지만, Ctrl+S 를 누르면 기다리지 않고 지금 바로 이 컴퓨터에 저장하고 CLOUD 로 전송합니다 (셀 입력 중이면 먼저 확정).'],
   ['되돌리기','메뉴 > 되돌리기 (또는 Ctrl+Z): 바로 이전 데이터 작업(셀 수정·상품 추가·불러오기·채우기·특정문자 편집·삭제·중복 삭제·히스토리 삭제·전체삭제)을 원래대로 돌립니다. 최근 5개까지, 최신 작업부터 차례로. 이 창을 새로고침하면 되돌리기 목록은 사라집니다. 되돌린 행은 지금 시각으로 편집된 것으로 CLOUD 에 전송됩니다.'],
   ['히스토리','메뉴 > 히스토리: 불러오기·행 추가·셀 수정·전체 채우기·삭제·중복 삭제를 날짜·시간(분 단위)·카테고리·행수로 기록합니다(두 컴퓨터 공유). 항목의 「보기」로 그 시간에 편집된 행만 리스트로 보고 체크 삭제, 「삭제」로 그 시간에 편집된 행 전부 삭제(TRASH 보관). 삭제 작업 항목은 삭제된 행의 PLU 를 남깁니다.'],
@@ -2564,6 +2567,7 @@ var GUIDE_UPC=[
   ['필드 우클릭 메뉴','머리글을 우클릭하면 말풍선 메뉴가 뜹니다(필드 숨김 기능은 없어짐). 「필드 고정」: 엑셀 틀 고정처럼 그 필드까지 왼쪽 열 전부(선택열 포함)가 가로 스크롤에서 고정됩니다(검색·카테고리와 무관한 열 설정, 다시 누르면 해제). 범위는 지금 화면에 보이는 리스트(검색 중이면 검색 결과, 아니면 현재 중간 카테고리)이고 그 필드만 바뀝니다. ① 특정문자 삭제: 입력한 문자를 셀에서 전부 지움(예: 농심 매운 새우깡 → 매운 새우깡) ② 특정문자 교환: 찾을 문자를 바꿀 문자로 전부 교체 ③ 특정문자 채우기: 모든 셀을 입력한 값으로 채움 ④ 특정문자 추가: 현재 값의 맨 앞 또는 맨 뒤에 문자를 붙임(빈 셀은 그 문자만) ⑤ 특정문자 자동추가: 다른 필드 값 + 문자 + 현재 값 + 다른 필드 값 + 문자… 처럼 앞·뒤 항목을 몇 개든 순서대로 붙여 일괄 변경(필드 값이 빈 행은 그 항목만 건너뜀) ⑥ SRP 필드에서는 「SRP 가격 생성」: COST 에 마진 %를 적용(판매가 기준 COST÷(1−%) 또는 원가 기준 COST×(1+%))하고 체크한 끝자리(.29 .49 .79 .99) 중 계산값 이상인 가장 가까운 가격으로 만듦. 실행 전 변경 행 수를 확인하고 히스토리에 기록됩니다.'],
   ['카테고리 트리','하위 카테고리(NO · KOR · ENG)는 MART > CATEGORY MANAGER 에서 관리하는 공용 트리(PLU · UPC 공유)입니다. 리스트의 CATEGORY NO 셀을 클릭하면 현재 상위/중간 카테고리의 하위 목록이 드롭다운으로 나오고, 번호를 고르거나 입력하면 KOR · ENG 가 자동으로 채워집니다. 엑셀 불러오기도 NO 만 있으면 KOR · ENG 를 채웁니다. 트리에서 번호·이름을 바꾸면 이 리스트의 상품 행에 실시간으로 반영됩니다.'],
   ['검색 범위','검색창을 우클릭하면 상위 카테고리 체크 목록이 뜹니다. 체크한 카테고리에서만 검색되며(기본 전체), 검색 결과 개수 옆에 범위가 표시됩니다. 이 컴퓨터 화면 설정이라 CLOUD 로는 전송되지 않습니다.'],
+  ['전체 화면','상단 「⛶ FULL」: 이 화면을 브라우저 전체 화면으로 채웁니다. 전체 화면 동안은 마우스 뒤로/앞으로 버튼이 막혀 화면이 빠져나가지 않습니다. 「⛶ 원래대로」 또는 Esc 로 복귀(복귀 후엔 뒤로 가기 정상).'],
   ['Ctrl+S','모든 수정은 자동 저장·자동 전송되지만, Ctrl+S 를 누르면 기다리지 않고 지금 바로 이 컴퓨터에 저장하고 CLOUD 로 전송합니다 (셀 입력 중이면 먼저 확정).'],
   ['되돌리기','메뉴 > 되돌리기 (또는 Ctrl+Z): 바로 이전 데이터 작업(셀 수정·상품 추가·불러오기·채우기·특정문자 편집·삭제·중복 삭제·히스토리 삭제·전체삭제)을 원래대로 돌립니다. 최근 5개까지, 최신 작업부터 차례로. 이 창을 새로고침하면 되돌리기 목록은 사라집니다. 되돌린 행은 지금 시각으로 편집된 것으로 CLOUD 에 전송됩니다.'],
   ['히스토리','메뉴 > 히스토리: 불러오기·행 추가·셀 수정·전체 채우기·삭제·중복 삭제를 날짜·시간(분 단위)·카테고리·행수로 기록합니다(두 컴퓨터 공유). 항목의 「보기」로 그 시간에 편집된 행만 리스트로 보고 체크 삭제, 「삭제」로 그 시간에 편집된 행 전부 삭제(TRASH 보관). 삭제 작업 항목은 삭제된 행의 UPC · ITEM CODE 를 남깁니다.'],
@@ -2674,6 +2678,37 @@ function fitTableHeight(wrap){
   try{ var tb=document.querySelector('.page-topbar'); if(tb) document.documentElement.style.setProperty('--pluTopH',tb.offsetHeight+'px'); }catch(e){}
 }
 window.addEventListener('resize',function(){ clearTimeout(window.__fitT); window.__fitT=setTimeout(function(){ fitTableHeight(); },120); });
+/* ═══ [FULL SCREEN · 2026-10-05] 상단 FULL 버튼: 이 화면(리스트 포함)을 브라우저 전체 화면으로. 전체 화면 동안은
+   마우스 뒤로/앞으로 버튼(button 3·4)과 history 뒤로 가기를 막는다(화면이 빠져나가지 않게). 원래대로(버튼·Esc) 돌아오면 차단 해제. */
+var __fullOn=false, __fullViaParent=false;
+function fullIs(){ return !!(document.fullscreenElement||document.webkitFullscreenElement)||__fullViaParent; }
+function fullToggle(){
+  if(__fullViaParent){ try{ window.parent.postMessage({plu:'fullscreen',on:false},'*'); }catch(e){} return; }
+  if(fullIs()){ try{ (document.exitFullscreen||document.webkitExitFullscreen).call(document); }catch(e){} return; }
+  var el=document.documentElement, p=null;
+  try{ p=(el.requestFullscreen||el.webkitRequestFullscreen).call(el); }catch(e){ p=null; }
+  if(p&&p.catch) p.catch(function(){ fullAskParent(); }); else if(!p) fullAskParent();
+}
+function fullAskParent(){ /* 프레임 안에서 직접 안 되면 EGMM 에 프레임 전체 화면 요청 */
+  try{ if(window.parent&&window.parent!==window){ window.parent.postMessage({plu:'fullscreen',on:true},'*'); return; } }catch(e){}
+  showToast('이 브라우저에서는 전체 화면을 쓸 수 없습니다','error');
+}
+function fullFromParent(on){ __fullViaParent=!!on; fullSync(); } /* EGMM 이 프레임을 전체 화면으로 열고/닫고 알려줌 */
+function __fullMouse(ev){ if(ev.button===3||ev.button===4){ ev.preventDefault(); ev.stopPropagation(); } }
+function __fullPop(){ if(__fullOn){ try{ history.pushState({pluFull:1},''); }catch(e){} } }
+function fullSync(){
+  var on=fullIs(); if(on===__fullOn) return; __fullOn=on;
+  var b=$('fullBtn'); if(b){ b.textContent=on?'⛶ 원래대로':'⛶ FULL'; b.classList.toggle('on',on); }
+  if(on){
+    ['mousedown','mouseup','pointerdown','pointerup','auxclick'].forEach(function(t){ window.addEventListener(t,__fullMouse,true); });
+    try{ history.pushState({pluFull:1},''); }catch(e){} window.addEventListener('popstate',__fullPop);
+  } else {
+    ['mousedown','mouseup','pointerdown','pointerup','auxclick'].forEach(function(t){ window.removeEventListener(t,__fullMouse,true); });
+    window.removeEventListener('popstate',__fullPop);
+    try{ if(history.state&&history.state.pluFull) history.back(); }catch(e){}
+  }
+  setTimeout(fitTableHeight,150);
+}
 /* [필드 고정 2026-10-04] 엑셀 틀 고정 — S.freezeKey 필드까지(그 왼쪽 전부 + 선택열) 가로 스크롤에서 제외. 검색·카테고리와 무관한 열 설정(전 카테고리 공통, CLOUD 동기화) */
 function freezeIndex(fs){ if(!S||!S.freezeKey) return -1; for(var i=0;i<fs.length;i++){ if(fs[i].key===S.freezeKey) return i; } return -1; }
 function applyFreeze(root,fs){
@@ -6368,6 +6403,8 @@ function init(){
   $('printX').onclick=function(){ $('printOv').classList.remove('show'); };
   $('puX').onclick=function(){ $('puOv').classList.remove('show'); };
   $('delSelBtn').onclick=function(){ delSelected(); };
+  $('fullBtn').onclick=function(){ fullToggle(); };
+  document.addEventListener('fullscreenchange',fullSync); document.addEventListener('webkitfullscreenchange',fullSync);
   /* [2026-10-02] TRASH · 데이터 편집 · 히스토리는 서브메뉴에서만 (상단 버튼 없음) */
   $('sortSel').style.display=''; if(APP_MODE!=='UPC'){ var __so=$('sortSel').querySelector('option[value=upc]'); if(__so) __so.textContent='PLU 순'; } $('sortSel').onchange=function(){ var v=$('sortSel').value; $('sortSel').value=''; if(!v) return; sortCurrentSub(v); }; /* [2026-10-02] PLU · UPC 동일 */
   $('printOv').addEventListener('click',function(ev){ if(ev.target===this) this.classList.remove('show'); });
@@ -7523,6 +7560,7 @@ window.addEventListener('message', function(e){
   if(d.plu==='getMenu') __announceMenu();
   else if(d.plu==='syncClick'){ try{ saveChipClick(); }catch(err){} }
   else if(d.plu==='run' && d.id){ try{ window.__pluMenuRun(String(d.id)); }catch(err){ console.error('[PLU 메뉴 실행 실패]', err); } }
+  else if(d.plu==='fullscreenState'){ fullFromParent(!!d.on); }
 });
 if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded',function(){ init(); __announceMenu(); },{once:true}); }
 else{ init(); __announceMenu(); }

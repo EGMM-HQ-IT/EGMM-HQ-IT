@@ -3526,7 +3526,10 @@
     var lb=$('egLogoutBtn'); if(lb) lb.onclick=function(){ ['egmmGate','egmmUser','egmmAuth','egmmAccessAuth'].forEach(function(k){ try{ sessionStorage.removeItem(k); }catch(e){} }); location.reload(); };
     /* CLOUD 동기화 상태: 열려 있는 PLU/UPC MANAGER 가 보내는 칩 상태를 표시 (매니저 안의 칩은 숨김). 클릭 → 그 매니저에 즉시 동기화 요청 */
     var __syncSrc=null;
-    window.addEventListener('message',function(e){ var d=e.data||{}; if(d.plu!=='syncChip') return; __syncSrc=e.source; var v=$('egCloudState'); if(!v) return; v.textContent=(d.app==='UPC'?'UPC · ':'PLU · ')+String(d.text||''); v.className='v '+(d.cls||''); v.title=d.title||''; });
+    document.addEventListener('fullscreenchange',function(){ var el=document.fullscreenElement; Array.prototype.forEach.call(document.querySelectorAll('iframe'),function(f){ try{ f.contentWindow.postMessage({plu:'fullscreenState',on:(el===f)},'*'); }catch(x){} }); }); /* [2026-10-05] 프레임에 전체 화면 상태 알림 */
+    window.addEventListener('message',function(e){ var d=e.data||{}; if(d.plu==='fullscreen'){ /* [2026-10-05] 프레임이 직접 전체 화면을 못 열 때 → 프레임 요소를 전체 화면으로 */
+      try{ var fr=null; Array.prototype.forEach.call(document.querySelectorAll('iframe'),function(f){ if(f.contentWindow===e.source) fr=f; }); if(fr&&d.on&&fr.requestFullscreen) fr.requestFullscreen(); else if(!d.on&&document.fullscreenElement) document.exitFullscreen(); }catch(x){} return; }
+      if(d.plu!=='syncChip') return; __syncSrc=e.source; var v=$('egCloudState'); if(!v) return; v.textContent=(d.app==='UPC'?'UPC · ':'PLU · ')+String(d.text||''); v.className='v '+(d.cls||''); v.title=d.title||''; });
     var cr=$('egCloudRow'); if(cr) cr.onclick=function(){ if(__syncSrc){ try{ __syncSrc.postMessage({plu:'syncClick'},'*'); }catch(e){} } };
     if(window.EgmmFB){ window.EgmmFB.ready.then(function(){ if($('egCloudState').textContent==='연결 확인 중…') $('egCloudState').textContent='연결됨'; }).catch(function(){ $('egCloudState').textContent='CLOUD 설정 없음'; }); }
     else $('egCloudState').textContent='CLOUD 모듈 없음';
@@ -3540,7 +3543,7 @@
     var f=__frames[url];
     if(!f){
       f=document.createElement('iframe');
-      f.className='eg-frame'; f.title='content'; f.src=url;
+      f.className='eg-frame'; f.title='content'; f.src=url; f.setAttribute('allowfullscreen',''); f.allow='fullscreen'; /* [2026-10-05] PLU/UPC FULL SCREEN */
       f.addEventListener('load', function(){ __trimFrame(f); try{ f.contentDocument.documentElement.setAttribute('data-theme', curTheme()); }catch(e){} });
       var host=document.querySelector('.eg-main'); if(host) host.appendChild(f);
       __frames[url]=f;
