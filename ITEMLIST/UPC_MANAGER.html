@@ -1689,7 +1689,17 @@ function migrate(st){
     try{ st.tabs.forEach(function(t){ calcAll(t.label); }); }catch(e){}
     S=__S0!==null?__S0:st;
   }
+  try{ dedupeRowIds(st); }catch(e){}
   return st;
+}
+/* [디버깅 2026-10-06] 같은 id 를 가진 행이 2개 이상이면(이전 복제 버그) 뒤의 행에 새 id 부여.
+   id 가 겹치면 "중복 1개만 삭제"에서 둘 다 지워지고, 셀 수정이 엉뚱한 행에 들어가는 등 모든 id 기반 작업이 깨진다. */
+function dedupeRowIds(st){
+  var seen={}, n=0, d=(st&&st.data)||{};
+  for(var b in d){ var ss=d[b]||{}; for(var sb in ss){ var arr=ss[sb]; if(!Array.isArray(arr)) continue; for(var i=0;i<arr.length;i++){ var r=arr[i]; if(!r) continue;
+    if(!r.id||seen[r.id]){ r.id=newId()+'_'+Math.random().toString(36).slice(2,6); n++; } seen[r.id]=1; } } }
+  if(n){ try{ console.warn('[dedupeRowIds] 겹치는 행 id '+n+'개에 새 id 부여'); }catch(e){} }
+  return n;
 }
 
 /* ═══ [공유 필드 셋팅 · 2026-09] 필드 셋팅(레이아웃)·묶음 색상은 전체 대분류 공통 ═══
@@ -2571,7 +2581,7 @@ var GUIDE_PLU=[
   ['Ctrl+S','모든 수정은 자동 저장·자동 전송되지만, Ctrl+S 를 누르면 기다리지 않고 지금 바로 이 컴퓨터에 저장하고 CLOUD 로 전송합니다 (셀 입력 중이면 먼저 확정).'],
   ['되돌리기','메뉴 > 되돌리기 (또는 Ctrl+Z): 바로 이전 데이터 작업(셀 수정·상품 추가·불러오기·채우기·특정문자 편집·삭제·중복 삭제·히스토리 삭제·전체삭제)을 원래대로 돌립니다. 최근 5개까지, 최신 작업부터 차례로. 이 창을 새로고침하면 되돌리기 목록은 사라집니다. 되돌린 행은 지금 시각으로 편집된 것으로 CLOUD 에 전송됩니다.'],
   ['히스토리','메뉴 > 히스토리: 불러오기·행 추가·셀 수정·전체 채우기·삭제·중복 삭제를 날짜·시간(분 단위)·카테고리·행수로 기록합니다(두 컴퓨터 공유). 항목의 「보기」로 그 시간에 편집된 행만 리스트로 보고 체크 삭제, 「삭제」로 그 시간에 편집된 행 전부 삭제(TRASH 보관). 삭제 작업 항목은 삭제된 행의 PLU 를 남깁니다.'],
-  ['TRASH','리스트에서 삭제한 행은 PLU 번호가 TRASH 에 보관됩니다(메뉴 > TRASH). TRASH 는 상위 · 중간 카테고리별로 따로 관리되며, 보고 있는 카테고리의 TRASH 만 표시됩니다. 같은 카테고리로 엑셀 불러오기 때 TRASH 와 PLU 가 같은 행은 무조건 무시되어 쓰레기가 다시 쌓이지 않습니다. TRASH 에서 제거하면 다시 등록 가능.'],
+  ['TRASH','리스트에서 삭제한 행은 내용 전체가 TRASH 에 보관됩니다(메뉴 > TRASH). 삭제 시각·작업별 폴더로 묶여 있고 「폴더 복원」 또는 행마다 「복원」으로 원래 카테고리에 되살릴 수 있습니다(최근 3000행까지 내용 보관). 「삭제」는 TRASH 에서 제거. TRASH 는 상위 · 중간 카테고리별로 따로 관리되며, 보고 있는 카테고리의 TRASH 만 표시됩니다. 같은 카테고리로 엑셀 불러오기 때 TRASH 와 PLU 가 같은 행은 무조건 무시되어 쓰레기가 다시 쌓이지 않습니다. TRASH 에서 제거하면 다시 등록 가능.'],
   ['보호 · 선택','USE 칸의 붉은 체크 = 보호. 보호된 행은 선택삭제 · 전체삭제 · 데이터 편집(중복) 삭제 · 히스토리 삭제 어디서도 지워지지 않습니다(강제 삭제도 불가). 출력·내보내기와는 무관하고 CLOUD 에 기록됩니다. 선택 체크 열을 누른 채 끌면 여러 행을 한 번에 선택/해제.'],
   ['표시','같은 PLU 행은 PLU 칸이 같은 색. USE 미체크 행은 회색 취소선. 검색은 Enter, 번호는 쉼표로 여러 개.']
 ];
@@ -2596,7 +2606,7 @@ var GUIDE_UPC=[
   ['Ctrl+S','모든 수정은 자동 저장·자동 전송되지만, Ctrl+S 를 누르면 기다리지 않고 지금 바로 이 컴퓨터에 저장하고 CLOUD 로 전송합니다 (셀 입력 중이면 먼저 확정).'],
   ['되돌리기','메뉴 > 되돌리기 (또는 Ctrl+Z): 바로 이전 데이터 작업(셀 수정·상품 추가·불러오기·채우기·특정문자 편집·삭제·중복 삭제·히스토리 삭제·전체삭제)을 원래대로 돌립니다. 최근 5개까지, 최신 작업부터 차례로. 이 창을 새로고침하면 되돌리기 목록은 사라집니다. 되돌린 행은 지금 시각으로 편집된 것으로 CLOUD 에 전송됩니다.'],
   ['히스토리','메뉴 > 히스토리: 불러오기·행 추가·셀 수정·전체 채우기·삭제·중복 삭제를 날짜·시간(분 단위)·카테고리·행수로 기록합니다(두 컴퓨터 공유). 항목의 「보기」로 그 시간에 편집된 행만 리스트로 보고 체크 삭제, 「삭제」로 그 시간에 편집된 행 전부 삭제(TRASH 보관). 삭제 작업 항목은 삭제된 행의 UPC · ITEM CODE 를 남깁니다.'],
-  ['TRASH','리스트에서 삭제한 행은 UPC · ITEM CODE · VENDER 3개만 TRASH 에 보관됩니다(메뉴 > TRASH). TRASH 는 상위 · 중간 카테고리별로 따로 관리되며, 보고 있는 카테고리의 TRASH 만 표시됩니다. 같은 카테고리로 엑셀 불러오기 때 TRASH 와 UPC·ITEM CODE 가 모두 같은 행은 무조건 무시되어 쓰레기가 다시 쌓이지 않습니다. TRASH 에서 제거하면 다시 등록 가능.']
+  ['TRASH','리스트에서 삭제한 행은 내용 전체가 TRASH 에 보관됩니다(메뉴 > TRASH). 삭제 시각·작업별 폴더로 묶여 있고 「폴더 복원」 또는 행마다 「복원」으로 원래 카테고리에 되살릴 수 있습니다(최근 3000행까지 내용 보관). 「삭제」는 TRASH 에서 제거. TRASH 는 상위 · 중간 카테고리별로 따로 관리되며, 보고 있는 카테고리의 TRASH 만 표시됩니다. 같은 카테고리로 엑셀 불러오기 때 TRASH 와 UPC·ITEM CODE 가 모두 같은 행은 무조건 무시되어 쓰레기가 다시 쌓이지 않습니다. TRASH 에서 제거하면 다시 등록 가능.']
 ];
 function openGuide(){
   var ov=$('gdOv');
@@ -3205,7 +3215,7 @@ async function delAllRows(){
   if(!(await uiConfirm('카테고리 상품 리스트를 전체 삭제할까요?\n대상 카테고리: '+scope+'\n전체 '+all.length+'행'+(inUse?' (사용중 체크 '+inUse+'행 포함 — 함께 삭제됩니다)':'')+(lockN?'\n(보호 '+lockN+'행은 삭제되지 않고 남습니다)':''),'전체삭제 (1/2)'))) return;
   if(!(await uiConfirm('정말 삭제합니다 — 되돌릴 수 없습니다.\n'+scope+' 의 '+all.length+'행 전체'+(inUse?' (사용중 '+inUse+'행 포함)':'')+'를 삭제할까요?','전체삭제 최종 확인 (2/2)'))) return;
   undoMark('전체삭제 '+curSub(),[curBig()]);
-  var __tr=trashAddRows(curBig(),curSub(),all.slice()); histLog('del',curBig(),curSub(),[],all.map(function(r){ return histRowMini(curBig(),r); }),'전체삭제');
+  var __tr=trashAddRows(curBig(),curSub(),all.slice(),'전체삭제'); histLog('del',curBig(),curSub(),[],all.map(function(r){ return histRowMini(curBig(),r); }),'전체삭제');
   for(var __ai=arr.length-1;__ai>=0;__ai--){ if(!isRowLocked(arr[__ai])) arr.splice(__ai,1); } /* 보호 행만 남김 */
   selRows={}; saveState(); renderContent();
   showToast('전체삭제 완료 — '+scope+' 전체 삭제됨'+(__tr?' · TRASH 보관 '+__tr:''),'success');
@@ -3215,36 +3225,84 @@ function trashKeyOf(upc,code){ return normKey(String(upc||'').replace(/\D/g,'').
 /* [요구 2026-10-01] TRASH 는 상위(대분류) · 중간(소분류) 카테고리별로 따로 관리 — 항목에 big/sub 기록, 키 = big|sub|UPC|ITEM CODE */
 function trashCatKey(big,sub,upc,code){ return normKey(big)+'|'+normKey(sub)+'|'+trashKeyOf(upc,code); }
 function trashSubOf(t){ return (t.sub!=null&&t.sub!=='')?t.sub:(t.vender||''); } /* 이전 항목(sub 없음)은 VENDER 를 중간 카테고리로 간주 */
-function trashAddRows(big,sub,rows){
+/* [TRASH 2026-10-06] 삭제한 행 전체(id · 값 · 매장값 · 편집시각)를 함께 보관 → 「복원」 가능. 같은 시각에 함께 삭제된 행은 한 폴더(at + note).
+   항목마다 고유 rid. 보관 상한: 최근 TRASH_ROWS_KEEP 건까지만 행 내용 유지(그 이전 항목은 UPC·ITEM CODE 만 남아 복원 불가). */
+var TRASH_ROWS_KEEP=3000;
+function trashAddRows(big,sub,rows,note){
   if(!TRASH_ENABLED||!rows||!rows.length) return 0;
   var pf=fieldByKey(big,'ITEM_PLU')||fieldByKey(big,'PLU'), cf=fieldByKey(big,'VENDER_ITEM_CODE'), vf=fieldByKey(big,'VENDER_VENDER');
   if(!pf) return 0;
-  var seen={}; (S.trash||[]).forEach(function(t){ seen[trashCatKey(t.big||big,trashSubOf(t),t.upc,t.code)]=1; });
   var n=0, at=new Date().toISOString();
   rows.forEach(function(r){
-    var upc=String(getCell(r,pf,'')||'').trim(); if(!upc) return;
+    var upc=String(getCell(r,pf,'')||'').trim();
     var code=cf?String(getCell(r,cf,'')||'').trim():'', vend=vf?String(getCell(r,vf,'')||'').trim():'';
-    var k=trashCatKey(big,sub,upc,code); if(seen[k]) return; seen[k]=1;
-    S.trash.push({ big:big, sub:sub, upc:upc, code:code, vender:vend, at:at }); n++;
+    S.trash.push({ big:big, sub:sub, upc:upc, code:code, vender:vend, at:at, note:String(note||''), rid:newId(), row:{ id:r.id, v:JSON.parse(JSON.stringify(r.v||{})), sv:JSON.parse(JSON.stringify(r.sv||{})), m:r.m||'' } }); n++;
   });
+  var withRow=0; for(var i=S.trash.length-1;i>=0;i--){ if(S.trash[i].row){ withRow++; if(withRow>TRASH_ROWS_KEEP) delete S.trash[i].row; } }
   return n;
 }
 /* 불러오기용: 같은 상위·중간 카테고리의 TRASH 에 UPC+ITEM CODE 가 모두 같은 행은 무시 */
-function trashIndex(big){ var ix={}; if(TRASH_ENABLED){ (S.trash||[]).forEach(function(t){ if((t.code||APP_MODE!=='UPC')&&(t.big||big)===big) ix[trashCatKey(big,trashSubOf(t),t.upc,t.code||'')]=1; }); } return ix; } /* PLU: 번호만으로 */
+function trashIndex(big){ var ix={}; if(TRASH_ENABLED){ (S.trash||[]).forEach(function(t){ if(!t.upc) return; if((t.code||APP_MODE!=='UPC')&&(t.big||big)===big) ix[trashCatKey(big,trashSubOf(t),t.upc,t.code||'')]=1; }); } return ix; } /* PLU: 번호만으로 */
+function trashFmtAt(at){ var d=new Date(at); if(isNaN(d.getTime())) return String(at||''); var p=function(x){ return (x<10?'0':'')+x; }; return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }
+function trashRestore(entries){ /* TRASH 항목(행 내용 있는 것) → 원래 상위/중간 카테고리로 되살림 */
+  var done=0, skip=0, bigs={}, byCat={};
+  entries.forEach(function(t){ if(!t.row){ skip++; return; } var big=t.big||curBig(), sub=trashSubOf(t)||big; (byCat[big+'\u0000'+sub]=byCat[big+'\u0000'+sub]||[]).push(t); bigs[big]=1; });
+  var bl=Object.keys(bigs); if(!bl.length) return {done:0,skip:skip};
+  undoMark('TRASH 복원',bl);
+  var ridSet={}; var stamp=rowStamp();
+  for(var k in byCat){ var p=k.split('\u0000'), big=p[0], sub=p[1];
+    var tab=null; S.tabs.forEach(function(t){ if(t.label===big) tab=t; });
+    if(!tab){ tab={label:big,subs:[]}; S.tabs.push(tab); }
+    if(tab.subs.indexOf(sub)<0) tab.subs.push(sub);
+    if(!S.data[big]) S.data[big]={}; if(!Array.isArray(S.data[big][sub])) S.data[big][sub]=[];
+    var have={}; for(var sb in S.data[big]){ (S.data[big][sb]||[]).forEach(function(r){ if(r&&r.id) have[r.id]=1; }); }
+    var ids=[];
+    byCat[k].forEach(function(t){ var r={ id:(t.row.id&&!have[t.row.id])?t.row.id:newId(), v:JSON.parse(JSON.stringify(t.row.v||{})), sv:JSON.parse(JSON.stringify(t.row.sv||{})), m:stamp }; have[r.id]=1;
+      try{ calcRow(big,r,''); }catch(e){} S.data[big][sub].unshift(r); ids.push(r.id); ridSet[t.rid]=1; done++; });
+    histLog('add',big,sub,ids,[],'TRASH 복원');
+  }
+  S.trash=(S.trash||[]).filter(function(t){ return !(t.rid&&ridSet[t.rid]); });
+  saveState(); renderSubTabs(); renderContent();
+  return {done:done,skip:skip};
+}
 function openTrash(){
   var __big=curBig(), __sub=curSub();
-  var list=(S.trash||[]).filter(function(t){ return (t.big||__big)===__big&&trashSubOf(t)===__sub; }).reverse();
-  var h='<b style="font-size:15px">TRASH — '+escapeHtml(__big)+' / '+escapeHtml(__sub)+' ('+list.length+'건)</b>'
-    +'<div style="margin:6px 0 10px;color:var(--ink-dim,#777)">이 카테고리에서 삭제한 행의 UPC · ITEM CODE · VENDER 만 보관합니다 (상위 · 중간 카테고리별로 따로 관리). 이 카테고리로 엑셀 불러오기 때 UPC 와 ITEM CODE 가 모두 같은 행은 자동으로 무시됩니다. (다른 컴퓨터와 함께 동기화)</div>'
-    +'<div style="max-height:56vh;overflow:auto;border:1px solid var(--line,#ddd);border-radius:8px">'
-    +'<table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="position:sticky;top:0;background:var(--panel-2,#f4f4f4)"><th style="text-align:left;padding:6px 8px">UPC</th><th style="text-align:left;padding:6px 8px">ITEM CODE</th><th style="text-align:left;padding:6px 8px">VENDER</th><th style="text-align:left;padding:6px 8px">삭제 시각</th><th></th></tr></thead><tbody>'
-    +(list.length?list.map(function(t){ return '<tr><td style="padding:5px 8px;border-top:1px solid var(--line,#eee)">'+escapeHtml(t.upc)+'</td><td style="padding:5px 8px;border-top:1px solid var(--line,#eee)">'+escapeHtml(t.code)+'</td><td style="padding:5px 8px;border-top:1px solid var(--line,#eee)">'+escapeHtml(t.vender)+'</td><td style="padding:5px 8px;border-top:1px solid var(--line,#eee);white-space:nowrap">'+escapeHtml(String(t.at||'').slice(0,19).replace('T',' '))+'</td><td style="padding:5px 8px;border-top:1px solid var(--line,#eee)"><button class="plu-tool-btn" data-tk="'+escapeHtml(trashCatKey(t.big||__big,trashSubOf(t),t.upc,t.code))+'" style="padding:2px 8px">제거</button></td></tr>'; }).join(''):'<tr><td colspan="5" style="padding:18px;text-align:center;color:var(--ink-dim,#777)">비어 있음</td></tr>')
-    +'</tbody></table></div>'
+  var list=(S.trash||[]).filter(function(t){ return (t.big||__big)===__big&&trashSubOf(t)===__sub; });
+  (S.trash||[]).forEach(function(t){ if(!t.rid) t.rid=newId(); }); /* 이전 항목에도 고유 번호 */
+  /* 폴더 = 같은 삭제 시각(분) + 작업명 */
+  var folders=[], fmap={};
+  list.forEach(function(t){ var fk=String(t.at||'').slice(0,16)+'|'+String(t.note||''); if(!fmap[fk]){ fmap[fk]={key:fk,at:t.at||'',note:t.note||'',items:[]}; folders.push(fmap[fk]); } fmap[fk].items.push(t); });
+  folders.sort(function(a,b){ return String(a.at)<String(b.at)?1:-1; });
+  var td='padding:4px 8px;border-top:1px solid var(--line,#eee);white-space:nowrap;';
+  var nf=fieldByKey(__big,'ITEM_ENGLISH')||fieldByKey(__big,'ENGLISH_DESC')||fieldByKey(__big,'ENG');
+  var h='<b style="font-size:15px">TRASH — '+escapeHtml(__big)+' / '+escapeHtml(__sub)+' ('+list.length+'건 · 폴더 '+folders.length+'개)</b>'
+    +'<div style="margin:6px 0 10px;color:var(--ink-dim,#777)">삭제한 행은 삭제 시각별 폴더로 보관됩니다. 「복원」= 원래 카테고리로 되살림(폴더째 또는 한 행씩). 「삭제」= TRASH 에서 제거(이후 불러오기 때 다시 등록될 수 있음). 행 내용이 없는 이전 항목은 복원이 안 됩니다.</div>'
+    +'<div style="max-height:56vh;overflow:auto;border:1px solid var(--line,#ddd);border-radius:8px">';
+  if(!folders.length) h+='<div style="padding:18px;text-align:center;color:var(--ink-dim,#777)">TRASH 비어 있음</div>';
+  folders.forEach(function(f,fi){
+    var canN=f.items.filter(function(t){ return !!t.row; }).length;
+    h+='<div class="tr-fold" data-f="'+fi+'" style="border-top:'+(fi?'2px solid var(--line,#ccc)':'none')+'">'
+      +'<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;background:var(--panel-2,#f4f4f4);cursor:pointer" class="tr-fhead" data-f="'+fi+'">'
+      +'<span class="tr-arrow" style="width:14px;display:inline-block">▸</span><b>📁 '+escapeHtml(trashFmtAt(f.at))+'</b><span>'+escapeHtml(f.note||'삭제')+'</span><span style="color:var(--ink-dim,#777)">'+f.items.length+'행'+(canN<f.items.length?' (복원 가능 '+canN+')':'')+'</span>'
+      +'<span style="margin-left:auto;display:flex;gap:6px">'+(canN?'<button class="plu-tool-btn tr-fres" data-f="'+fi+'" style="padding:3px 9px">폴더 복원 ('+canN+')</button>':'')+'<button class="plu-tool-btn tr-fdel" data-f="'+fi+'" style="padding:3px 9px;color:#c33">폴더 삭제</button></span></div>'
+      +'<div class="tr-fbody" data-f="'+fi+'" style="display:none"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="background:var(--panel-2,#f8f8f8)"><th style="text-align:left;padding:4px 8px">'+(APP_MODE==='UPC'?'UPC':'PLU')+'</th>'+(APP_MODE==='UPC'?'<th style="text-align:left;padding:4px 8px">ITEM CODE</th><th style="text-align:left;padding:4px 8px">VENDER</th>':'')+'<th style="text-align:left;padding:4px 8px">상품명</th><th style="text-align:left;padding:4px 8px">USE</th><th style="width:150px"></th></tr></thead><tbody>'
+      +f.items.map(function(t){ var nm=(t.row&&nf)?String((t.row.v||{})[nf.key]||''):''; var use=(t.row&&String((t.row.v||{}).ITEM_USE)==='1')?'✓':'';
+          return '<tr><td style="'+td+'">'+escapeHtml(t.upc)+'</td>'+(APP_MODE==='UPC'?'<td style="'+td+'">'+escapeHtml(t.code)+'</td><td style="'+td+'">'+escapeHtml(t.vender)+'</td>':'')+'<td style="'+td+'max-width:360px;overflow:hidden;text-overflow:ellipsis">'+escapeHtml(nm)+'</td><td style="'+td+'">'+use+'</td>'
+            +'<td style="'+td+'text-align:right">'+(t.row?'<button class="plu-tool-btn tr-res" data-rid="'+escapeHtml(t.rid)+'" style="padding:2px 8px">복원</button>':'<span style="color:var(--ink-dim,#999);font-size:11px">내용 없음</span>')+' <button class="plu-tool-btn tr-del" data-rid="'+escapeHtml(t.rid)+'" style="padding:2px 8px;color:#c33">삭제</button></td></tr>'; }).join('')
+      +'</tbody></table></div></div>';
+  });
+  h+='</div>'
     +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button id="trashEmpty" class="plu-tool-btn">TRASH 비우기</button><button id="trashClose" class="plu-tool-btn plu-imp-go">닫기</button></div>';
-  var ov=__fbOverlay('trashOv',h);
+  var ov=__fbOverlay('trashOv',h); ov.firstChild.style.maxWidth='900px';
   $('trashClose').onclick=function(){ __fbClose('trashOv'); };
-  $('trashEmpty').onclick=async function(){ if(!(await uiConfirm(__big+' / '+__sub+' 의 TRASH 를 비울까요? (비우면 불러오기 때 다시 등록될 수 있습니다)'))) return; S.trash=(S.trash||[]).filter(function(t){ return !((t.big||__big)===__big&&trashSubOf(t)===__sub); }); saveState(); __fbClose('trashOv'); showToast('TRASH 비움 — '+__big+' / '+__sub,'success'); };
-  Array.prototype.forEach.call(ov.querySelectorAll('button[data-tk]'),function(b){ b.onclick=function(){ var k=b.getAttribute('data-tk'); S.trash=(S.trash||[]).filter(function(t){ return trashCatKey(t.big||__big,trashSubOf(t),t.upc,t.code)!==k; }); saveState(); openTrash(); }; });
+  $('trashEmpty').onclick=async function(){ if(!(await uiConfirm(__big+' / '+__sub+' 의 TRASH 를 비울까요? (비우면 복원할 수 없고, 불러오기 때 다시 등록될 수 있습니다)'))) return; S.trash=(S.trash||[]).filter(function(t){ return !((t.big||__big)===__big&&trashSubOf(t)===__sub); }); saveState(); __fbClose('trashOv'); showToast('TRASH 비움 — '+__big+' / '+__sub,'success'); };
+  Array.prototype.forEach.call(ov.querySelectorAll('.tr-fhead'),function(hd){ hd.onclick=function(ev){ if(ev.target.closest('button')) return; var fi=hd.getAttribute('data-f'); var body=ov.querySelector('.tr-fbody[data-f="'+fi+'"]'); var open=body.style.display==='none'; body.style.display=open?'':'none'; hd.querySelector('.tr-arrow').textContent=open?'▾':'▸'; }; });
+  if(folders.length===1){ var b0=ov.querySelector('.tr-fbody'); if(b0){ b0.style.display=''; ov.querySelector('.tr-arrow').textContent='▾'; } }
+  var byRid={}; list.forEach(function(t){ byRid[t.rid]=t; });
+  Array.prototype.forEach.call(ov.querySelectorAll('.tr-res'),function(b){ b.onclick=function(){ var t=byRid[b.getAttribute('data-rid')]; if(!t) return; var r=trashRestore([t]); showToast('복원 '+r.done+'행 — '+__big+' / '+__sub,'success'); openTrash(); }; });
+  Array.prototype.forEach.call(ov.querySelectorAll('.tr-del'),function(b){ b.onclick=function(){ var rid=b.getAttribute('data-rid'); S.trash=(S.trash||[]).filter(function(t){ return t.rid!==rid; }); saveState(); openTrash(); }; });
+  Array.prototype.forEach.call(ov.querySelectorAll('.tr-fres'),function(b){ b.onclick=async function(){ var f=folders[parseInt(b.getAttribute('data-f'),10)]; if(!f) return; var can=f.items.filter(function(t){ return !!t.row; }); if(!(await uiConfirm(trashFmtAt(f.at)+' · '+(f.note||'삭제')+' 폴더의 '+can.length+'행을 '+__big+' / '+__sub+' 로 복원할까요?','TRASH 복원'))) return; var r=trashRestore(can); showToast('복원 '+r.done+'행','success'); openTrash(); }; });
+  Array.prototype.forEach.call(ov.querySelectorAll('.tr-fdel'),function(b){ b.onclick=async function(){ var f=folders[parseInt(b.getAttribute('data-f'),10)]; if(!f) return; if(!(await uiConfirm(trashFmtAt(f.at)+' · '+(f.note||'삭제')+' 폴더('+f.items.length+'행)를 TRASH 에서 제거할까요? (복원 불가)','TRASH 폴더 삭제'))) return; var rs={}; f.items.forEach(function(t){ rs[t.rid]=1; }); S.trash=(S.trash||[]).filter(function(t){ return !rs[t.rid]; }); saveState(); openTrash(); }; });
 }
 
 /* ═══ [데이터 편집 · UPC 2026-10-01] 현재 중간 카테고리 안에서 중복 데이터 보기 · 중복 데이터 삭제 ═══
@@ -3354,7 +3412,7 @@ function histDeleteRows(big,items){
   var bySub={}; items.forEach(function(x){ (bySub[x.sub]=bySub[x.sub]||[]).push(x.row); });
   var n=0;
   for(var sb in bySub){ var rows=bySub[sb], arr=rowsFor(big,sb), ids={}; rows.forEach(function(r){ ids[r.id]=1; });
-    trashAddRows(big,sb,rows); histLog('del',big,sb,[],rows.map(function(r){ return histRowMini(big,r); }),'히스토리에서 삭제');
+    trashAddRows(big,sb,rows,'히스토리에서 삭제'); histLog('del',big,sb,[],rows.map(function(r){ return histRowMini(big,r); }),'히스토리에서 삭제');
     for(var i=arr.length-1;i>=0;i--){ if(ids[arr[i].id]){ arr.splice(i,1); n++; } } }
   selRows={}; saveState(); renderSubTabs(); renderContent(); return n;
 }
@@ -3677,8 +3735,8 @@ function openDataEdit(){
     var crit=(__deOpt.dUpc&&__deOpt.dCode)?'UPC + ITEM CODE':(__deOpt.dUpc?'UPC':'ITEM CODE');
     if(!(await uiConfirm(big+' / '+sub+'\n중복 기준: '+crit+' · 그룹 '+gs.length+'개\n'+__deMetricLabel(__deOpt.metric)+' 순으로 '+__deOpt.keep+'개 남기고 '+del.length+'행 삭제'+(force?' (사용중 포함 · 강제)':'')+(prot?' (사용중 '+prot+'행은 남김)':'')+(lockN?' (보호 '+lockN+'행 제외)':'')+'\n\n삭제한 행은 TRASH 에 보관됩니다. 진행할까요?','중복 데이터 삭제'))) return;
     undoMark('중복 데이터 삭제',[big]);
-    var tr=trashAddRows(big,sub,del), ids={}; del.forEach(function(r){ ids[r.id]=1; }); histLog('dup',big,sub,[],del.map(function(r){ return histRowMini(big,r); }),crit+' · '+__deMetricLabel(__deOpt.metric)+' '+__deOpt.keep+'개 남김');
-    var arr=curRows(); for(var i=arr.length-1;i>=0;i--){ if(ids[arr[i].id]) arr.splice(i,1); }
+    var tr=trashAddRows(big,sub,del,'중복 데이터 삭제'); histLog('dup',big,sub,[],del.map(function(r){ return histRowMini(big,r); }),crit+' · '+__deMetricLabel(__deOpt.metric)+' '+__deOpt.keep+'개 남김');
+    var arr=curRows(); for(var i=arr.length-1;i>=0;i--){ if(del.indexOf(arr[i])>=0) arr.splice(i,1); } /* 객체 기준 제거 — id 가 겹쳐도 남길 행은 남김 */
     selRows={}; saveState(); renderContent(); delInfo();
     showToast('중복 삭제 '+del.length+'행'+(prot?' · 사용중 보호 '+prot+'행':'')+(tr?' · TRASH 보관 '+tr:''),'success');
   };
@@ -3691,6 +3749,7 @@ function openDupList(){
   if(!fields.length) fields=[__deUpcF(big),__deCodeF(big)].filter(Boolean);
   var gs=dupGroups(__deOpt.vUpc,__deOpt.vCode), total=0; gs.forEach(function(g){ total+=g.rows.length; });
   var crit=(__deOpt.vUpc&&__deOpt.vCode)?'UPC + ITEM CODE':(__deOpt.vUpc?'UPC':'ITEM CODE');
+  var __dupRef=[]; /* 체크박스 → 행 객체 (id 가 아니라 객체로 — id 가 겹쳐도 체크한 행만 삭제) */
   var td='padding:4px 8px;border-top:1px solid var(--line,#eee);white-space:nowrap;';
   var sorts=[['NONE','정렬 없음'],['COST_HI','COST 높은순'],['COST_LO','COST 낮은순'],['SRP_HI','SRP 높은순'],['SRP_LO','SRP 낮은순']];
   var h='<b style="font-size:15px">중복 데이터 — '+escapeHtml(big)+' / '+escapeHtml(sub)+'</b>'
@@ -3709,7 +3768,8 @@ function openDupList(){
     var bg=(gi%2===0)?'rgba(255,196,0,.10)':'rgba(0,120,255,.08)';
     var rows=(__dupSort==='NONE')?g.rows:__deSortGroup(g.rows,__dupSort);
     rows.forEach(function(r,ri){
-      h+='<tr style="background:'+bg+(ri===0?';border-top:2px solid var(--line,#bbb)':'')+'"><td style="'+td+'text-align:center"><input type="checkbox" class="dup-ck" data-id="'+escapeHtml(r.id)+'" data-no="'+(ri+1)+'"'+(isRowInUse(r)?' title="사용중(체크) 상품 — 삭제 보호"':'')+'></td>'
+      __dupRef.push(r);
+      h+='<tr style="background:'+bg+(ri===0?';border-top:2px solid var(--line,#bbb)':'')+'"><td style="'+td+'text-align:center"><input type="checkbox" class="dup-ck" data-id="'+escapeHtml(r.id)+'" data-ref="'+(__dupRef.length-1)+'" data-no="'+(ri+1)+'"'+(isRowInUse(r)?' title="사용중(체크) 상품 — 삭제 보호"':'')+'></td>'
         +'<td style="'+td+'color:var(--ink-dim,#777)">'+(ri===0?('#'+(gi+1)+' · '+rows.length+'행'):'')+'</td>'
         +'<td style="'+td+'text-align:right;font-weight:700">'+(ri+1)+'</td>'
         +fields.map(function(f){ return '<td style="'+td+'">'+escapeHtml(String(dispCell(r,f)==null?'':dispCell(r,f)))+'</td>'; }).join('')+'</tr>';
@@ -3729,15 +3789,15 @@ function openDupList(){
   $('dupCkNone').onclick=function(){ cks().forEach(function(c){ c.checked=false; }); $('dupAll').checked=false; cnt(); };
   $('dupClose').onclick=function(){ __fbClose('dupOv'); };
   $('dupDel').onclick=async function(){
-    var ids={}, n=0; cks().forEach(function(c){ if(c.checked){ ids[c.getAttribute('data-id')]=1; n++; } });
+    var picked=[], n=0; cks().forEach(function(c){ if(c.checked){ var rr=__dupRef[parseInt(c.getAttribute('data-ref'),10)]; if(rr){ picked.push(rr); n++; } } });
     if(!n){ showToast('삭제할 행을 체크하세요','error'); return; }
-    var rows=curRows(), del=[], prot=0, protRows=[], lockN=0; rows.forEach(function(r){ if(ids[r.id]){ if(isRowLocked(r)) lockN++; else if(isRowInUse(r)){ prot++; protRows.push(r); } else del.push(r); } });
+    var rows=curRows(), del=[], prot=0, protRows=[], lockN=0; picked.forEach(function(r){ if(rows.indexOf(r)<0) return; if(isRowLocked(r)) lockN++; else if(isRowInUse(r)){ prot++; protRows.push(r); } else del.push(r); });
     var force=await protForceAsk(prot); if(force){ del=del.concat(protRows); prot=0; }
     if(!del.length){ showToast('삭제할 행이 없습니다'+(lockN?' (보호 '+lockN+'행)':'')+(prot?' (사용중 '+prot+'행은 남김)':''),'error'); return; }
     if(!(await uiConfirm(del.length+'행을 삭제할까요?'+(force?' (사용중 포함 · 강제)':'')+(prot?'\n(사용중 체크 '+prot+'행은 남기고 삭제)':'')+(lockN?'\n(보호 '+lockN+'행은 삭제되지 않습니다)':'')+'\n삭제한 행은 TRASH 에 보관됩니다.','중복 데이터 삭제'))) return;
     undoMark('중복 리스트 삭제',[big]);
-    var tr=trashAddRows(big,sub,del), dset={}; del.forEach(function(r){ dset[r.id]=1; }); histLog('dup',big,sub,[],del.map(function(r){ return histRowMini(big,r); }),'중복 리스트에서 체크 삭제');
-    for(var i=rows.length-1;i>=0;i--){ if(dset[rows[i].id]) rows.splice(i,1); }
+    var tr=trashAddRows(big,sub,del,'중복 리스트 삭제'); histLog('dup',big,sub,[],del.map(function(r){ return histRowMini(big,r); }),'중복 리스트에서 체크 삭제');
+    for(var i=rows.length-1;i>=0;i--){ if(del.indexOf(rows[i])>=0) rows.splice(i,1); } /* 객체 기준 제거 */
     selRows={}; saveState(); renderContent();
     showToast('삭제됨 '+del.length+'행'+(prot?' · 사용중 보호 '+prot+'행':'')+(tr?' · TRASH 보관 '+tr:''),'success');
     openDupList(); /* 다시 검색해서 갱신 */
@@ -3759,9 +3819,9 @@ async function delSelected(){
   var __tr=0;
   { var __ub2={}; if(gsActive()){ for(var __g in delIds){ var __gm=__gsMap[__g]; if(__gm) __ub2[__gm.big]=1; } } else __ub2[curBig()]=1; undoMark('선택삭제',Object.keys(__ub2)); }
   if(gsActive()){ /* [전역 검색] 각 행을 원래 카테고리에서 제거 */
-    for(var gid in delIds){ var m=__gsMap[gid]; if(!m) continue; var arr=((S.data[m.big]||{})[m.sub])||[]; var ix=-1; for(var j=0;j<arr.length;j++){ if(arr[j].id===gid){ ix=j; break; } } if(ix>=0){ __tr+=trashAddRows(m.big,m.sub,[arr[ix]]); histLog('del',m.big,m.sub,[],[histRowMini(m.big,arr[ix])],'선택삭제'); arr.splice(ix,1); } }
+    for(var gid in delIds){ var m=__gsMap[gid]; if(!m) continue; var arr=((S.data[m.big]||{})[m.sub])||[]; var ix=-1; for(var j=0;j<arr.length;j++){ if(arr[j].id===gid){ ix=j; break; } } if(ix>=0){ __tr+=trashAddRows(m.big,m.sub,[arr[ix]],'선택삭제'); histLog('del',m.big,m.sub,[],[histRowMini(m.big,arr[ix])],'선택삭제'); arr.splice(ix,1); } }
   } else {
-    var __dl=rows.filter(function(r){ return !!delIds[r.id]; }); __tr+=trashAddRows(curBig(),curSub(),__dl); histLog('del',curBig(),curSub(),[],__dl.map(function(r){ return histRowMini(curBig(),r); }),'선택삭제');
+    var __dl=rows.filter(function(r){ return !!delIds[r.id]; }); __tr+=trashAddRows(curBig(),curSub(),__dl,'선택삭제'); histLog('del',curBig(),curSub(),[],__dl.map(function(r){ return histRowMini(curBig(),r); }),'선택삭제');
     for(var i=rows.length-1;i>=0;i--){ if(delIds[rows[i].id]) rows.splice(i,1); }
   }
   selRows={}; saveState(); renderContent();
@@ -7399,7 +7459,7 @@ function fbMergeByTime(remote){
     if(rt){ for(var ls2 in ldm){ if((rdm[ls2]||[]).length&&rt.subs.indexOf(ls2)<0) rt.subs.push(ls2); } }
   });
   /* TRASH · 히스토리 합집합 */
-  var seenT={}; var allT=(remote.trash||[]).concat(S.trash||[]).filter(function(t){ var k=trashCatKey(t.big||'',trashSubOf(t),t.upc,t.code)+'|'+String(t.at||''); if(seenT[k]) return false; seenT[k]=1; return true; });
+  var seenT={}; var allT=(remote.trash||[]).concat(S.trash||[]).filter(function(t){ var k=trashCatKey(t.big||'',trashSubOf(t),t.upc,t.code)+'|'+String(t.at||'')+'|'+String(t.rid||''); if(seenT[k]) return false; seenT[k]=1; return true; });
   allT.sort(function(a,b){ return String(a.at||'')<String(b.at||'')?-1:1; }); remote.trash=allT;
   var seenH={}; var allH=(remote.history||[]).concat(S.history||[]).filter(function(e){ var k=[e.at,e.type,e.big,e.sub,e.by].join('|'); if(seenH[k]) return false; seenH[k]=1; return true; });
   allH.sort(function(a,b){ return String(a.at||'')<String(b.at||'')?-1:1; }); remote.history=allH.slice(-HIST_MAX);
@@ -7459,7 +7519,8 @@ async function fbDeltaApply(conn,meta){
       var ids=(x.sn.exists()&&x.sn.data()&&Array.isArray(x.sn.data().ids))?x.sn.data().ids:null; if(!ids) return; var pos={}; ids.forEach(function(id,i){ pos[id]=i; }); var n=ids.length;
       arr.forEach(function(r,i){ r.__o=(pos[r.id]!=null)?pos[r.id]:n+i; }); arr.sort(function(a,c){ return a.__o-c.__o; }); arr.forEach(function(r){ delete r.__o; }); touched[bigName]=1; });
     for(var bg in touched){ if(SUB_BY_VENDER) syncSubsByVender(S,bg); if(typeof calcAll==='function') calcAll(bg); }
-    S.fbLastSync=meta.savedAt||null; S.dirtySinceSync=false;
+    try{ if(dedupeRowIds(S)) S.dirtySinceSync=true; }catch(e){}
+    S.fbLastSync=meta.savedAt||null; if(!S.dirtySinceSync) S.dirtySinceSync=false;
     saveState();
   } finally { __fbMuting=false; }
   renderAll();
