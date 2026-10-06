@@ -2725,7 +2725,7 @@ function applyFreeze(root,fs){
   if(fi>=0){
     var gs=gsActive(), left=0;
     css+='.plu-table.frz .plu-c-sel{position:sticky;left:0}'; left+=34;
-    if(gs){ css+='.plu-table.frz .plu-c-loc{position:sticky;left:'+left+'px}'; left+=150; }
+    if(gs){ css+='.plu-table.frz .plu-c-loc{position:sticky;left:'+left+'px}'; left+=gsLocW(); }
     for(var i=0;i<=fi;i++){ css+='.plu-table.frz th[data-fi="'+i+'"],.plu-table.frz td[data-fi="'+i+'"]{left:'+left+'px}'; css+='.plu-table.frz th[data-gfi="'+i+'"]{left:'+left+'px}'; left+=(fs[i].w>0?fs[i].w:100); }
   }
   var st=$('pluFrzCss'); if(!st){ st=document.createElement('style'); st.id='pluFrzCss'; document.head.appendChild(st); }
@@ -2736,6 +2736,8 @@ function toggleFreeze(f){
   saveState(); renderContent();
   showToast(S.freezeKey?('필드 고정 — '+(f.label||f.key)+' 까지 왼쪽 열 고정'):'필드 고정 해제','success');
 }
+/* [2026-10-06] 검색 결과의 대분류 열 너비 — 가장 긴 대분류 이름(11px 글꼴)에 맞춘 최소 너비 */
+function gsLocW(){ var n=3; (S.tabs||[]).forEach(function(t){ var L=0; String(t.label||'').split('').forEach(function(ch){ L+=(/[가-힣ㄱ-ㅎ]/.test(ch)?1.6:1); }); if(L>n) n=L; }); return Math.max(40,Math.min(160,Math.round(n*7.5+12))); }
 function renderContent(){
   if(__cellEditing){ __renderDeferred=true; return; } /* [편집 보호] 입력 중 재렌더 금지 — 편집 끝나면 실행 */
   var el=$('pluContent');
@@ -2782,10 +2784,10 @@ function renderContent(){
   /* 표 본체 — table-layout:fixed 는 확정 폭이 있어야 col 너비를 적용하므로
      전체 폭(선택열 34 + 각 필드 너비 합)을 인라인으로 지정 (실제 브라우저 너비 미적용 버그 수정) */
   var __gs=gsActive();
-  var totalW=34+(__gs?150:0); fs.forEach(function(f){ totalW+=(f.w>0?f.w:100); });
+  var totalW=34+(__gs?gsLocW():0); fs.forEach(function(f){ totalW+=(f.w>0?f.w:100); });
   h+='<div class="plu-table-wrap" style="align-self:stretch;"><table class="plu-table fixed'+(fs.some(function(f){return (f.group||'')!=='';})?' hasgr':'')+(freezeIndex(fs)>=0?' frz':'')+'" style="width:'+totalW+'px" data-basew="'+totalW+'"><colgroup>';
   h+='<col style="width:34px">';
-  if(__gs) h+='<col style="width:150px">'; /* [전역 검색] 위치(대분류/중간) 열 */
+  if(__gs) h+='<col style="width:'+gsLocW()+'px">'; /* [전역 검색] 대분류 열 — [2026-10-06] 대분류만, 가장 긴 이름에 맞춘 최소 너비 */
   fs.forEach(function(f){ h+='<col style="width:'+(f.w>0?f.w:100)+'px" data-key="'+escapeHtml(f.key)+'">'; });
   /* 묶음(그룹) 머리글: 하나라도 그룹이 있으면 2단(1행=묶음, 2행=필드) */
   var hasGr=fs.some(function(f){ return (f.group||'')!==''; });
@@ -2793,7 +2795,7 @@ function renderContent(){
   if(hasGr){
     h+='<tr class="plu-th-grrow">';
     h+='<th class="plu-c-sel plu-frz" rowspan="2"><button type="button" class="plu-selclr" title="체크 전체 취소">✕</button></th>'; /* 필드 라인 체크박스 없음(요구 1) */
-    if(__gs) h+='<th rowspan="2" class="plu-gbs plu-gbe plu-c-loc plu-frz">위치 (대분류/중간)</th>';
+    if(__gs) h+='<th rowspan="2" class="plu-gbs plu-gbe plu-c-loc plu-frz" style="padding-left:4px;padding-right:4px;">대분류</th>';
     var gi=0, __frzI=freezeIndex(fs);
     while(gi<fs.length){
       var g=fs[gi].group||'';
@@ -2811,7 +2813,7 @@ function renderContent(){
   } else {
     h+='<tr>';
     h+='<th class="plu-c-sel plu-frz"><button type="button" class="plu-selclr" title="체크 전체 취소">✕</button></th>'; /* 필드 라인 체크박스 없음(요구 1) */
-    if(__gs) h+='<th class="plu-c-loc plu-frz">위치 (대분류/중간)</th>';
+    if(__gs) h+='<th class="plu-c-loc plu-frz" style="padding-left:4px;padding-right:4px;">대분류</th>';
   }
   /* [요구 3] 묶음 경계: 묶음이 지정된 필드 블록의 시작/끝에 두꺼운 세로 라인 */
   var gEdge=fs.map(function(f,i){
@@ -2893,7 +2895,7 @@ function __rowHtml(r){
   var unused=V.useFld&&String(getCell(r,V.useFld))!=='1';
   var out='<tr data-id="'+escapeHtml(r.id)+'"'+(unused?' class="plu-row-unused"':'')+'>'+
     '<td class="plu-c-sel'+(V.frz?' plu-frz':'')+'"><input type="checkbox" class="rowSel"'+(selRows[r.id]?' checked':'')+'></td>';
-  if(V.gs){ var __loc=__gsMap[r.id]; out+='<td class="plu-c-loc'+(V.frz?' plu-frz':'')+'" style="color:#1e7a46;font-weight:700;">'+escapeHtml(__loc?(__loc.big+' / '+__loc.sub):'')+'</td>'; }
+  if(V.gs){ var __loc=__gsMap[r.id]; out+='<td class="plu-c-loc'+(V.frz?' plu-frz':'')+'" style="color:#1e7a46;font-weight:700;padding-left:4px;padding-right:4px;" title="'+escapeHtml(__loc?(__loc.big+' / '+__loc.sub):'')+'">'+escapeHtml(__loc?__loc.big:'')+'</td>'; }
   for(var ci=0;ci<FP.length;ci++){
     var P=FP[ci], k=P.key;
     var hasSv=!!(sv&&sv[k]!=null);                       /* 이 매장에 별도 저장된 값 표시 (원래 hasStoreVal 과 동일) */
