@@ -320,6 +320,7 @@ try{ document.documentElement.setAttribute('data-theme', localStorage.getItem('p
   .plu-resizer::after { content:''; position:absolute; top:20%; bottom:20%; right:4px; width:1px; background:transparent; }
   .plu-resizer:hover::after, .plu-resizer.on::after { background:var(--accent-warm); width:2px; }
   body.plu-resizing, body.plu-resizing * { cursor:col-resize !important; user-select:none !important; }
+  body.plu-dragsel, body.plu-dragsel * { user-select:none !important; }
 
   /* 셀 인라인 편집 */
   .plu-table tbody td.editable { cursor:text; }
@@ -628,6 +629,9 @@ try{ document.documentElement.setAttribute('data-theme', localStorage.getItem('p
   .plu-table th.plu-gbe, .plu-table td.plu-gbe { border-right:2px solid #000 !important; }
   .plu-table td.plu-c-sel, .plu-table th.plu-c-sel { text-align:center !important; padding-left:4px !important; padding-right:4px !important; }
   .plu-table td.plu-c-sel input { display:inline-block; margin:0 auto; vertical-align:middle; }
+  .plu-table td.plu-c-check input.lockChk { accent-color:#c83a3a; margin-left:3px; } /* [보호] 붉은 체크 */
+  .plu-table tbody tr.plu-row-locked td.plu-c-sel { box-shadow:inset 3px 0 0 #c83a3a; }
+  .plu-table td.plu-c-loc, .plu-table th.plu-c-loc { text-align:center !important; }
   .plu-table tbody td.plu-c-bold { font-weight:800; }
   .fe-bold { font-weight:900; color:#555; }
   .fe-bold.on { background:#1e40af !important; color:#fff !important; border-color:#1e40af !important; }
@@ -1798,6 +1802,9 @@ function setCell(row,f,val,store){
 /* [요구 2026-09] 사용 체크 보호 판정 — 기본(마스터) 또는 어느 매장에서든
    사용(ITEM_USE)=1 로 체크된 행이면 true. 삭제는 전 매장 공통 파괴이므로
    한 매장이라도 사용중이면 절대 삭제 금지 대상. */
+/* [2026-10-06 · 보호] USE 칸의 붉은 체크 = 보호(ITEM_LOCK='1'). 출력·내보내기와 무관, 행 데이터에 저장되어 CLOUD 에도 기록.
+   보호된 행은 어떤 삭제(선택삭제 · 전체삭제 · 데이터 편집 중복 삭제 · 히스토리 삭제)로도 지워지지 않는다 (강제 삭제도 불가). */
+function isRowLocked(row){ return !!(row&&row.v&&String(row.v.ITEM_LOCK)==='1'); }
 function isRowInUse(row){
   if(!row) return false;
   if(row.v&&String(row.v.ITEM_USE)==='1') return true;
@@ -2565,6 +2572,7 @@ var GUIDE_PLU=[
   ['되돌리기','메뉴 > 되돌리기 (또는 Ctrl+Z): 바로 이전 데이터 작업(셀 수정·상품 추가·불러오기·채우기·특정문자 편집·삭제·중복 삭제·히스토리 삭제·전체삭제)을 원래대로 돌립니다. 최근 5개까지, 최신 작업부터 차례로. 이 창을 새로고침하면 되돌리기 목록은 사라집니다. 되돌린 행은 지금 시각으로 편집된 것으로 CLOUD 에 전송됩니다.'],
   ['히스토리','메뉴 > 히스토리: 불러오기·행 추가·셀 수정·전체 채우기·삭제·중복 삭제를 날짜·시간(분 단위)·카테고리·행수로 기록합니다(두 컴퓨터 공유). 항목의 「보기」로 그 시간에 편집된 행만 리스트로 보고 체크 삭제, 「삭제」로 그 시간에 편집된 행 전부 삭제(TRASH 보관). 삭제 작업 항목은 삭제된 행의 PLU 를 남깁니다.'],
   ['TRASH','리스트에서 삭제한 행은 PLU 번호가 TRASH 에 보관됩니다(메뉴 > TRASH). TRASH 는 상위 · 중간 카테고리별로 따로 관리되며, 보고 있는 카테고리의 TRASH 만 표시됩니다. 같은 카테고리로 엑셀 불러오기 때 TRASH 와 PLU 가 같은 행은 무조건 무시되어 쓰레기가 다시 쌓이지 않습니다. TRASH 에서 제거하면 다시 등록 가능.'],
+  ['보호 · 선택','USE 칸의 붉은 체크 = 보호. 보호된 행은 선택삭제 · 전체삭제 · 데이터 편집(중복) 삭제 · 히스토리 삭제 어디서도 지워지지 않습니다(강제 삭제도 불가). 출력·내보내기와는 무관하고 CLOUD 에 기록됩니다. 선택 체크 열을 누른 채 끌면 여러 행을 한 번에 선택/해제.'],
   ['표시','같은 PLU 행은 PLU 칸이 같은 색. USE 미체크 행은 회색 취소선. 검색은 Enter, 번호는 쉼표로 여러 개.']
 ];
 var GUIDE_UPC=[
@@ -2575,6 +2583,7 @@ var GUIDE_UPC=[
   ['필드 매칭 순서','엑셀 1행의 각 열 이름을 왼쪽 열부터 차례로 아래 순서로 찾고, 한 필드는 한 열에만 연결됩니다(먼저 매칭된 열이 차지). ① 필드명과 대소문자·띄어쓰기까지 정확히 같은 이름 (예: SIZE → SIZE, size → size 필드) ② 대소문자 무시 (english_desc → ENGLISH_DESC, Item Code → ITEM CODE) ③ 별칭 (PLU → UPC, PLU TYPE → UPC TYPE) ④ 유사 이름 (Vendor·업체명 → VENDER, Retail Price·판매가 → SRP, Unit Cost·원가 → COST, UOM·단위 → UNIT CODE, Pack Qty·입수 → PACK, Case Qty·박스입수 → CASE, Barcode·UPC CODE·GTIN → UPC, Item No·SKU·상품코드 → ITEM CODE, Korean·한글명 → KOREA_DESC, English·영문명 → ENGLISH_DESC, Store·매장 → LOCATION). ⑤ PRODUCT NAME·상품명·DESCRIPTION 같은 합본 열은 ENGLISH_DESC 로 받아 영문/한글을 자동 분리하고 용량(CASE/PACK/SIZE/UNIT CODE)을 뽑습니다.'],
   ['매칭 결과 확인','실행 전 팝업에 열마다 "이 열 → 이 필드" 가 표시됩니다. ✓ = 연결됨(유사 이름이면 표시), ✗ = 매칭 없음 → 그 열은 무시. 같은 필드가 이미 다른 열에 연결되면 뒤의 열은 무시됩니다 (예: PLU 열과 Barcode 열이 함께 있으면 PLU 만 UPC 로). UPC 열이 하나도 없으면 오류로 중단. 매칭 안 되는 열은 엑셀 1행 이름을 앱 필드명과 똑같이 고치면 됩니다.'],
   ['업데이트 규칙','같은 업체(중간 카테고리) 안에서 UPC 와 ITEM CODE 가 모두 같은 행만 업데이트, 그 외는 전부 새 행(파일의 모든 행이 그대로 들어감 — 같은 UPC 에 ITEM CODE 가 다르면 각각 등록). 같은 상품이 STI-WA 에도 JFC 에도 있어도 됨 — 다른 업체의 같은 UPC 는 건드리지 않고 각각 등록(중복 UPC 는 바탕색으로 표시, 쓸모없는 쪽은 직접 삭제 → TRASH). 제외 규칙은 UPC 숫자 6자리 이하(와 TRASH 일치)뿐. UPC가 빈 행은 건너뜀.'],
+  ['보호 · 선택','USE 칸의 붉은 체크 = 보호. 보호된 행은 선택삭제 · 전체삭제 · 데이터 편집(중복) 삭제 · 히스토리 삭제 어디서도 지워지지 않습니다(강제 삭제도 불가). 출력·내보내기와는 무관하고 CLOUD 에 기록됩니다. 선택 체크 열을 누른 채 끌면 여러 행을 한 번에 선택/해제.'],
   ['표시','같은 UPC 행은 UPC 칸이 같은 색. USE 미체크 행은 회색 취소선. 검색은 Enter, 번호는 쉼표로 여러 개.'],
   ['저장','모든 변경은 즉시 자동 저장되고 CLOUD(UPC-LIST)에 자동 동기화됩니다. EGMM 왼쪽 USER 박스의 CLOUD 칸에서 상태 확인.'],
   ['동기화 규칙','수정하면 조건 없이 무조건 CLOUD 로 전송됩니다(업체 이름이 한글이어도 자동 ID, 0건도 전송). 기본 데이터는 없고 모든 데이터(상품 + 필드 설정값)는 CLOUD 에서 가져옵니다. 열 때마다 무조건 CLOUD 의 최신 기록을 먼저 가져오고, 끝나기 전에는 수정·저장이 잠깁니다. 모든 행은 마지막 편집 시각(분 단위)을 가지며, CLOUD 와 합칠 때 행마다 더 최근에 편집된 쪽이 남습니다(같은 분이면 CLOUD). 이 컴퓨터에서 더 최근에 편집·추가·삭제한 행은 CLOUD 에도 그대로 등록되고, 다른 컴퓨터가 더 최근에 편집한 행은 이 화면에 반영됩니다(실시간 포함). CLOUD 에만 있는 상품은 TRASH 에 있는 것 외에는 지우지 않습니다. 동기화 상태는 EGMM 왼쪽 USER 박스의 CLOUD 칸에서 확인(클릭 = 즉시 동기화).'],
@@ -2850,7 +2859,7 @@ function renderContent(){
     var cls=(isCalc?'plu-c-calc':'editable')+gEdge[i]+(f.bold?' plu-c-bold':'')+(normKey(f.key)==='PLU'?' plu-c-no':'')+(i<=__frzIdx?' plu-frz'+(i===__frzIdx?' plu-frz-last':''):'');
     var sf=null; try{ sf=(f.type==='check')?null:selSrcSelect(f); }catch(e){}
     return {
-      f:f, key:f.key, isCalc:isCalc, isChk:(f.type==='check'&&!isCalc), all:!!f.allStores,
+      f:f, key:f.key, isCalc:isCalc, isChk:(f.type==='check'&&!isCalc), isUse:(normKey(f.key)==='ITEM_USE'), all:!!f.allStores,
       open:'<td class="'+cls, openChk:'<td class="plu-c-check'+(i<=__frzIdx?' plu-frz'+(i===__frzIdx?' plu-frz-last':''):''),
       /* [요구 2026-10-01] 필드 편집의 바탕색·글씨색은 머리글뿐 아니라 그 열의 모든 셀에 적용 */
       mid:'" data-fi="'+i+'"'+((f.align||f.color||f.tcolor)?' style="'+(f.align?'text-align:'+f.align+';':'')+(f.color?'background:'+escapeHtml(f.color)+';':'')+(f.tcolor?'color:'+escapeHtml(f.tcolor)+';':'')+'"':'')+' title="'+(f.formula?'수식(자동 계산)':(isCalc?'쉐어(참조 자동)':''))+'">',
@@ -2901,15 +2910,15 @@ function __rowHtml(r){
   var V=__virt, FP=V.FP, st0=V.st0;
   var sv=(st0&&r.sv)?r.sv[st0]:null, v=r.v||{};
   var unused=V.useFld&&String(getCell(r,V.useFld))!=='1';
-  var out='<tr data-id="'+escapeHtml(r.id)+'"'+(unused?' class="plu-row-unused"':'')+'>'+
+  var out='<tr data-id="'+escapeHtml(r.id)+'"'+((unused||String(v.ITEM_LOCK)==='1')?' class="'+(unused?'plu-row-unused':'')+(String(v.ITEM_LOCK)==='1'?' plu-row-locked':'')+'"':'')+'>'+
     '<td class="plu-c-sel'+(V.frz?' plu-frz':'')+'"><input type="checkbox" class="rowSel"'+(selRows[r.id]?' checked':'')+'></td>';
-  if(V.gs){ var __loc=__gsMap[r.id]; out+='<td class="plu-c-loc'+(V.frz?' plu-frz':'')+'" style="color:#1e7a46;font-weight:700;padding-left:4px;padding-right:4px;" title="'+escapeHtml(__loc?(__loc.big+' / '+__loc.sub):'')+'">'+escapeHtml(__loc?__loc.big:'')+'</td>'; }
+  if(V.gs){ var __loc=__gsMap[r.id]; out+='<td class="plu-c-loc'+(V.frz?' plu-frz':'')+'" style="color:#1e7a46;font-weight:700;padding-left:4px;padding-right:4px;text-align:center;" title="'+escapeHtml(__loc?(__loc.big+' / '+__loc.sub):'')+'">'+escapeHtml(__loc?__loc.big:'')+'</td>'; }
   for(var ci=0;ci<FP.length;ci++){
     var P=FP[ci], k=P.key;
     var hasSv=!!(sv&&sv[k]!=null);                       /* 이 매장에 별도 저장된 값 표시 (원래 hasStoreVal 과 동일) */
     var val=(hasSv&&!P.all)?sv[k]:(v[k]!=null?v[k]:'');  /* 전체매장 필드는 항상 마스터 값 (원래 getCell 과 동일) */
     if(P.isChk){
-      out+=P.openChk+(hasSv?' plu-c-storeval':'')+P.midChk+(String(val)==='1'?' checked':'')+'></td>';
+      out+=P.openChk+(hasSv?' plu-c-storeval':'')+P.midChk+(String(val)==='1'?' checked':'')+'>'+(P.isUse?'<input type="checkbox" class="lockChk" title="보호 — 체크하면 어떤 삭제로도 지워지지 않음"'+(String(v.ITEM_LOCK)==='1'?' checked':'')+'>':'')+'</td>';
     }else{
       var d;
       if(P.sf) d=optNameByField(P.sf,val);
@@ -2988,6 +2997,12 @@ function bindContent(el,fs,shown){
       if(t.checked) selRows[id1]=1; else delete selRows[id1];
       updateDelSelBtn(); return;
     }
+    if(t.classList.contains('lockChk')){ /* [보호] 붉은 체크 */
+      var trL=t.closest('tr[data-id]'); if(!trL) return; var rL=rowById(trL.getAttribute('data-id')); if(!rL) return;
+      undoMarkRows('보호 '+(t.checked?'설정':'해제'),rowBigOfRow(rL),[rL]);
+      rL.v=rL.v||{}; if(t.checked) rL.v.ITEM_LOCK='1'; else delete rL.v.ITEM_LOCK; rL.m=rowStamp();
+      trL.classList.toggle('plu-row-locked',t.checked); saveState(); return;
+    }
     if(t.classList.contains('cellChk')){
       var td=t.closest('td'), tr=t.closest('tr[data-id]'); if(!td||!tr) return;
       var fi=parseInt(td.getAttribute('data-fi'),10);
@@ -3010,7 +3025,17 @@ function bindContent(el,fs,shown){
   };
   el.onmousedown=function(ev){
     var rz=ev.target.closest('.plu-resizer');
-    if(rz&&el.contains(rz)) startColResize(rz,el,ev);
+    if(rz&&el.contains(rz)){ startColResize(rz,el,ev); return; }
+    /* [2026-10-06] 선택 체크 열에서 누른 채 끌면 지나가는 행을 연속 선택/해제 (처음 누른 행의 반대 상태로 통일) */
+    var sc=ev.target.closest('td.plu-c-sel'); if(!sc||ev.button!==0) return;
+    var tr0=sc.closest('tr[data-id]'); if(!tr0) return;
+    ev.preventDefault();
+    var id0=tr0.getAttribute('data-id'), on=!selRows[id0];
+    function applyRow(tr){ var id=tr.getAttribute('data-id'); var cb=tr.querySelector('.rowSel'); if(on) selRows[id]=1; else delete selRows[id]; if(cb) cb.checked=on; }
+    applyRow(tr0); updateDelSelBtn(); document.body.classList.add('plu-dragsel');
+    function mv(e){ var tr=e.target&&e.target.closest&&e.target.closest('tr[data-id]'); if(tr&&el.contains(tr)&&(!!selRows[tr.getAttribute('data-id')])!==on){ applyRow(tr); updateDelSelBtn(); } }
+    function up(){ document.removeEventListener('mousemove',mv); document.removeEventListener('mouseup',up); document.body.classList.remove('plu-dragsel'); }
+    document.addEventListener('mousemove',mv); document.addEventListener('mouseup',up);
   };
 }
 
@@ -3171,16 +3196,17 @@ function updateDelSelBtn(){
    예외 경로(선택삭제·소분류/대분류 삭제의 사용중 보호 규칙은 그대로 유지).
    검색·칩 필터와 무관하게 해당 소분류의 모든 행이 대상. 반드시 2회 확인. */
 async function delAllRows(){
-  var all=curRows();
-  if(!all.length){ showToast('삭제할 행이 없습니다','error'); return; }
+  var arr=curRows(), lockN=arr.filter(isRowLocked).length;
+  var all=arr.filter(function(r){ return !isRowLocked(r); }); /* [보호] 보호 행은 전체삭제에서도 제외 */
+  if(!all.length){ showToast('삭제할 행이 없습니다'+(lockN?' (보호 '+lockN+'행)':''),'error'); return; }
   var inUse=all.filter(isRowInUse).length;
   var scope=curBig()+' / '+curSub();
   /* [요구] 2회 확인 */
-  if(!(await uiConfirm('카테고리 상품 리스트를 전체 삭제할까요?\n대상 카테고리: '+scope+'\n전체 '+all.length+'행'+(inUse?' (사용중 체크 '+inUse+'행 포함 — 함께 삭제됩니다)':''),'전체삭제 (1/2)'))) return;
+  if(!(await uiConfirm('카테고리 상품 리스트를 전체 삭제할까요?\n대상 카테고리: '+scope+'\n전체 '+all.length+'행'+(inUse?' (사용중 체크 '+inUse+'행 포함 — 함께 삭제됩니다)':'')+(lockN?'\n(보호 '+lockN+'행은 삭제되지 않고 남습니다)':''),'전체삭제 (1/2)'))) return;
   if(!(await uiConfirm('정말 삭제합니다 — 되돌릴 수 없습니다.\n'+scope+' 의 '+all.length+'행 전체'+(inUse?' (사용중 '+inUse+'행 포함)':'')+'를 삭제할까요?','전체삭제 최종 확인 (2/2)'))) return;
   undoMark('전체삭제 '+curSub(),[curBig()]);
   var __tr=trashAddRows(curBig(),curSub(),all.slice()); histLog('del',curBig(),curSub(),[],all.map(function(r){ return histRowMini(curBig(),r); }),'전체삭제');
-  all.length=0; /* 전체 비움 — 예외 없음 */
+  for(var __ai=arr.length-1;__ai>=0;__ai--){ if(!isRowLocked(arr[__ai])) arr.splice(__ai,1); } /* 보호 행만 남김 */
   selRows={}; saveState(); renderContent();
   showToast('전체삭제 완료 — '+scope+' 전체 삭제됨'+(__tr?' · TRASH 보관 '+__tr:''),'success');
 }
@@ -3314,7 +3340,7 @@ function openHistory(){
   Array.prototype.forEach.call(ov.querySelectorAll('.hist-view'),function(b){ b.onclick=function(){ openHistoryRows(parseInt(b.getAttribute('data-k'),10)); }; });
   Array.prototype.forEach.call(ov.querySelectorAll('.hist-del'),function(b){ b.onclick=async function(){
     var e=S.history[parseInt(b.getAttribute('data-k'),10)]; if(!e) return;
-    var found=histFindRows(e), del=[], prot=0; found.forEach(function(x){ if(isRowInUse(x.row)) prot++; else del.push(x); });
+    var found=histFindRows(e), del=[], prot=0; found.forEach(function(x){ if(isRowLocked(x.row)) prot++; else if(isRowInUse(x.row)) prot++; else del.push(x); });
     if(!found.length){ showToast('이 시간에 편집된 행이 지금은 없습니다','error'); return; }
     if(!del.length){ uiAlert('모두 사용중(체크) 상품이라 삭제할 수 없습니다. (보호 '+prot+'행)','사용중 상품 보호'); return; }
     if(!(await uiConfirm(histFmt(e.at)+' · '+(HIST_TYPES[e.type]||e.type)+' · '+e.big+' / '+e.sub+'\n이 시간에 편집된 '+del.length+'행을 삭제할까요?'+(prot?' (사용중 '+prot+'행은 보호)':'')+'\n삭제한 행은 TRASH 에 보관됩니다.','히스토리 데이터 삭제'))) return;
@@ -3361,7 +3387,7 @@ function openHistoryRows(k){
     cks().forEach(function(c){ c.onchange=cnt; }); $('hrAll').onchange=function(){ var on=$('hrAll').checked; cks().forEach(function(c){ c.checked=on; }); cnt(); };
     $('hrDel').onclick=async function(){
       var sel={}; cks().forEach(function(c){ if(c.checked) sel[c.getAttribute('data-id')]=1; });
-      var del=[], prot=0; found.forEach(function(x){ if(sel[x.row.id]){ if(isRowInUse(x.row)) prot++; else del.push(x); } });
+      var del=[], prot=0; found.forEach(function(x){ if(sel[x.row.id]){ if(isRowLocked(x.row)||isRowInUse(x.row)) prot++; else del.push(x); } });
       if(!del.length&&!prot){ showToast('삭제할 행을 체크하세요','error'); return; }
       if(!del.length){ uiAlert('체크한 행이 모두 사용중(체크) 상품이라 삭제할 수 없습니다. (보호 '+prot+'행)','사용중 상품 보호'); return; }
       if(!(await uiConfirm(del.length+'행을 삭제할까요?'+(prot?'\n(사용중 체크 '+prot+'행은 보호되어 삭제되지 않습니다)':'')+'\n삭제한 행은 TRASH 에 보관됩니다.','히스토리 데이터 삭제'))) return;
@@ -3643,13 +3669,13 @@ function openDataEdit(){
   $('deDelRun').onclick=async function(){
     readOpt(); if(!__deOpt.dUpc&&!__deOpt.dCode){ showToast('중복 기준을 하나 이상 체크하세요','error'); return; }
     var big=curBig(), sub=curSub(), gs=dupGroups(__deOpt.dUpc,__deOpt.dCode), del=[], prot=0;
-    var protRows=[];
-    gs.forEach(function(g){ var sorted=__deSortGroup(g.rows,__deOpt.metric); sorted.slice(__deOpt.keep).forEach(function(r){ if(isRowInUse(r)){ prot++; protRows.push(r); } else del.push(r); }); });
+    var protRows=[], lockN=0;
+    gs.forEach(function(g){ var sorted=__deSortGroup(g.rows,__deOpt.metric); sorted.slice(__deOpt.keep).forEach(function(r){ if(isRowLocked(r)) lockN++; else if(isRowInUse(r)){ prot++; protRows.push(r); } else del.push(r); }); });
     if(!gs.length){ showToast('중복 데이터가 없습니다','success'); return; }
     var force=await protForceAsk(prot); if(force){ del=del.concat(protRows); prot=0; }
-    if(!del.length){ showToast('삭제할 행이 없습니다 (사용중 '+prot+'행은 남김)','error'); return; }
+    if(!del.length){ showToast('삭제할 행이 없습니다'+(lockN?' (보호 '+lockN+'행)':'')+(prot?' (사용중 '+prot+'행은 남김)':''),'error'); return; }
     var crit=(__deOpt.dUpc&&__deOpt.dCode)?'UPC + ITEM CODE':(__deOpt.dUpc?'UPC':'ITEM CODE');
-    if(!(await uiConfirm(big+' / '+sub+'\n중복 기준: '+crit+' · 그룹 '+gs.length+'개\n'+__deMetricLabel(__deOpt.metric)+' 순으로 '+__deOpt.keep+'개 남기고 '+del.length+'행 삭제'+(force?' (사용중 포함 · 강제)':'')+(prot?' (사용중 '+prot+'행은 남김)':'')+'\n\n삭제한 행은 TRASH 에 보관됩니다. 진행할까요?','중복 데이터 삭제'))) return;
+    if(!(await uiConfirm(big+' / '+sub+'\n중복 기준: '+crit+' · 그룹 '+gs.length+'개\n'+__deMetricLabel(__deOpt.metric)+' 순으로 '+__deOpt.keep+'개 남기고 '+del.length+'행 삭제'+(force?' (사용중 포함 · 강제)':'')+(prot?' (사용중 '+prot+'행은 남김)':'')+(lockN?' (보호 '+lockN+'행 제외)':'')+'\n\n삭제한 행은 TRASH 에 보관됩니다. 진행할까요?','중복 데이터 삭제'))) return;
     undoMark('중복 데이터 삭제',[big]);
     var tr=trashAddRows(big,sub,del), ids={}; del.forEach(function(r){ ids[r.id]=1; }); histLog('dup',big,sub,[],del.map(function(r){ return histRowMini(big,r); }),crit+' · '+__deMetricLabel(__deOpt.metric)+' '+__deOpt.keep+'개 남김');
     var arr=curRows(); for(var i=arr.length-1;i>=0;i--){ if(ids[arr[i].id]) arr.splice(i,1); }
@@ -3705,10 +3731,10 @@ function openDupList(){
   $('dupDel').onclick=async function(){
     var ids={}, n=0; cks().forEach(function(c){ if(c.checked){ ids[c.getAttribute('data-id')]=1; n++; } });
     if(!n){ showToast('삭제할 행을 체크하세요','error'); return; }
-    var rows=curRows(), del=[], prot=0, protRows=[]; rows.forEach(function(r){ if(ids[r.id]){ if(isRowInUse(r)){ prot++; protRows.push(r); } else del.push(r); } });
+    var rows=curRows(), del=[], prot=0, protRows=[], lockN=0; rows.forEach(function(r){ if(ids[r.id]){ if(isRowLocked(r)) lockN++; else if(isRowInUse(r)){ prot++; protRows.push(r); } else del.push(r); } });
     var force=await protForceAsk(prot); if(force){ del=del.concat(protRows); prot=0; }
-    if(!del.length){ showToast('삭제할 행이 없습니다 (사용중 '+prot+'행은 남김)','error'); return; }
-    if(!(await uiConfirm(del.length+'행을 삭제할까요?'+(force?' (사용중 포함 · 강제)':'')+(prot?'\n(사용중 체크 '+prot+'행은 남기고 삭제)':'')+'\n삭제한 행은 TRASH 에 보관됩니다.','중복 데이터 삭제'))) return;
+    if(!del.length){ showToast('삭제할 행이 없습니다'+(lockN?' (보호 '+lockN+'행)':'')+(prot?' (사용중 '+prot+'행은 남김)':''),'error'); return; }
+    if(!(await uiConfirm(del.length+'행을 삭제할까요?'+(force?' (사용중 포함 · 강제)':'')+(prot?'\n(사용중 체크 '+prot+'행은 남기고 삭제)':'')+(lockN?'\n(보호 '+lockN+'행은 삭제되지 않습니다)':'')+'\n삭제한 행은 TRASH 에 보관됩니다.','중복 데이터 삭제'))) return;
     undoMark('중복 리스트 삭제',[big]);
     var tr=trashAddRows(big,sub,del), dset={}; del.forEach(function(r){ dset[r.id]=1; }); histLog('dup',big,sub,[],del.map(function(r){ return histRowMini(big,r); }),'중복 리스트에서 체크 삭제');
     for(var i=rows.length-1;i>=0;i--){ if(dset[rows[i].id]) rows.splice(i,1); }
@@ -3724,12 +3750,12 @@ async function delSelected(){
   var ids=Object.keys(selRows); if(!ids.length){ showToast('삭제할 행을 선택하세요','error'); return; }
   var rows=gsActive()?filteredRows():curRows(); /* [전역 검색] 검색 결과의 선택 행도 삭제 대상 */
   /* [요구 2026-09] 사용중(체크) 행 절대 삭제 금지 — 삭제 대상에서 제외하고 보호 안내 */
-  var prot=0, delIds={}, protIds={};
-  rows.forEach(function(r){ if(selRows[r.id]){ if(isRowInUse(r)){ prot++; protIds[r.id]=1; } else delIds[r.id]=1; } });
+  var prot=0, delIds={}, protIds={}, lockN=0;
+  rows.forEach(function(r){ if(selRows[r.id]){ if(isRowLocked(r)){ lockN++; } else if(isRowInUse(r)){ prot++; protIds[r.id]=1; } else delIds[r.id]=1; } });
   var force=await protForceAsk(prot); if(force){ for(var __pk in protIds) delIds[__pk]=1; prot=0; }
   var delCnt=Object.keys(delIds).length;
-  if(!delCnt){ showToast('삭제할 행이 없습니다 (사용중 '+prot+'행은 남김)','error'); return; }
-  if(!(await uiConfirm(delCnt+'개 행을 삭제할까요?'+(force?' (사용중 포함 · 강제)':'')+(prot?'\n(사용중 체크 '+prot+'행은 남기고 삭제)':'')))) return;
+  if(!delCnt){ showToast('삭제할 행이 없습니다'+(lockN?' (보호 '+lockN+'행)':'')+(prot?' (사용중 '+prot+'행은 남김)':''),'error'); return; }
+  if(!(await uiConfirm(delCnt+'개 행을 삭제할까요?'+(force?' (사용중 포함 · 강제)':'')+(prot?'\n(사용중 체크 '+prot+'행은 남기고 삭제)':'')+(lockN?'\n(보호 '+lockN+'행은 삭제되지 않습니다)':'')))) return;
   var __tr=0;
   { var __ub2={}; if(gsActive()){ for(var __g in delIds){ var __gm=__gsMap[__g]; if(__gm) __ub2[__gm.big]=1; } } else __ub2[curBig()]=1; undoMark('선택삭제',Object.keys(__ub2)); }
   if(gsActive()){ /* [전역 검색] 각 행을 원래 카테고리에서 제거 */
