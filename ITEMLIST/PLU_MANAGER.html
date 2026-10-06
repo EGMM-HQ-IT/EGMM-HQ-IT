@@ -2514,27 +2514,35 @@ function toggleMenuPop(force){
    (2026-09 삭제: Firebase 업로드·복원·설정 / 업로드 진단 / 매칭) */
 var PLU_MENU=[
   { id:'addrow',  label:'상품 추가',     run:function(){ addRow(); } },                                  /* [2026-10-02] PLU · UPC 동일 */
-  { id:'cats',    label:'카테고리 관리', run:function(){ openCatMgr(); } },                          /* [MODULE 24] */
-  { id:'import',  label:'엑셀 불러오기', run:function(){ $('pluImportInput').value=''; $('pluImportInput').click(); } },
-  { id:'export',  label:'엑셀 내보내기', run:function(){ openExportModal(); } },                     /* [MODULE 11] */
-  { id:'backup',  label:'백업',          run:function(){ backupJson(); } },
-  { id:'restore', label:'복원',          run:function(){ $('pluRestoreFile').value=''; $('pluRestoreFile').click(); } },
-  { id:'print',   label:'리스트 출력',   run:function(){ openPrintModal(); } },                      /* [MODULE 18] */
+  /* [2026-10-05] 카테고리 관리 · DEPARTMENT 설정 → MART > CATEGORY MANAGER 로 통합 (여기 함수·데이터는 그대로, 메뉴만 제거)
+     엑셀 불러오기 · 내보내기 · 리스트 출력 → 「엑셀 · 출력」 한 팝업 / 백업 · 복원 → 「백업 · 복원」 한 팝업 / TRASH 맨 아래 */
+  { id:'excel',   label:'엑셀 · 출력',   run:function(){ openExcelMenu(); } },
+  { id:'bakres',  label:'백업 · 복원',   run:function(){ openBackupMenu(); } },
   { id:'delall',  label:'전체삭제',      run:function(){ delAllRows(); } },
-  { id:'dept',    label:'DEPARTMENT 설정', run:function(){ openDeptModal(); } },                     /* [MODULE 22] */
-  { id:'fieldfx', label:'POS DESC 설정', run:function(){ openFieldFxModal(); } },                           /* [MODULE 23] [2026-10-02] PLU · UPC 동일 */                    /* [MODULE 23] */
-  { id:'trash',   label:'TRASH',         run:function(){ openTrash(); } },                               /* [2026-10-02] PLU · UPC 동일 · 서브메뉴 */
+  { id:'fieldfx', label:'POS DESC 설정', run:function(){ openFieldFxModal(); } },                           /* [MODULE 23] [2026-10-02] PLU · UPC 동일 */
   { id:'dataedit',label:'데이터 편집',   run:function(){ openDataEdit(); } },                            /* 중복 데이터 보기 · 삭제 */
   { id:'history', label:'히스토리',      run:function(){ openHistory(); } },
-  { id:'undo',    label:'되돌리기',      run:function(){ undoRun(); } },               /* [2026-10-04] 바로 이전 작업 원래대로 (5개까지) · Ctrl+Z */                             /* 편집 히스토리 */
-  { id:'guide',   label:'입력 · 관리 가이드', run:function(){ openGuide(); } }                         /* [2026-09-30] 서브메뉴 맨 아래 */
+  { id:'undo',    label:'되돌리기',      run:function(){ undoRun(); } },               /* [2026-10-04] 바로 이전 작업 원래대로 (5개까지) · Ctrl+Z */
+  { id:'guide',   label:'입력 · 관리 가이드', run:function(){ openGuide(); } },
+  { id:'trash',   label:'TRASH',         run:function(){ openTrash(); } },                               /* [2026-10-05] 맨 아래 */
+  /* 숨은 항목 — 메뉴에는 없지만 __pluMenuRun(id) 로 실행 가능 (CATEGORY MANAGER 가 압축 묶음이 아닐 때 안내용) */
+  { id:'cats',    label:'카테고리 관리', hidden:true, run:function(){ openCatMgr(); } },
+  { id:'dept',    label:'DEPARTMENT 설정', hidden:true, run:function(){ openDeptModal(); } },
+  { id:'import',  label:'엑셀 불러오기', hidden:true, run:function(){ $('pluImportInput').value=''; $('pluImportInput').click(); } },
+  { id:'export',  label:'엑셀 내보내기', hidden:true, run:function(){ openExportModal(); } },
+  { id:'print',   label:'리스트 출력',   hidden:true, run:function(){ openPrintModal(); } },
+  { id:'backup',  label:'백업',          hidden:true, run:function(){ backupJson(); } },
+  { id:'restore', label:'복원',          hidden:true, run:function(){ $('pluRestoreFile').value=''; $('pluRestoreFile').click(); } },
+  { id:'packmig', label:'CLOUD 압축 변환', hidden:true, run:function(){ fbPackMigrate(); } }
 ];
+/* [2026-10-05] CLOUD 가 아직 행 문서 방식이면 「CLOUD 압축 변환」을 메뉴에 보임 (CATEGORY MANAGER 의 상위·중간 관리는 압축 묶음에서만 동작) */
+function __menuPackSync(){ var m=PLU_MENU.filter(function(x){ return x.id==='packmig'; })[0]; if(!m) return; var want=(__fbPack===false); if(!!m.hidden===!want) return; m.hidden=!want; __announceMenu(); }
 PLU_MENU=PLU_MENU.filter(function(m){ return !m.only||(m.only==='TRASH'&&TRASH_ENABLED)||(m.only==='SYNC'&&SYNC_LATEST_WINS); });
 /* [2026-09-30] 입력 및 관리 가이드 — 번호 목록 팝업 (PLU / UPC 모드별 내용) */
 var GUIDE_PLU=[
   ['필드 우클릭 메뉴','머리글을 우클릭하면 말풍선 메뉴가 뜹니다(필드 숨김 기능은 없어짐). 「필드 고정」: 엑셀 틀 고정처럼 그 필드까지 왼쪽 열 전부(선택열 포함)가 가로 스크롤에서 고정됩니다(검색·카테고리와 무관한 열 설정, 다시 누르면 해제). 범위는 지금 화면에 보이는 리스트(검색 중이면 검색 결과, 아니면 현재 중간 카테고리)이고 그 필드만 바뀝니다. ① 특정문자 삭제: 입력한 문자를 셀에서 전부 지움(예: 농심 매운 새우깡 → 매운 새우깡) ② 특정문자 교환: 찾을 문자를 바꿀 문자로 전부 교체 ③ 특정문자 채우기: 모든 셀을 입력한 값으로 채움 ④ 특정문자 추가: 현재 값의 맨 앞 또는 맨 뒤에 문자를 붙임(빈 셀은 그 문자만) ⑤ 특정문자 자동추가: 다른 필드 값 + 문자 + 현재 값 + 다른 필드 값 + 문자… 처럼 앞·뒤 항목을 몇 개든 순서대로 붙여 일괄 변경(필드 값이 빈 행은 그 항목만 건너뜀) ⑥ SRP 필드에서는 「SRP 가격 생성」: COST 에 마진 %를 적용(판매가 기준 COST÷(1−%) 또는 원가 기준 COST×(1+%))하고 체크한 끝자리(.29 .49 .79 .99) 중 계산값 이상인 가장 가까운 가격으로 만듦. 실행 전 변경 행 수를 확인하고 히스토리에 기록됩니다.'],
   ['카테고리 트리','하위 카테고리(NO · KOR · ENG)는 MART > CATEGORY MANAGER 에서 관리하는 공용 트리(PLU · UPC 공유)입니다. 리스트의 CATEGORY NO 셀을 클릭하면 현재 상위/중간 카테고리의 하위 목록이 드롭다운으로 나오고, 번호를 고르거나 입력하면 KOR · ENG 가 자동으로 채워집니다. 엑셀 불러오기도 NO 만 있으면 KOR · ENG 를 채웁니다. 트리에서 번호·이름을 바꾸면 이 리스트의 상품 행에 실시간으로 반영됩니다.'],
-  ['카테고리','상위(대분류) 탭 → 중간 카테고리를 고른 뒤 작업합니다. 청과는 PLU 번호로 중간 카테고리 자동 배치 (1000 야채 · 2000 과일 · 3000 로컬 · 80000 박스 · 90000 유기농).'],
+  ['카테고리','상위(대분류) 탭 → 중간 카테고리를 고른 뒤 작업합니다. 상위·중간 카테고리 추가/이름/순서/삭제와 DEPARTMENT 번호는 MART > CATEGORY MANAGER 에서 관리합니다. 청과는 PLU 번호로 중간 카테고리 자동 배치 (1000 야채 · 2000 과일 · 3000 로컬 · 80000 박스 · 90000 유기농).'],
   ['행 입력','행 추가 → 셀을 클릭해 입력. PLU는 자동 증가. 사용(USE) 체크 = 현재 매장에서 사용중, 미체크 행은 회색 취소선.'],
   ['엑셀 불러오기','1행 = 필드명, 2행부터 데이터 (묶음 행 없음). PLU 열 필수 — PLU가 같은 행은 업데이트, 없으면 새 행, PLU가 빈 행은 건너뜀. 실행 전 확인 팝업에서 열 → 필드 대응을 확인하세요.'],
   ['엑셀 내보내기','내보낼 필드를 고르고(프리셋 저장 가능) 1행 필드명 + 데이터로 출력. 목록 값은 번호로 나갑니다. 그대로 수정해 다시 불러올 수 있습니다.'],
@@ -2552,7 +2560,7 @@ var GUIDE_PLU=[
   ['표시','같은 PLU 행은 PLU 칸이 같은 색. USE 미체크 행은 회색 취소선. 검색은 Enter, 번호는 쉼표로 여러 개.']
 ];
 var GUIDE_UPC=[
-  ['구조','대분류 = 영역(STI …), 중간 카테고리 = 업체 축약어(VENDER). 업체명·축약어·영업 품목은 EGMM > SYSTEM > VENDER 에서 관리.'],
+  ['구조','대분류 = 영역(STI …), 중간 카테고리 = 업체 축약어(VENDER). 업체명·축약어·영업 품목은 EGMM > SYSTEM > VENDER 에서 관리. 상위·중간 카테고리 추가/이름/순서/삭제와 DEPARTMENT 번호는 MART > CATEGORY MANAGER 에서 관리.'],
   ['기본값','LOCATION = 99. WA STORE, USE = 1 — 비어 있으면 자동으로 채워집니다.'],
   ['업체 리스트 파일 불러오기','필드명은 무시하고 열 위치로 읽습니다. A열 = UPC, B열 = ITEM CODE, C열 = 상품명(영문/한글 분리 + 용량 → CASE/PACK/SIZE/UNIT CODE). 조건 없이 전부 불러오며 유일한 제외는 UPC 숫자가 6자리 이하인 행. 업체를 지정하면 VENDER와 중간 카테고리가 그 축약어로 들어갑니다. 자동 감지되며 라디오로 전환 가능.'],
   ['필드명 파일 불러오기','1행 = 필드명, 2행부터 데이터. UPC 열 필수. 이름이 조금 달라도 유사 이름으로 자동 매칭, PRODUCT NAME 열은 자동 분리.'],
@@ -2587,7 +2595,7 @@ function openGuide(){
   $('gdList').innerHTML=h;
   ov.classList.add('show');
 }
-window.__pluMenuItems=function(){ return PLU_MENU.map(function(m){ return { id:m.id, label:m.label }; }); };
+window.__pluMenuItems=function(){ return PLU_MENU.filter(function(m){ return !m.hidden; }).map(function(m){ return { id:m.id, label:m.label }; }); };
 window.__pluMenuRun=function(id){ var m=PLU_MENU.filter(function(x){ return x.id===id; })[0]; if(!m) return false; toggleMenuPop(false); m.run(); return true; };
 function renderTools(){
   var slot=$('pluToolbarSlot'); slot.innerHTML='';  /* 타이틀 오른쪽 상단 슬롯 */
@@ -3352,6 +3360,28 @@ function openHistoryRows(k){
   }
 }
 
+/* ═══ [메뉴 통합 · 2026-10-05] 엑셀 · 출력 / 백업 · 복원 — 한 팝업에서 선택 */
+function __menuPopup(id,title,items){
+  var h='<b style="font-size:15px">'+escapeHtml(title)+'</b><div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">'
+    +items.map(function(it,i){ return '<button type="button" class="plu-tool-btn mp-it" data-i="'+i+'" style="text-align:left;padding:11px 14px;font-size:13px"><b>'+escapeHtml(it.label)+'</b>'+(it.desc?'<span style="display:block;font-weight:400;color:var(--ink-dim,#777);font-size:12px;margin-top:2px">'+escapeHtml(it.desc)+'</span>':'')+'</button>'; }).join('')
+    +'</div><div style="display:flex;justify-content:flex-end;margin-top:12px"><button id="'+id+'X" class="plu-tool-btn">닫기</button></div>';
+  var ov=__fbOverlay(id,h); ov.firstChild.style.maxWidth='420px';
+  Array.prototype.forEach.call(ov.querySelectorAll('.mp-it'),function(b){ b.onclick=function(){ __fbClose(id); items[parseInt(b.getAttribute('data-i'),10)].run(); }; });
+  $(id+'X').onclick=function(){ __fbClose(id); };
+}
+function openExcelMenu(){
+  __menuPopup('mpExcel','엑셀 · 출력',[
+    { label:'엑셀 불러오기', desc:'1행 필드명 파일'+(APP_MODE==='UPC'?' 또는 업체 리스트 파일':'')+' — 같은 번호는 업데이트, 없으면 추가', run:function(){ $('pluImportInput').value=''; $('pluImportInput').click(); } },
+    { label:'엑셀 내보내기', desc:'내보낼 필드 선택 · 프리셋 — 그대로 수정해 다시 불러올 수 있음', run:function(){ openExportModal(); } },
+    { label:'리스트 출력',   desc:'현재 리스트를 인쇄용으로', run:function(){ openPrintModal(); } }
+  ]);
+}
+function openBackupMenu(){
+  __menuPopup('mpBak','백업 · 복원',[
+    { label:'백업', desc:'전체 데이터 + 설정을 JSON 파일로 내려받기', run:function(){ backupJson(); } },
+    { label:'복원', desc:'백업 JSON 파일로 되돌리기', run:function(){ $('pluRestoreFile').value=''; $('pluRestoreFile').click(); } }
+  ]);
+}
 /* ═══ [되돌리기 · 2026-10-04] 바로 이전 데이터 작업을 원래대로 — 최근 5개까지, 최신부터 차례로 (메뉴 > 되돌리기 · Ctrl+Z).
    작업 직전 상태(대분류 데이터 + TRASH + 히스토리)를 메모리에 보관(이 창 안에서만, 새로고침하면 사라짐).
    되돌린 행은 편집 시각을 지금으로 찍어 CLOUD 에도 그대로 전송된다(다른 컴퓨터의 더 최근 편집이 있으면 그쪽이 우선). */
@@ -7098,6 +7128,7 @@ async function fbPackRead(M,db,bigId,subId){ /* 묶음 읽기 (조각 포함) �
 async function fbPackFlag(conn,force){ /* _PACKMETA.on 읽기 (1회 캐시) */
   if(__fbPack!==null&&!force) return __fbPack;
   try{ var sn=await conn.M.fs.getDoc(conn.M.fs.doc(conn.db,FB_ROOT,'_PACKMETA')); __fbPack=!!(sn.exists()&&sn.data()&&sn.data().on); }catch(e){ __fbPack=false; }
+  try{ __menuPackSync(); }catch(e){}
   return __fbPack;
 }
 function fbDocsMap(plan){

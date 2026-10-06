@@ -10,6 +10,8 @@
   · 상위 · 중간 추가/이름 변경/순서/삭제 → 해당 리스트의 CLOUD(_CONFIG 탭 구조 · 압축 묶음 · 대분류 문서 · _META)에 바로 반영
       (압축 묶음 방식일 때만 — 행 문서 방식이면 PLU/UPC MANAGER 의 「CLOUD 압축 변환」 먼저)
   · 상품 건수: 압축 묶음에서 읽음(업체 수만큼 읽기). 행 문서 방식이면 건수 생략(비용 절약)
+  · [2026-10-05] DEPARTMENT 번호 — 상위·중간 카테고리마다 지정 (리스트 _CONFIG 의 deptMap · deptSubMap). PLU/UPC MANAGER 의 「DEPARTMENT 설정」 메뉴를 여기로 통합.
+      엑셀 불러오기에서 DEPARTMENT 열 값이 번호와 일치하는 행이 그 카테고리로 들어감 (참조: 1 MEAT · 2 PRODUCE · 3 ASIAN · 4 PRODUCE · 5 DELI)
   · Firestore 규칙 필요: match /CATEGORY/{document=**} { allow read, write: if request.auth != null; }
 -->
 <html lang="ko">
@@ -53,6 +55,9 @@
   .bigHead .n{ flex:1; } .cnt{ font-size:11px; color:var(--text-faint); font-weight:700; }
   .mid{ display:flex; align-items:center; gap:6px; padding:5px 9px 5px 24px; border-top:1px solid var(--border); cursor:pointer; }
   .mid.on{ background:var(--sel); } .mid .n{ flex:1; }
+  input.dept{ width:52px; font:inherit; font-size:11.5px; font-weight:700; padding:2px 5px; border:1.5px solid var(--border); border-radius:6px; background:var(--bg-elev); color:var(--text); text-align:center; }
+  input.dept.chg{ border-color:var(--accent-warm); }
+  input.dept::placeholder{ color:var(--text-faint); font-weight:400; }
   .ico{ border:none; background:transparent; cursor:pointer; font-size:12px; color:var(--text-faint); padding:2px 4px; border-radius:5px; } .ico:hover{ background:var(--bg); color:var(--text); }
   table{ width:100%; border-collapse:collapse; font-size:12.5px; }
   th,td{ padding:6px 8px; border-bottom:1px solid var(--border); text-align:left; vertical-align:middle; }
@@ -88,6 +93,7 @@
     <div class="panel">
       <div class="srcTabs"><button class="btn ghost on" data-src="UPC" type="button">UPC LIST</button><button class="btn ghost" data-src="PLU" type="button">PLU LIST</button></div>
       <h2>상위 → 중간 카테고리 <span class="cnt" id="treeCnt"></span><button class="btn sm ghost" id="btnAddBig" type="button" style="margin-left:auto">＋ 상위 추가</button></h2>
+      <div class="hint" style="margin:0 0 8px">DEPT 칸 = DEPARTMENT 번호 (1 MEAT · 2 PRODUCE · 3 ASIAN · 4 PRODUCE · 5 DELI). 상위·중간마다 지정, 엑셀 불러오기의 DEPARTMENT 열이 이 번호면 그 카테고리로 들어갑니다. <span class="dirty" id="deptDirty"></span> <button class="btn sm" id="btnSaveDept" type="button" style="display:none">DEPARTMENT 저장</button></div>
       <div class="tree" id="tree"></div>
     </div>
     <div class="panel">
@@ -142,6 +148,12 @@
   var L={ UPC:null, PLU:null }; /* 리스트별: {meta, pack, st(config), rows:{big|mid:[rows]}} */
   var tree={ subs:{}, log:[] }, treeSavedAt='', treeDirty=false;
   var curSrc='UPC', sel=null; /* sel = {big, mid} (이름) */
+  var deptEdit={ UPC:{big:{},sub:{}}, PLU:{big:{},sub:{}} }; /* 저장 전 DEPARTMENT 편집 { big:{상위:값}, sub:{'상위|중간':값} } ('' = 해제) */
+  function deptCfg(src){ return (L[src]&&L[src].cfg)||null; }
+  function deptOfBig(src,big){ var e=deptEdit[src].big; if(e[big]!==undefined) return e[big]; var c=deptCfg(src); return (c&&c.deptMap&&c.deptMap[big]!=null)?c.deptMap[big]:''; }
+  function deptOfMid(src,big,mid){ var e=deptEdit[src].sub, k=big+'|'+mid; if(e[k]!==undefined) return e[k]; var c=deptCfg(src); return (c&&c.deptSubMap&&c.deptSubMap[big]&&c.deptSubMap[big][mid]!=null)?c.deptSubMap[big][mid]:''; }
+  function deptDirtyN(){ var e=deptEdit[curSrc]; return Object.keys(e.big).length+Object.keys(e.sub).length; }
+  function deptUi(){ var n=deptDirtyN(); $('deptDirty').textContent=n?('변경 '+n+'건 저장 안 됨'):''; $('btnSaveDept').style.display=n?'':'none'; }
 
   /* ── 읽기 ── */
   function readConfig(root,meta){ var ps=[]; for(var p=0;p<(meta.configParts||1);p++){ var id=p===0?'_CONFIG':('_CONFIG__P'+(p+1)); ps.push(F.getDoc(F.doc(db,root,id)).then(function(sn){ return sn.exists()?sn.data():null; })); }
@@ -152,9 +164,10 @@
       var meta=(ms.exists()&&ms.data()&&ms.data().ver==='v3')?ms.data():null;
       if(!meta){ L[src]={meta:null}; chip.textContent=SRC[src].label+' 없음'; chip.className='chip err'; return; }
       return window.EgmmFB.packOn(F,db,root).then(function(on){
-        var o={meta:meta,pack:on,rows:{},counts:{}};
+        var o={meta:meta,pack:on,rows:{},counts:{},cfg:null};
         var pr=on?window.EgmmFB.loadProductRows(F,db,root,meta,null):Promise.resolve(null);
-        return pr.then(function(res){
+        var pc=readConfig(root,meta).then(function(c){ o.cfg=c; }).catch(function(){ o.cfg=null; });
+        return Promise.all([pr,pc]).then(function(rr){ var res=rr[0];
           if(res){ Object.keys(res.parts).forEach(function(k){ var pt=res.parts[k]; o.rows[pt.big.name+'|'+pt.sub.name]=pt.rows||[]; }); }
           L[src]=o; var n=(meta.tree||[]).reduce(function(a,b){ return a+(b.subs||[]).length; },0);
           chip.textContent=SRC[src].label+' · 상위 '+(meta.tree||[]).length+' · 중간 '+n+(on?' · 상품 '+(meta.total||0)+' (압축 묶음)':' · 행 문서 방식'); chip.className='chip ok';
@@ -187,11 +200,13 @@
     mt.forEach(function(b,bi){
       var bn=0; (b.subs||[]).forEach(function(s){ bn+=(s.count||0); }); total+=bn;
       var on=sel&&sel.big===b.name&&!sel.mid;
-      h+='<div class="big"><div class="bigHead'+(on?' on':'')+'" data-big="'+esc(b.name)+'"><span class="n">'+esc(b.name)+'</span><span class="cnt">'+bn+'</span>'
+      var bd=deptOfBig(curSrc,b.name), bchg=deptEdit[curSrc].big[b.name]!==undefined;
+      h+='<div class="big"><div class="bigHead'+(on?' on':'')+'" data-big="'+esc(b.name)+'"><span class="n">'+esc(b.name)+'</span><input class="dept'+(bchg?' chg':'')+'" data-dbig="'+esc(b.name)+'" value="'+esc(bd)+'" placeholder="DEPT" title="DEPARTMENT 번호 ('+esc(b.name)+')"><span class="cnt">'+bn+'</span>'
         +'<button class="ico" data-act="bren" data-big="'+esc(b.name)+'" title="이름 변경">✎</button><button class="ico" data-act="bup" data-i="'+bi+'" title="위로">↑</button><button class="ico" data-act="bdn" data-i="'+bi+'" title="아래로">↓</button><button class="ico" data-act="madd" data-big="'+esc(b.name)+'" title="중간 추가">＋</button><button class="ico" data-act="bdel" data-big="'+esc(b.name)+'" title="삭제">✕</button></div>';
       (b.subs||[]).forEach(function(s,si){
         var k=b.name+'|'+s.name, subN=(tree.subs[k]||[]).length, mon=sel&&sel.big===b.name&&sel.mid===s.name;
-        h+='<div class="mid'+(mon?' on':'')+'" data-big="'+esc(b.name)+'" data-mid="'+esc(s.name)+'"><span class="n">'+esc(s.name)+'</span><span class="cnt">'+(s.count||0)+'행 · 하위 '+subN+'</span>'
+        var md=deptOfMid(curSrc,b.name,s.name), mchg=deptEdit[curSrc].sub[b.name+'|'+s.name]!==undefined;
+        h+='<div class="mid'+(mon?' on':'')+'" data-big="'+esc(b.name)+'" data-mid="'+esc(s.name)+'"><span class="n">'+esc(s.name)+'</span><input class="dept'+(mchg?' chg':'')+'" data-dbig="'+esc(b.name)+'" data-dmid="'+esc(s.name)+'" value="'+esc(md)+'" placeholder="DEPT" title="DEPARTMENT 번호 ('+esc(b.name)+' / '+esc(s.name)+')"><span class="cnt">'+(s.count||0)+'행 · 하위 '+subN+'</span>'
           +'<button class="ico" data-act="mren" data-big="'+esc(b.name)+'" data-mid="'+esc(s.name)+'" title="이름 변경">✎</button><button class="ico" data-act="mup" data-big="'+esc(b.name)+'" data-i="'+si+'" title="위로">↑</button><button class="ico" data-act="mdn" data-big="'+esc(b.name)+'" data-i="'+si+'" title="아래로">↓</button><button class="ico" data-act="mdel" data-big="'+esc(b.name)+'" data-mid="'+esc(s.name)+'" title="삭제">✕</button></div>';
       });
       h+='</div>';
@@ -200,7 +215,22 @@
     Array.prototype.forEach.call($('tree').querySelectorAll('.bigHead'),function(el){ el.onclick=function(ev){ if(ev.target.closest('button')) return; sel={big:el.getAttribute('data-big'),mid:''}; renderTree(); renderSubs(); }; });
     Array.prototype.forEach.call($('tree').querySelectorAll('.mid'),function(el){ el.onclick=function(ev){ if(ev.target.closest('button')) return; sel={big:el.getAttribute('data-big'),mid:el.getAttribute('data-mid')}; renderTree(); renderSubs(); }; });
     Array.prototype.forEach.call($('tree').querySelectorAll('button[data-act]'),function(b){ b.onclick=function(ev){ ev.stopPropagation(); treeAction(b.getAttribute('data-act'),b); }; });
+    Array.prototype.forEach.call($('tree').querySelectorAll('input.dept'),function(inp){
+      inp.onclick=function(ev){ ev.stopPropagation(); }; inp.onmousedown=function(ev){ ev.stopPropagation(); };
+      inp.oninput=function(){ inp.value=inp.value.replace(/[^0-9]/g,''); var big=inp.getAttribute('data-dbig'), mid=inp.getAttribute('data-dmid'); var v=inp.value===''?'':parseInt(inp.value,10);
+        var c=deptCfg(curSrc), cur=mid?((c&&c.deptSubMap&&c.deptSubMap[big]&&c.deptSubMap[big][mid]!=null)?c.deptSubMap[big][mid]:''):((c&&c.deptMap&&c.deptMap[big]!=null)?c.deptMap[big]:'');
+        var e=deptEdit[curSrc], key=mid?(big+'|'+mid):big, bag=mid?e.sub:e.big;
+        if(String(v)===String(cur)) delete bag[key]; else bag[key]=v; inp.classList.toggle('chg',bag[key]!==undefined); deptUi(); };
+      inp.onkeydown=function(ev){ if(ev.key==='Enter'){ ev.preventDefault(); if(deptDirtyN()) $('btnSaveDept').click(); } };
+    });
+    deptUi();
   }
+  /* DEPARTMENT 저장 → 리스트 _CONFIG(deptMap · deptSubMap) + 대분류 문서 dept 에 기록 */
+  $('btnSaveDept').onclick=function(){ if(!needPack()) return; var e=deptEdit[curSrc], src=curSrc;
+    applyListChange('DEPARTMENT 번호 저장',function(st){ st.deptMap=st.deptMap||{}; st.deptSubMap=st.deptSubMap||{};
+      Object.keys(e.big).forEach(function(b){ if(e.big[b]===''||!(e.big[b]>0)) delete st.deptMap[b]; else st.deptMap[b]=e.big[b]; });
+      Object.keys(e.sub).forEach(function(k){ var p=k.split('|'), b=p[0], m=p.slice(1).join('|'); if(e.sub[k]===''||!(e.sub[k]>0)){ if(st.deptSubMap[b]){ delete st.deptSubMap[b][m]; if(!Object.keys(st.deptSubMap[b]).length) delete st.deptSubMap[b]; } } else { if(!st.deptSubMap[b]) st.deptSubMap[b]={}; st.deptSubMap[b][m]=e.sub[k]; } });
+      return {}; }).then(function(){ deptEdit[src]={big:{},sub:{}}; deptUi(); }); };
 
   /* ── 하위 카테고리 편집 ── */
   function subKey(){ return sel?(sel.big+'|'+sel.mid):''; }
@@ -238,7 +268,7 @@
   };
 
   /* ── 상위 · 중간 편집 → 리스트 CLOUD 반영 ── */
-  function needPack(){ if(!L[curSrc]||!L[curSrc].meta){ toast('CLOUD 데이터 없음','error'); return false; } if(!L[curSrc].pack){ toast(SRC[curSrc].label+' 가 아직 행 문서 방식입니다 — '+(curSrc==='UPC'?'UPC':'PLU')+' MANAGER 메뉴 > 「CLOUD 압축 변환」 후 사용하세요','error'); return false; } return true; }
+  function needPack(){ if(!L[curSrc]||!L[curSrc].meta){ toast('CLOUD 데이터 없음','error'); return false; } if(!L[curSrc].pack){ toast(SRC[curSrc].label+' 가 아직 행 문서 방식입니다 — '+(curSrc==='UPC'?'UPC':'PLU')+' LIST 서브메뉴에 보이는 「CLOUD 압축 변환」을 먼저 실행하세요','error'); return false; } return true; }
   function treeAction(act,btn){
     var big=btn.getAttribute('data-big'), mid=btn.getAttribute('data-mid'), i=parseInt(btn.getAttribute('data-i'),10);
     if(act==='bren') return renameBig(big);
@@ -327,11 +357,13 @@
     '5. 하위 삭제는 트리에서만 지워지고 상품 행의 값은 남습니다. "상품에는 있으나 트리에 없는 번호" 버튼으로 기존 값을 트리에 바로 등록할 수 있습니다.',
     '6. 상위 · 중간 추가/이름 변경/순서/삭제는 해당 리스트의 CLOUD 에 바로 기록됩니다 (압축 묶음 방식일 때만). 상품이 있는 카테고리는 삭제할 수 없습니다. UPC 에서 중간 이름을 바꾸면 그 업체 상품의 VENDER 값도 새 이름으로 바뀝니다.',
     '7. 상품 건수는 압축 묶음에서 읽습니다. 행 문서 방식이면 건수가 표시되지 않습니다 (읽기 비용 절약).',
-    '8. Firestore 규칙에 match /CATEGORY/{document=**} { allow read, write: if request.auth != null; } 가 있어야 트리를 저장할 수 있습니다.'
+    '8. DEPARTMENT: 상위·중간 카테고리 옆 DEPT 칸에 번호를 넣고 「DEPARTMENT 저장」. 엑셀 불러오기에서 DEPARTMENT 열 값이 중간 번호와 같으면 그 상위+중간으로, 상위 번호와 같으면 그 상위로 들어갑니다 (청과 2 는 PLU 범위로 중간 자동 배치). PLU/UPC MANAGER 의 DEPARTMENT 설정 메뉴는 여기로 합쳐졌습니다.',
+    '9. Firestore 규칙에 match /CATEGORY/{document=**} { allow read, write: if request.auth != null; } 가 있어야 트리를 저장할 수 있습니다.'
   ].join('\n');
   $('btnGuide').onclick=function(){ $('guideBg').classList.add('show'); }; $('guideX').onclick=function(){ $('guideBg').classList.remove('show'); };
   Array.prototype.forEach.call(document.querySelectorAll('.srcTabs .btn'),function(b){ b.onclick=function(){ curSrc=b.getAttribute('data-src'); Array.prototype.forEach.call(document.querySelectorAll('.srcTabs .btn'),function(x){ x.classList.toggle('on',x===b); }); sel=null; renderTree(); renderSubs(); }; });
   function reloadAll(){ return Promise.all([loadList('UPC'),loadList('PLU'),loadTree()]).then(function(){ renderTree(); renderSubs(); }); }
+  window.__CM_dept=function(){ return deptEdit; };
   $('btnReload').onclick=function(){ if(treeDirty&&!confirm('저장 안 된 트리 변경이 있습니다. 버리고 새로고침할까요?')) return; reloadAll(); };
   window.addEventListener('beforeunload',function(e){ if(treeDirty){ e.preventDefault(); e.returnValue=''; } });
 
