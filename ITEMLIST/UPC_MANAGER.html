@@ -3036,15 +3036,39 @@ function bindContent(el,fs,shown){
   el.onmousedown=function(ev){
     var rz=ev.target.closest('.plu-resizer');
     if(rz&&el.contains(rz)){ startColResize(rz,el,ev); return; }
-    /* [2026-10-06] 선택 체크 열에서 누른 채 끌면 지나가는 행을 연속 선택/해제 (처음 누른 행의 반대 상태로 통일) */
-    var sc=ev.target.closest('td.plu-c-sel'); if(!sc||ev.button!==0) return;
-    var tr0=sc.closest('tr[data-id]'); if(!tr0) return;
+    /* [2026-10-06] 체크 열(선택 · USE · HOLD)에서 누른 채 끌면 지나가는 행을 같은 상태로 — 처음 누른 행의 반대 상태로 통일.
+       개별 클릭도 같은 경로: mousedown 에서 바로 적용하고, 뒤따르는 click 의 체크박스 기본 토글은 막아 되돌아가지 않게 */
+    if(ev.button!==0) return;
+    var tgt=ev.target, kind='', td0=null, fi0=-1;
+    if(tgt.closest('td.plu-c-sel')){ kind='sel'; td0=tgt.closest('td.plu-c-sel'); }
+    else if(tgt.classList&&tgt.classList.contains('lockChk')){ kind='lock'; td0=tgt.closest('td'); }
+    else if(tgt.classList&&tgt.classList.contains('cellChk')){ kind='chk'; td0=tgt.closest('td'); fi0=parseInt(td0.getAttribute('data-fi'),10); }
+    if(!kind) return;
+    var tr0=td0.closest('tr[data-id]'); if(!tr0||!el.contains(tr0)) return;
     ev.preventDefault();
-    var id0=tr0.getAttribute('data-id'), on=!selRows[id0];
-    function applyRow(tr){ var id=tr.getAttribute('data-id'); var cb=tr.querySelector('.rowSel'); if(on) selRows[id]=1; else delete selRows[id]; if(cb) cb.checked=on; }
-    applyRow(tr0); updateDelSelBtn(); document.body.classList.add('plu-dragsel');
-    function mv(e){ var tr=e.target&&e.target.closest&&e.target.closest('tr[data-id]'); if(tr&&el.contains(tr)&&(!!selRows[tr.getAttribute('data-id')])!==on){ applyRow(tr); updateDelSelBtn(); } }
-    function up(){ document.removeEventListener('mousemove',mv); document.removeEventListener('mouseup',up); document.body.classList.remove('plu-dragsel'); }
+    var id0=tr0.getAttribute('data-id'), on, pre=[], touched=0, big0=curBig();
+    function stateOf(tr){ var id=tr.getAttribute('data-id');
+      if(kind==='sel') return !!selRows[id];
+      var r=rowById(id); if(!r) return null;
+      if(kind==='lock') return isRowLocked(r);
+      return String(getCell(r,fs[fi0]))==='1'; }
+    function applyRow(tr){ var id=tr.getAttribute('data-id');
+      if(kind==='sel'){ var cb=tr.querySelector('.rowSel'); if(on) selRows[id]=1; else delete selRows[id]; if(cb) cb.checked=on; touched++; return; }
+      var r=rowById(id); if(!r) return;
+      pre.push({id:r.id,v:JSON.parse(JSON.stringify(r.v||{})),sv:JSON.parse(JSON.stringify(r.sv||{}))});
+      if(kind==='lock'){ r.v=r.v||{}; if(on) r.v.ITEM_LOCK='1'; else delete r.v.ITEM_LOCK; r.m=rowStamp(); tr.classList.toggle('plu-row-locked',on); var lc=tr.querySelector('.lockChk'); if(lc) lc.checked=on; }
+      else { var tdc=tr.querySelector('td[data-fi="'+fi0+'"]'); setCell(r,fs[fi0],on?'1':''); if(tdc) refreshCalcCells(tdc,r,fs); var cc=tdc&&tdc.querySelector('.cellChk'); if(cc) cc.checked=on; if(fs[fi0]&&normKey(fs[fi0].key)==='ITEM_USE') tr.classList.toggle('plu-row-unused',!on); }
+      touched++; }
+    var s0=stateOf(tr0); if(s0===null) return; on=!s0; applyRow(tr0);
+    if(kind==='sel') updateDelSelBtn();
+    document.body.classList.add('plu-dragsel');
+    /* 뒤따르는 click 의 기본 토글 차단 (한 번만) */
+    var swallow=function(e){ if(e.target===tgt&&(tgt.tagName||'').toUpperCase()==='INPUT'){ e.preventDefault(); e.stopPropagation(); } document.removeEventListener('click',swallow,true); };
+    document.addEventListener('click',swallow,true); setTimeout(function(){ document.removeEventListener('click',swallow,true); },400);
+    function mv(e){ var tr=e.target&&e.target.closest&&e.target.closest('tr[data-id]'); if(!tr||!el.contains(tr)||tr===tr0) return; var st=stateOf(tr); if(st===null||st===on) return; applyRow(tr); if(kind==='sel') updateDelSelBtn(); }
+    function up(){ document.removeEventListener('mousemove',mv); document.removeEventListener('mouseup',up); document.body.classList.remove('plu-dragsel');
+      if(kind!=='sel'&&pre.length){ __undo.push({kind:'rows',label:(kind==='lock'?'보호 ':(fs[fi0]?fs[fi0].label+' ':''))+(on?'체크':'해제')+' '+pre.length+'행',big:big0,rows:JSON.stringify(pre)}); if(__undo.length>UNDO_MAX) __undo.shift();
+        if(kind!=='lock') histLog('edit',big0,gsActive()?'(검색)':curSub(),pre.map(function(x){ return x.id; }),[],(fs[fi0]?fs[fi0].label:'')+' '+(on?'체크':'해제')); saveState(); } }
     document.addEventListener('mousemove',mv); document.addEventListener('mouseup',up);
   };
 }
