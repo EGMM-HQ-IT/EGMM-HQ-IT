@@ -95,8 +95,13 @@
       <div class="field"><label>마트 이름 (영문)</label><input type="text" id="sName" placeholder="예: TACOMA" autocomplete="off"></div>
       <div class="field"><label>한글명 (선택)</label><input type="text" id="sKo" placeholder="예: 타코마점" autocomplete="off"></div>
       <div class="field"><label>마트 코드</label><input type="text" id="sCode" placeholder="자동: STORE-TACOMA" autocomplete="off"></div>
+      <!-- [2026-10-07] 매장 입장 PIN — H-MART 초기 화면에서 매장 선택 후 입력 (해시 저장) -->
+      <div class="field"><label>입장 PIN (숫자)</label><input type="password" id="sPin" inputmode="numeric" placeholder="H-MART 입장용" autocomplete="new-password">
+        <div class="hint" id="sPinHint">숫자만 · 4~12자리</div></div>
       <button class="btn" id="sSaveBtn" type="button">＋ 추가</button>
     </div>
+    <div class="hint"><b>입장 PIN</b>: H-MART 초기 화면에서 매장을 선택한 뒤 이 PIN 을 입력하면 그 매장으로 입장합니다 (매장마다 다른 PIN · 해시로 저장되어 다시 표시되지 않음).
+      수정 시 비워 두면 기존 PIN 이 유지됩니다.</div>
     <div class="hint">앞으로 만들어지는 모든 마트는 여기서 생성·관리합니다. 마트도 이름이 아닌 <b>코드</b>로 관리됩니다 —
       예: TACOMA 마트 → <b>STORE-TACOMA</b> 코드로 저장/호출. 코드는 직급·부서·메뉴·마트 전체에서 중복될 수 없으며, 중복 시 경고가 표시됩니다.
       코드 수정은 FUNCTION-CODE 관리에서도 가능합니다. 다른 앱이 저장한 매장 문서의 기존 필드는 그대로 보존됩니다.</div>
@@ -188,7 +193,7 @@
       html+='<div class="drow'+(c===editingCode?' edit':'')+'">'
         +'<span class="dc">'+esc(c)+'</span>'
         +'<span class="dn">'+esc(d.name||c)+'</span>'
-        +'<span class="dk">'+esc(d.nameKo||'')+'</span>'
+        +'<span class="dk">'+esc(d.nameKo||'')+(d.pin?' <b style="color:#2F5D46">· PIN 설정됨</b>':' <b style="color:#9C3327">· PIN 없음</b>')+'</span>'
         +'<span class="acts">'
         +'<button class="btn ghost sm" data-edit="'+esc(c)+'" type="button">수정</button>'
         +'<button class="btn danger sm" data-del="'+esc(c)+'" type="button">삭제</button>'
@@ -216,7 +221,7 @@
     editingCode=null;
     $('addTitle').textContent='마트 추가';
     $('sSaveBtn').textContent='＋ 추가';
-    $('sName').value=''; $('sKo').value=''; $('sCode').value='';
+    $('sName').value=''; $('sKo').value=''; $('sCode').value=''; $('sPin').value=''; $('sPinHint').textContent='숫자만 · 4~12자리';
     delete $('sCode').dataset.touched;
     $('editActs').style.display='none';
     renderList();
@@ -228,6 +233,7 @@
     $('sSaveBtn').textContent='💾 저장';
     $('sName').value=d.name||''; $('sKo').value=d.nameKo||'';
     $('sCode').value=code; $('sCode').dataset.touched='1';
+    $('sPin').value=''; $('sPinHint').textContent=d.pin?'PIN 설정됨 — 바꿀 때만 입력 (비워 두면 유지)':'PIN 없음 — 입력하면 설정됩니다';
     $('editActs').style.display='';
     renderList();
     window.scrollTo(0,0);
@@ -242,6 +248,8 @@
     if(!name){ toast('마트 이름을 입력하세요','error'); $('sName').focus(); return; }
     if(!code){ toast('마트 코드를 입력하세요','error'); $('sCode').focus(); return; }
     if(code.charAt(0)==='_'){ toast('사용할 수 없는 코드','error'); return; }
+    var pin=$('sPin').value.trim();
+    if(pin && !/^[0-9]{4,12}$/.test(pin)){ toast('PIN 은 숫자 4~12자리','error'); $('sPin').focus(); return; }
 
     var dup=allCodes(editingCode);
     if(dup[code]){ warnPopup('⚠️ 코드 중복','코드 "'+code+'" 는 이미 ['+dup[code]+'] 에서 사용 중입니다.\n다른 코드를 입력하세요.'); return; }
@@ -254,7 +262,8 @@
       createdAt: base.createdAt||Date.now(), updatedAt: Date.now() });
 
     function write(){
-      fb.setDoc(fb.doc(fb.db,'STORE',code), data).then(function(){
+      var pre = pin ? window.EgmmFB.hashPw(pin).then(function(h){ data.pin = h || ('p:'+pin); }) : Promise.resolve();
+      pre.then(function(){ return fb.setDoc(fb.doc(fb.db,'STORE',code), data); }).then(function(){
         if(editingCode && editingCode!==code){
           return fb.deleteDoc(fb.doc(fb.db,'STORE',editingCode));
         }

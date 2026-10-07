@@ -361,8 +361,12 @@
     window.firebaseFns={ doc:fb.doc, getDoc:fb.getDoc, getDocs:fb.getDocs, setDoc:fb.setDoc, deleteDoc:fb.deleteDoc, collection:fb.collection, onSnapshot:fb.onSnapshot };
     window.dispatchEvent(new Event('dp-firebase-ready'));
   }).catch(function(e){ console.error('[매입일지] CLOUD 설정 오류', e); });
-  /* 입장: ACCESS 계정 (hmart.html · EGMM 과 같은 세션) */
-  AccessGate.require({ title:'DAILY PURCHASE' }).then(function(u){ window.__dpUser=u; try{ window.__dpStart&&window.__dpStart(); }catch(e){ console.error(e); } });
+  /* 입장: hmart.html 에서 매장 PIN 으로 입장한 세션(sessionStorage.hmartGate)이 있으면 통과 · 없으면 ACCESS 계정 로그인.
+     계정(egmmAccessAuth)이 있으면 역할(기록/결재) 부여 · 없으면 조회 전용 */
+  (function(){ var g=null; try{ g=JSON.parse(sessionStorage.getItem('hmartGate')||'null'); }catch(e){}
+    function go(){ try{ window.__dpStart&&window.__dpStart(); }catch(e){ console.error(e); } }
+    if(g&&g.code){ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',go,{once:true}); else go(); }
+    else AccessGate.require({ title:'DAILY PURCHASE' }).then(function(u){ window.__dpUser=u; go(); }); })();
 </script>
 </head>
 <body>
@@ -589,6 +593,7 @@
   }
   function buildUser(auth, acct, ranks){
     if(!auth||!auth.id) return null;
+    if(acct&&acct.blocked===true) return null;
     var master=(typeof auth.level==='number'&&auth.level===0);
     var rn=''; (ranks||[]).forEach(function(r){ if(r&&r.code===auth.rank) rn=r.name||''; });
     var role=master?'manager':rankRole(auth.rank, rn);
@@ -603,14 +608,10 @@
     var pill=$('dpUserPill');
     if(user){ pill.style.display='inline-flex'; $('dpUserName').textContent=user.name;
       $('dpUserRole').textContent=user.master?'MASTER':(user.role==='manager'?'GENERAL MANAGER':'ACCOUNT');
-      // 매장 전환 (여러 매장 권한 시) — 계정에 허용된 매장 안에서만
-      var sel=$('dpStoreSel');
-      if(user.stores.length>1){
-        sel.style.display='inline-block';
-        sel.innerHTML=user.stores.map(function(s){ return '<option value="'+esc(s.code)+'"'+(s.code===STORE_CODE?' selected':'')+'>'+esc(s.name||s.code)+'</option>'; }).join('');
-      } else sel.style.display='none';
+      // 매장은 hmart.html 에서 PIN 으로 입장한 매장 고정 (전환 없음) — 계정이 이 매장에 허용되지 않으면 조회 전용
+      $('dpStoreSel').style.display='none';
       var okStore=user.stores.some(function(s){ return s.code===STORE_CODE; });
-      if(!okStore){ if(user.stores.length) switchStore(user.stores[0].code); else { STORE=''; STORE_CODE=''; subscribeDays(); $('dpStoreName').textContent='매장 미지정'; } }
+      if(!okStore){ user=null; pill.style.display='none'; toast('이 계정은 매장 '+(STORE||'')+' 에 허용되지 않아 조회만 가능합니다','error'); }
     } else {
       pill.style.display='none';
       $('dpStoreSel').style.display='none';
@@ -633,7 +634,6 @@
   }
   function switchStore(code){
     var st=storeByCode(code); if(!st){ renderAll(); return; }
-    if(user && !user.master && !user.stores.some(function(x){ return x.code===st.code; })){ denyPopup('이 계정에 허용되지 않은 매장입니다.'); renderAll(); return; }
     if(st.code===STORE_CODE){ renderAll(); return; }
     STORE_CODE=st.code; STORE=st.name||st.code;
     try{ sessionStorage.setItem('hmartStore', JSON.stringify({code:STORE_CODE,name:STORE})); }catch(e){}   // hmart.html 과 매장 동기화
@@ -643,7 +643,9 @@
     subscribeDays();
   }
   /* 상위(hmart.html)에서 매장을 바꾸면 따라감 */
-  window.addEventListener('message',function(e){ var d=e.data||{}; if(d.hmart==='store'&&d.code){ if(ALL_STORES.length) switchStore(d.code); else __pendingStore=d.code; } });
+  window.addEventListener('message',function(e){ var d=e.data||{};
+    if(d.hmart==='store'&&d.code){ if(d.user&&d.user.id) window.__dpUser=d.user; if(ALL_STORES.length){ switchStore(d.code); loadAccount().then(applyUser); } else __pendingStore=d.code; }
+    if(d.hmart==='account'){ window.__dpUser=(d.user&&d.user.id)?d.user:null; loadAccount().then(applyUser); } });
   var __pendingStore='';
 
   function byOrder(a,b){ return ((typeof a.order==='number')?a.order:999)-((typeof b.order==='number')?b.order:999) || String(a.name||'').localeCompare(String(b.name||'')); }
@@ -1233,14 +1235,7 @@
     renderAll();
     ready(function(){
       loadConfigs();
-      var auth=window.__dpUser||null; try{ if(!auth) auth=JSON.parse(sessionStorage.getItem('egmmAccessAuth')||'null'); }catch(e){}
-      var id=auth&&auth.id?String(auth.id).toUpperCase():'';
-      Promise.all([
-        loadStores(),
-        id?fns().getDoc(fns().doc(db(),'ACCESS',id)).then(function(sn){ return (sn&&sn.exists&&sn.exists())?(sn.data()||{}):{}; }).catch(function(){ return {}; }):Promise.resolve({}),
-        fns().getDoc(fns().doc(db(),'ACCESS','_RANKS')).then(function(sn){ var d=(sn&&sn.exists&&sn.exists())?(sn.data()||{}):{}; return Array.isArray(d.items)?d.items:[]; }).catch(function(){ return []; })
-      ]).then(function(r){
-        user=buildUser(auth, r[1], r[2]);   // 역할 없음(직급이 ACCOUNT/MANAGER 아님) = 조회 전용
+      Promise.all([ loadStores(), loadAccount() ]).then(function(){
         // 매장: 상위 hmart.html 이 정한 매장(sessionStorage.hmartStore) → 없으면 계정의 첫 매장
         var s=null; try{ s=JSON.parse(sessionStorage.getItem('hmartStore')||'null'); }catch(e){}
         var code=__pendingStore||(s&&s.code)||'';
@@ -1253,6 +1248,17 @@
         applyUser();
       }).catch(function(e){ console.error('[매입일지] 시작 실패', e); toast('서버 접근 실패 — 새로고침 또는 관리자 문의','error'); $('dpStoreName').textContent='매장 미지정'; renderAll(); });
     });
+  }
+  /* 계정(세션 egmmAccessAuth) → user (ACCESS 문서 stores · _RANKS 직급 이름) · 없으면 null = 조회 전용 */
+  function loadAccount(){
+    var auth=window.__dpUser||null;   /* 상위 hmart.html 이 알려 준 계정 우선 */
+    if(!auth){ try{ auth=JSON.parse(sessionStorage.getItem('egmmAccessAuth')||'null'); }catch(e){} }
+    var id=auth&&auth.id?String(auth.id).toUpperCase():'';
+    if(!id){ user=null; return Promise.resolve(); }
+    return Promise.all([
+      fns().getDoc(fns().doc(db(),'ACCESS',id)).then(function(sn){ return (sn&&sn.exists&&sn.exists())?(sn.data()||{}):{}; }).catch(function(){ return {}; }),
+      fns().getDoc(fns().doc(db(),'ACCESS','_RANKS')).then(function(sn){ var d=(sn&&sn.exists&&sn.exists())?(sn.data()||{}):{}; return Array.isArray(d.items)?d.items:[]; }).catch(function(){ return []; })
+    ]).then(function(r){ user=buildUser(auth, r[0], r[1]); });   // 역할 없음(직급이 ACCOUNT/MANAGER 아님) = 조회 전용
   }
   window.__dpStart=function(){ if(window.__dpBooted) return; window.__dpBooted=true; boot(); };
   if(window.__dpUser) window.__dpStart();

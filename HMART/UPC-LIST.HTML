@@ -71,7 +71,13 @@
 <body>
 <script src="../FUNCTION-FIREBASE-EGMM.js"></script>
 <script src="../FUNCTION-ACCESS-GATE.js"></script>
-<script>AccessGate.require({ title:'UPC LIST' }).then(function(u){ window.__vlUser=u; try{ window.__vlStart&&window.__vlStart(); }catch(e){ console.error(e); } });</script>
+<script>
+  /* 입장: hmart.html 에서 매장 PIN 으로 입장한 세션(sessionStorage.hmartGate)이 있으면 통과 · 없으면 ACCESS 계정 로그인 */
+  (function(){ var g=null; try{ g=JSON.parse(sessionStorage.getItem('hmartGate')||'null'); }catch(e){}
+    function go(){ window.__vlUser=true; try{ window.__vlStart&&window.__vlStart(); }catch(e){ console.error(e); } }
+    if(g&&g.code){ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',go,{once:true}); else go(); }
+    else AccessGate.require({ title:'UPC LIST' }).then(go); })();
+</script>
 
 <div class="vl-top">
   <span class="vl-title" id="vlTitle">UPC LIST<small>VIEW ONLY</small></span>
