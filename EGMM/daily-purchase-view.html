@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<!-- EGMM · DAILY PURCHASE VIEW -->
+<!--
+  EGMM/daily-purchase-view.html — EGMM 매장별 매입일지 보기 · DAILY PURCHASE VIEW (Paper & Pine)
+  읽기: hmart(col)/daily-purchase(doc)/{STORE}(subcol)/{YYYY-MM-DD}(doc)
+  부서 관리: app-config/purchase-departments {list:[{id,name}], updatedAt}  ← 매장 daily-purchase.html 부서 선택 목록
+  상단: 매장 / 년 / 월 / 일(전체보기) / 기간(달력 범위선택·파란 바탕) / 검색 · 초기 화면=전체 매장 한번에
+  통계: 도넛(매장별 비중) + 매장 카드별 도넛(부서별)
+-->
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>매입일지 보기 · DAILY PURCHASE VIEW</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fafaf7; --bg-elev: #ffffff; --bg-elev-2: #f3f3ee;
+    --border: #e5e5e0; --border-bright: #c8c8c0;
+    --text: #1a1a1d; --text-dim: #6b6b72; --text-faint: #9a9aa0;
+    --accent-soft: #f0eee5; --accent-warm: #c9a961;
+    --danger: #b04141; --range: #dbe7f7; --range-edge: #3a6fc9;
+    --serif: 'Pretendard', 'Malgun Gothic', system-ui, sans-serif;
+    --mono: 'Pretendard', 'Malgun Gothic', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--mono); -webkit-font-smoothing: antialiased; }
+  button, input, select { font-family: var(--mono); }
+
+  .dv-app { min-height: 100vh; display: flex; flex-direction: column; }
+
+  /* ===== 상단 필터 바 ===== */
+  .dv-top { position: sticky; top: 0; z-index: 40; display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+    padding: 12px 20px; background: var(--bg-elev); border-bottom: 1px solid var(--border); box-shadow: 0 2px 14px rgba(26,26,29,.05); }
+  .dv-title { font-family: var(--serif); font-weight: 900; font-size: 20px; letter-spacing: -.01em; margin-right: 10px; white-space: nowrap; }
+  .dv-title .dot { color: var(--accent-warm); }
+  .dv-title small { font-size: 11px; font-weight: 800; letter-spacing: .16em; color: var(--text-faint); margin-left: 8px; }
+  .dv-sel { border: 1.5px solid var(--border); border-radius: 10px; padding: 8px 30px 8px 12px; font-size: 13px; font-weight: 800;
+    background: var(--bg-elev); color: var(--text); cursor: pointer; -webkit-appearance: none; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%239a9aa0' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center; }
+  .dv-btn { border: 1.5px solid var(--border); background: var(--bg-elev); color: var(--text-dim); border-radius: 10px;
+    padding: 8px 14px; font-size: 13px; font-weight: 800; cursor: pointer; transition: all .15s; white-space: nowrap; }
+  .dv-btn:hover { border-color: var(--accent-warm); color: var(--text); }
+  .dv-btn.primary { background: var(--text); border-color: var(--text); color: #fff; }
+  .dv-btn.primary:hover { background: #000; }
+  .dv-btn.range-on { background: var(--range); border-color: var(--range-edge); color: #2a52a0; }
+  .dv-top .sp { flex: 1; }
+
+  /* ===== 본문 ===== */
+  .dv-body { flex: 1; padding: 16px 20px 30px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* 요약 밴드 + 메인 도넛 */
+  .dv-hero { display: grid; grid-template-columns: 300px 1fr; gap: 14px; }
+  .dv-card { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px;
+    box-shadow: 0 1px 0 #fff inset, 0 10px 30px rgba(26,26,29,.05); }
+  .dv-card-h { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .dv-card-tick { width: 4px; height: 14px; border-radius: 2px; background: var(--accent-warm); }
+  .dv-card-t { font-size: 12px; font-weight: 800; letter-spacing: .08em; }
+  .dv-card-t small { color: var(--text-faint); font-weight: 700; letter-spacing: .04em; margin-left: 4px; }
+  .dv-donut-wrap { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  .dv-donut-box { position: relative; width: 200px; height: 200px; flex: 0 0 auto; }
+  .dv-donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; pointer-events: none; }
+  .dv-donut-center .k { font-size: 10px; font-weight: 800; letter-spacing: .14em; color: var(--text-faint); }
+  .dv-donut-center .v { font-family: var(--serif); font-size: 21px; font-weight: 900; font-variant-numeric: tabular-nums; }
+  .dv-legend { display: flex; flex-direction: column; gap: 5px; min-width: 0; flex: 1; max-width: 340px; }
+  .dv-lg-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 800; }
+  .dv-lg-dot { width: 10px; height: 10px; border-radius: 3px; flex: 0 0 auto; }
+  .dv-lg-row .nm { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dv-lg-row .amt { margin-left: auto; color: var(--text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .dv-lg-row .pct { color: var(--text-faint); font-size: 11px; width: 44px; text-align: right; }
+  .dv-sum-col { display: flex; flex-direction: column; gap: 10px; }
+  .dv-sum-chip { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 14px; padding: 13px 16px;
+    box-shadow: 0 1px 0 #fff inset, 0 10px 30px rgba(26,26,29,.05); }
+  .dv-sum-chip .k { font-size: 10px; font-weight: 800; letter-spacing: .13em; color: var(--text-faint); }
+  .dv-sum-chip .v { font-family: var(--serif); font-size: 24px; font-weight: 900; margin-top: 3px; font-variant-numeric: tabular-nums; }
+  .dv-sum-chip .s { font-size: 11.5px; font-weight: 700; color: var(--text-dim); margin-top: 2px; }
+  .dv-scope { font-size: 12.5px; font-weight: 800; color: var(--text-dim); }
+  .dv-scope b { color: var(--text); }
+
+  /* 매장 카드 그리드 */
+  .dv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+  .dv-store { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px;
+    box-shadow: 0 1px 0 #fff inset, 0 10px 30px rgba(26,26,29,.05); display: flex; flex-direction: column; gap: 10px;
+    transition: border-color .15s, box-shadow .15s; }
+  .dv-store:hover { border-color: var(--border-bright); box-shadow: 0 14px 36px rgba(26,26,29,.09); }
+  .dv-store-head { display: flex; align-items: center; gap: 8px; }
+  .dv-store-name { font-family: var(--serif); font-weight: 900; font-size: 16px; letter-spacing: .01em; }
+  .dv-badge { font-size: 10px; font-weight: 800; letter-spacing: .05em; padding: 3px 9px; border-radius: 999px; margin-left: auto; }
+  .dv-badge.progress { background: #fff3cd; color: #8a6d00; }
+  .dv-badge.done { background: #fdecec; color: #b3322e; }
+  .dv-badge.none { background: var(--bg-elev-2); color: var(--text-faint); }
+  .dv-store-mid { display: flex; align-items: center; gap: 12px; }
+  .dv-mini-donut { position: relative; width: 92px; height: 92px; flex: 0 0 auto; }
+  .dv-store-nums { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .dv-store-amt { font-family: var(--serif); font-size: 20px; font-weight: 900; font-variant-numeric: tabular-nums; }
+  .dv-store-sub { font-size: 11.5px; font-weight: 700; color: var(--text-dim); }
+  .dv-store-depts { display: flex; flex-direction: column; gap: 3px; max-height: 88px; overflow: hidden; }
+  .dv-store-depts .dv-lg-row { font-size: 11.5px; }
+  .dv-store-foot { display: flex; gap: 8px; margin-top: 2px; }
+  .dv-detail-btn { flex: 1; border: 1px solid var(--border); background: var(--bg); color: var(--text-dim); border-radius: 9px;
+    padding: 7px 0; font-size: 12px; font-weight: 800; cursor: pointer; transition: all .15s; }
+  .dv-detail-btn:hover { border-color: var(--accent-warm); color: var(--text); }
+  .dv-none { font-size: 12px; font-weight: 700; color: var(--text-faint); padding: 8px 0; }
+  .dv-empty-all { text-align: center; color: var(--text-faint); font-weight: 700; padding: 40px 0; }
+
+  /* ===== 팝업 공통 ===== */
+  .dv-ov { position: fixed; inset: 0; background: rgba(26,26,29,.42); backdrop-filter: blur(6px);
+    display: none; align-items: center; justify-content: center; z-index: 1200; padding: 20px; animation: dvFade .16s ease; }
+  .dv-ov.show { display: flex; }
+  @keyframes dvFade { from { opacity: 0; } to { opacity: 1; } }
+  .dv-modal { background: var(--bg-elev); border: 1px solid var(--border-bright); border-radius: 18px;
+    width: 96%; max-width: 640px; max-height: 92vh; display: flex; flex-direction: column; overflow: hidden;
+    box-shadow: 0 30px 80px rgba(26,26,29,.3); animation: dvRise .3s cubic-bezier(.2,.8,.2,1); }
+  @keyframes dvRise { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
+  .dv-mhead { position: relative; display: flex; align-items: center; gap: 12px; padding: 16px 20px;
+    background: linear-gradient(135deg, #1f1d1a, #34302a); color: #fff; flex: 0 0 auto; }
+  .dv-mhead::after { content: ""; position: absolute; left: 20px; right: 20px; bottom: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent-warm) 18%, var(--accent-warm) 82%, transparent); opacity: .7; }
+  .dv-mtick { width: 6px; height: 22px; border-radius: 2px; background: var(--accent-warm); flex: 0 0 auto; }
+  .dv-mhead-tx { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .dv-meyebrow { font-size: 10px; font-weight: 800; letter-spacing: .22em; text-transform: uppercase; color: var(--accent-warm); }
+  .dv-mtitle { font-family: var(--serif); font-size: 17px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dv-mx { margin-left: auto; border: 1px solid rgba(255,255,255,.22); background: rgba(255,255,255,.06); width: 30px; height: 30px;
+    border-radius: 9px; font-size: 13px; cursor: pointer; color: #fff; opacity: .9; display: flex; align-items: center; justify-content: center; transition: all .15s; }
+  .dv-mx:hover { opacity: 1; background: rgba(255,255,255,.14); }
+  .dv-mbody { padding: 18px 20px 20px; overflow: auto; background: #fbfaf7; }
+  .dv-mbody::-webkit-scrollbar { width: 10px; }
+  .dv-mbody::-webkit-scrollbar-thumb { background: #dcdcd4; border-radius: 8px; border: 3px solid #fbfaf7; }
+  .dv-macts { display: flex; gap: 10px; margin-top: 16px; }
+  .dv-mbtn { flex: 1; border: 1.5px solid transparent; border-radius: 11px; padding: 11px; font-size: 13.5px; font-weight: 800; cursor: pointer; transition: all .15s; }
+  .dv-mbtn.primary { background: var(--text); color: #fff; }
+  .dv-mbtn.primary:hover { background: #000; }
+  .dv-mbtn.ghost { background: transparent; color: var(--text-dim); border-color: var(--border); }
+  .dv-mbtn.ghost:hover { border-color: var(--border-bright); color: var(--text); background: var(--bg-elev-2); }
+  .dv-mbtn.danger { background: var(--danger); color: #fff; }
+  .dv-mbtn.danger:hover { background: #983434; }
+  .dv-confirm-text { font-size: 14.5px; font-weight: 700; text-align: center; line-height: 1.6; padding: 6px 0 2px; }
+  .dv-confirm-text small { display: block; font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+
+  /* 상세 팝업 테이블 */
+  .dv-det-modal { max-width: 880px; }
+  .dv-day-blk { margin-bottom: 16px; }
+  .dv-day-head { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
+  .dv-day-date { font-size: 13.5px; font-weight: 900; letter-spacing: .02em; }
+  .dv-day-total { margin-left: auto; font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--text-dim); }
+  .dv-det-tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; background: var(--bg-elev); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .dv-det-tbl th { text-align: left; font-size: 10px; font-weight: 800; letter-spacing: .08em; color: var(--text-faint);
+    padding: 6px 10px; background: var(--bg-elev-2); border-bottom: 1px solid var(--border); }
+  .dv-det-tbl th.num, .dv-det-tbl td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .dv-det-tbl td { padding: 6px 10px; border-bottom: 1px solid var(--border); font-weight: 700; }
+  .dv-det-tbl tr:last-child td { border-bottom: none; }
+  .dv-det-tbl tr.r-manual td { background: #fbeceb; }
+  .dv-manual-mark { display: inline-block; font-size: 9.5px; font-weight: 800; color: #b3322e; background: #fbeceb; border-radius: 999px; padding: 1px 7px; margin-left: 6px; }
+  .dv-det-empty { text-align: center; color: var(--text-faint); font-weight: 700; padding: 20px 0; font-size: 13px; }
+
+  /* 부서 관리 팝업 */
+  .dv-dept-row { display: flex; align-items: center; gap: 8px; background: var(--bg-elev); border: 1px solid var(--border);
+    border-radius: 10px; padding: 9px 12px; margin-bottom: 7px; }
+  .dv-dept-row .nm { font-size: 14px; font-weight: 800; }
+  .dv-dept-x { margin-left: auto; border: 1px solid #e3a3a3; background: #fff; color: var(--danger); border-radius: 8px;
+    width: 28px; height: 28px; font-size: 12px; font-weight: 800; cursor: pointer; transition: all .12s; }
+  .dv-dept-x:hover { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .dv-dept-add { display: flex; gap: 8px; margin-top: 12px; }
+  .dv-dept-add input { flex: 1; border: 1.5px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 14px; font-weight: 700; background: #fff; }
+  .dv-dept-add input:focus { outline: none; border-color: var(--accent-warm); box-shadow: 0 0 0 3px rgba(201,169,97,.16); }
+  .dv-dept-add button { border: none; background: var(--text); color: #fff; border-radius: 10px; padding: 10px 18px; font-size: 13px; font-weight: 800; cursor: pointer; }
+  .dv-dept-add button:hover { background: #000; }
+  .dv-dept-empty { text-align: center; color: var(--text-faint); font-weight: 700; padding: 14px 0; font-size: 13px; }
+
+  /* 기간 달력 팝업 */
+  .dv-cal-modal { max-width: 380px; }
+  .dv-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .dv-cal-ym { font-family: var(--serif); font-size: 16px; font-weight: 900; }
+  .dv-cal-nav { display: flex; gap: 5px; }
+  .dv-cal-nav button { border: 1px solid var(--border); background: var(--bg); color: var(--text-dim); border-radius: 8px;
+    width: 28px; height: 28px; font-size: 13px; font-weight: 800; cursor: pointer; }
+  .dv-cal-nav button:hover { border-color: var(--accent-warm); color: var(--text); }
+  .dv-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+  .dv-cal-dow { text-align: center; font-size: 10px; font-weight: 800; color: var(--text-faint); padding: 3px 0 5px; }
+  .dv-cal-dow.sun { color: #c56a63; }
+  .dv-cal-cell { aspect-ratio: 1/.9; border: 1px solid transparent; border-radius: 8px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 800; color: var(--text-dim);
+    transition: background .12s, border-color .12s; }
+  .dv-cal-cell:hover { border-color: var(--border-bright); background: var(--bg-elev-2); }
+  .dv-cal-cell.blank { cursor: default; }
+  .dv-cal-cell.blank:hover { border-color: transparent; background: transparent; }
+  .dv-cal-cell.in-range { background: var(--range); color: #2a52a0; }
+  .dv-cal-cell.edge { background: var(--range-edge); color: #fff; }
+  .dv-range-note { text-align: center; font-size: 12.5px; font-weight: 800; color: var(--text-dim); margin: 10px 0 2px; min-height: 17px; }
+  .dv-range-note b { color: #2a52a0; }
+
+  /* 토스트 */
+  .dv-toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(20px); background: #1a1a1d; color: #fff;
+    padding: 11px 20px; border-radius: 12px; font-size: 13px; font-weight: 700; opacity: 0; pointer-events: none; transition: all .25s; z-index: 5000; box-shadow: 0 10px 30px rgba(0,0,0,.2); }
+  .dv-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .dv-toast.success { background: #2a8a4a; } .dv-toast.error { background: #c0392b; }
+
+  @media (max-width: 900px) { .dv-hero { grid-template-columns: 1fr; } }
+</style>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  const firebaseConfig = {
+    apiKey: "AIzaSyC6t78BS99LX3261cRmApBG8AcZ8HPVxr0",
+    authDomain: "the-shawn.firebaseapp.com",
+    projectId: "the-shawn",
+    storageBucket: "the-shawn.firebasestorage.app",
+    messagingSenderId: "519898602513",
+    appId: "1:519898602513:web:0f35e3dc9c29dce21665b0",
+    measurementId: "G-NKGYGC63JN"
+  };
+  const app = initializeApp(firebaseConfig);
+  window.firebaseDb = getFirestore(app);
+  window.firebaseFns = { doc, getDoc, setDoc, deleteDoc, collection, onSnapshot };
+  window.dispatchEvent(new Event('dv-firebase-ready'));
+</script>
+</head>
+<body>
+
+<div class="dv-app">
+  <!-- 상단 필터 -->
+  <header class="dv-top">
+    <span class="dv-title">매입일지 보기<span class="dot">.</span><small>DAILY PURCHASE VIEW</small></span>
+    <select class="dv-sel" id="dvStore"></select>
+    <select class="dv-sel" id="dvYear"></select>
+    <select class="dv-sel" id="dvMonth"></select>
+    <select class="dv-sel" id="dvDay"></select>
+    <button class="dv-btn" id="dvRangeBtn" type="button">📅 기간 <span style="opacity:.6">PERIOD</span></button>
+    <button class="dv-btn primary" id="dvSearchBtn" type="button">검색 <span style="opacity:.7">SEARCH</span></button>
+    <span class="sp"></span>
+    <button class="dv-btn" id="dvDeptMgrBtn" type="button">부서 관리 <span style="opacity:.6">DEPARTMENTS</span></button>
+  </header>
+
+  <div class="dv-body">
+    <!-- 요약 + 메인 도넛 -->
+    <div class="dv-hero">
+      <div class="dv-sum-col">
+        <div class="dv-sum-chip"><div class="k">조회 범위 · SCOPE</div><div class="s dv-scope" id="dvScopeText">—</div></div>
+        <div class="dv-sum-chip"><div class="k">매입 총액 · TOTAL</div><div class="v" id="dvGrand">$0.00</div><div class="s" id="dvGrandSub">—</div></div>
+        <div class="dv-sum-chip"><div class="k">기록 매장 · STORES</div><div class="v" id="dvStoreCnt">0</div><div class="s" id="dvStoreCntSub">—</div></div>
+      </div>
+      <div class="dv-card">
+        <div class="dv-card-h"><span class="dv-card-tick"></span><span class="dv-card-t">매장별 매입 비중<small>SHARE BY STORE</small></span></div>
+        <div class="dv-donut-wrap">
+          <div class="dv-donut-box" id="dvMainDonut"></div>
+          <div class="dv-legend" id="dvMainLegend"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 매장 카드 그리드 -->
+    <div class="dv-grid" id="dvGrid"></div>
+    <div class="dv-empty-all" id="dvEmptyAll" style="display:none">조회 범위에 매입 기록이 없습니다 · No purchase records in this scope</div>
+  </div>
+</div>
+
+<!-- 기간 선택 달력 팝업 -->
+<div class="dv-ov" id="dvCalOv"><div class="dv-modal dv-cal-modal">
+  <div class="dv-mhead"><span class="dv-mtick"></span>
+    <span class="dv-mhead-tx"><span class="dv-meyebrow">PERIOD</span><span class="dv-mtitle">기간 선택 · SELECT PERIOD</span></span>
+    <button class="dv-mx" id="dvCalX" type="button">✕</button>
+  </div>
+  <div class="dv-mbody">
+    <div class="dv-cal-head">
+      <span class="dv-cal-ym" id="dvCalYM">—</span>
+      <div class="dv-cal-nav"><button id="dvCalPrev" type="button">‹</button><button id="dvCalNext" type="button">›</button></div>
+    </div>
+    <div class="dv-cal-grid" id="dvCalGrid"></div>
+    <div class="dv-range-note" id="dvRangeNote">시작일을 누르고, 끝나는 일을 누르세요</div>
+    <div class="dv-macts">
+      <button class="dv-mbtn ghost" id="dvRangeClear" type="button">초기화 · CLEAR</button>
+      <button class="dv-mbtn primary" id="dvRangeApply" type="button">검색 · SEARCH</button>
+    </div>
+  </div>
+</div></div>
+
+<!-- 매장 상세 팝업 -->
+<div class="dv-ov" id="dvDetOv"><div class="dv-modal dv-det-modal">
+  <div class="dv-mhead"><span class="dv-mtick"></span>
+    <span class="dv-mhead-tx"><span class="dv-meyebrow">STORE DETAIL</span><span class="dv-mtitle" id="dvDetTitle">—</span></span>
+    <button class="dv-mx" id="dvDetX" type="button">✕</button>
+  </div>
+  <div class="dv-mbody" id="dvDetBody"></div>
+</div></div>
+
+<!-- 부서 관리 팝업 -->
+<div class="dv-ov" id="dvDeptOv"><div class="dv-modal" style="max-width:440px">
+  <div class="dv-mhead"><span class="dv-mtick"></span>
+    <span class="dv-mhead-tx"><span class="dv-meyebrow">DEPARTMENTS</span><span class="dv-mtitle">부서 관리 · 등록/삭제</span></span>
+    <button class="dv-mx" id="dvDeptX" type="button">✕</button>
+  </div>
+  <div class="dv-mbody">
+    <div id="dvDeptList"></div>
+    <div class="dv-dept-add">
+      <input id="dvDeptNew" maxlength="30" placeholder="새 부서 이름 · New department" autocomplete="off">
+      <button id="dvDeptAdd" type="button">＋ 추가 ADD</button>
+    </div>
+  </div>
+</div></div>
+
+<!-- 확인 팝업 -->
+<div class="dv-ov" id="dvConfirmOv"><div class="dv-modal" style="max-width:380px">
+  <div class="dv-mhead"><span class="dv-mtick"></span>
+    <span class="dv-mhead-tx"><span class="dv-meyebrow">CONFIRM</span><span class="dv-mtitle" id="dvConfirmTitle">확인</span></span>
+  </div>
+  <div class="dv-mbody">
+    <div class="dv-confirm-text" id="dvConfirmText"></div>
+    <div class="dv-macts">
+      <button class="dv-mbtn ghost" id="dvConfirmCancel" type="button">취소 · CANCEL</button>
+      <button class="dv-mbtn danger" id="dvConfirmOk" type="button">확인 · OK</button>
+    </div>
+  </div>
+</div></div>
+
+<div class="dv-toast" id="dvToast"></div>
+
+<script>
+(function(){
+  'use strict';
+  var $=function(id){ return document.getElementById(id); };
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];}); }
+  function db(){ return window.firebaseDb; }
+  function fns(){ return window.firebaseFns; }
+  function ready(cb){ if(window.firebaseFns&&window.firebaseDb) return cb(); window.addEventListener('dv-firebase-ready', cb, {once:true}); }
+
+  var DEFAULT_STORES=['TACOMA','FEDERALWAY','BELLEVUE','BALLARD','REDMOND','LYNNWOOD','G-MART','MELLOW WAY','DISTRICT-H','M2M','UNIVERSITY'];
+  var ROOT_COL='hmart', ROOT_DOC='daily-purchase', DEPT_DOC='purchase-departments';
+  var PALETTE=['#c9a961','#2f5d3a','#4a6fa5','#8a5a44','#b04141','#6b8e23','#7a5fa0','#c07d3a','#3f7d7a','#9c6b8f','#5a5a5a','#a3873a'];
+
+  var ALL_STORES=DEFAULT_STORES.slice();
+  var data={};            // store -> { date -> dayDoc }
+  var unsubs=[];
+  var depts=[], deptRaw=[];
+  var period=null;        // {start:'YYYY-MM-DD', end:'YYYY-MM-DD'} — 적용된 기간
+  var pickStart=null, pickEnd=null;   // 달력에서 고르는 중
+  var calY, calM;
+
+  function ymdOf(d){ return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
+  function fmt$(n){ n=+n||0; var neg=n<0; n=Math.abs(n);
+    return (neg?'-$':'$')+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  var toastTimer;
+  function toast(msg,type){ var t=$('dvToast'); clearTimeout(toastTimer); t.textContent=msg; t.className='dv-toast show '+(type||''); toastTimer=setTimeout(function(){ t.className='dv-toast '+(type||''); },2400); }
+  var confirmCb=null;
+  function uiConfirm(title,ko,en,okLabel,cb){
+    $('dvConfirmTitle').textContent=title||'확인';
+    $('dvConfirmText').innerHTML=esc(ko)+(en?'<small>'+esc(en)+'</small>':'');
+    $('dvConfirmOk').textContent=okLabel||'확인 · OK';
+    confirmCb=cb; $('dvConfirmOv').classList.add('show');
+  }
+  $('dvConfirmOk').onclick=function(){ $('dvConfirmOv').classList.remove('show'); var cb=confirmCb; confirmCb=null; if(cb) cb(); };
+  $('dvConfirmCancel').onclick=function(){ $('dvConfirmOv').classList.remove('show'); confirmCb=null; };
+  $('dvConfirmOv').addEventListener('click',function(e){ if(e.target===$('dvConfirmOv')){ $('dvConfirmOv').classList.remove('show'); confirmCb=null; } });
+
+  // ===== 필터 UI =====
+  function fillFilters(){
+    var now=new Date();
+    var st=$('dvStore');
+    st.innerHTML='<option value="">전체 매장 · ALL STORES</option>'+ALL_STORES.map(function(s){ return '<option value="'+esc(s)+'">'+esc(s)+'</option>'; }).join('');
+    var ys=$('dvYear'), y=now.getFullYear(), h='';
+    for(var yy=y-4; yy<=y+1; yy++) h+='<option value="'+yy+'"'+(yy===y?' selected':'')+'>'+yy+'년 · '+yy+'</option>';
+    ys.innerHTML=h;
+    var ms=$('dvMonth'), m=now.getMonth()+1; h='';
+    for(var mm=1; mm<=12; mm++) h+='<option value="'+mm+'"'+(mm===m?' selected':'')+'>'+mm+'월 · '+('0'+mm).slice(-2)+'</option>';
+    ms.innerHTML=h;
+    fillDays();
+  }
+  function fillDays(){
+    var y=+$('dvYear').value, m=+$('dvMonth').value;
+    var days=new Date(y,m,0).getDate();
+    var cur=$('dvDay').value;
+    var h='<option value="">전체보기 · ALL DAYS</option>';
+    for(var d=1; d<=days; d++) h+='<option value="'+d+'">'+d+'일 · '+('0'+d).slice(-2)+'</option>';
+    $('dvDay').innerHTML=h;
+    if(cur && +cur<=days) $('dvDay').value=cur;
+  }
+  $('dvYear').onchange=fillDays;
+  $('dvMonth').onchange=fillDays;
+  $('dvSearchBtn').onclick=function(){ period=null; pickStart=pickEnd=null; updateRangeBtn(); render(); };
+
+  // ===== 기간 달력 =====
+  function updateRangeBtn(){
+    var b=$('dvRangeBtn');
+    if(period){ b.classList.add('range-on'); b.innerHTML='📅 '+period.start+' ~ '+period.end; }
+    else { b.classList.remove('range-on'); b.innerHTML='📅 기간 <span style="opacity:.6">PERIOD</span>'; }
+  }
+  function renderRangeCal(){
+    $('dvCalYM').textContent=calY+'.'+('0'+calM).slice(-2);
+    var first=new Date(calY,calM-1,1), startDow=first.getDay(), daysIn=new Date(calY,calM,0).getDate();
+    var html='';
+    ['일','월','화','수','목','금','토'].forEach(function(d,i){ html+='<div class="dv-cal-dow'+(i===0?' sun':'')+'">'+d+'</div>'; });
+    for(var b=0;b<startDow;b++) html+='<div class="dv-cal-cell blank"></div>';
+    var pfx=calY+'-'+('0'+calM).slice(-2)+'-';
+    for(var d=1;d<=daysIn;d++){
+      var ds=pfx+('0'+d).slice(-2), cls=[];
+      if(pickStart&&pickEnd){ if(ds>=pickStart&&ds<=pickEnd) cls.push('in-range'); if(ds===pickStart||ds===pickEnd) cls.push('edge'); }
+      else if(pickStart&&ds===pickStart) cls.push('edge');
+      html+='<div class="dv-cal-cell '+cls.join(' ')+'" data-date="'+ds+'">'+d+'</div>';
+    }
+    $('dvCalGrid').innerHTML=html;
+    Array.prototype.forEach.call($('dvCalGrid').querySelectorAll('.dv-cal-cell[data-date]'),function(c){
+      c.onclick=function(){
+        var ds=c.getAttribute('data-date');
+        if(!pickStart || (pickStart&&pickEnd)){ pickStart=ds; pickEnd=null; }
+        else { if(ds<pickStart){ pickEnd=pickStart; pickStart=ds; } else pickEnd=ds; }
+        renderRangeCal(); renderRangeNote();
+      };
+    });
+    renderRangeNote();
+  }
+  function renderRangeNote(){
+    var n=$('dvRangeNote');
+    if(pickStart&&pickEnd) n.innerHTML='<b>'+pickStart+'</b> ~ <b>'+pickEnd+'</b>';
+    else if(pickStart) n.innerHTML='시작 <b>'+pickStart+'</b> — 끝나는 일을 누르세요';
+    else n.textContent='시작일을 누르고, 끝나는 일을 누르세요';
+  }
+  $('dvRangeBtn').onclick=function(){
+    var now=new Date();
+    if(period){ var p=period.start.split('-'); calY=+p[0]; calM=+p[1]; pickStart=period.start; pickEnd=period.end; }
+    else if(!calY){ calY=now.getFullYear(); calM=now.getMonth()+1; }
+    renderRangeCal(); $('dvCalOv').classList.add('show');
+  };
+  $('dvCalPrev').onclick=function(){ calM--; if(calM<1){ calM=12; calY--; } renderRangeCal(); };
+  $('dvCalNext').onclick=function(){ calM++; if(calM>12){ calM=1; calY++; } renderRangeCal(); };
+  $('dvCalX').onclick=function(){ $('dvCalOv').classList.remove('show'); };
+  $('dvCalOv').addEventListener('click',function(e){ if(e.target===$('dvCalOv')) $('dvCalOv').classList.remove('show'); });
+  $('dvRangeClear').onclick=function(){ pickStart=pickEnd=null; period=null; updateRangeBtn(); renderRangeCal(); render(); };
+  $('dvRangeApply').onclick=function(){
+    if(!pickStart){ toast('시작일을 선택하세요 · Pick a start day','error'); return; }
+    period={ start:pickStart, end:pickEnd||pickStart };
+    updateRangeBtn(); $('dvCalOv').classList.remove('show'); render();
+  };
+
+  // ===== 조회 범위 =====
+  function scopeStores(){ var s=$('dvStore').value; return s?[s]:ALL_STORES.slice(); }
+  function inScope(dateStr){
+    if(period) return dateStr>=period.start && dateStr<=period.end;
+    var y=+$('dvYear').value, m=+$('dvMonth').value, d=$('dvDay').value;
+    var pfx=y+'-'+('0'+m).slice(-2);
+    if(dateStr.slice(0,7)!==pfx) return false;
+    if(d) return +dateStr.slice(-2)===+d;
+    return true;
+  }
+  function scopeLabel(){
+    var s=$('dvStore').value||'전체 매장';
+    if(period) return '<b>'+esc(s)+'</b> · <b>'+period.start+' ~ '+period.end+'</b>';
+    var y=$('dvYear').value, m=$('dvMonth').value, d=$('dvDay').value;
+    return '<b>'+esc(s)+'</b> · <b>'+y+'년 '+m+'월'+(d?(' '+d+'일'):' 전체')+'</b>';
+  }
+
+  // ===== 데이터 구독 =====
+  function subscribeAll(){
+    unsubs.forEach(function(u){ try{u();}catch(e){} }); unsubs=[]; data={};
+    ALL_STORES.forEach(function(store){
+      data[store]={};
+      var u=fns().onSnapshot(fns().collection(db(), ROOT_COL, ROOT_DOC, store), function(snap){
+        var m={}; snap.forEach(function(ds){ var d=ds.data()||{}; d.__id=ds.id; m[ds.id]=d; });
+        data[store]=m; render();
+      }, function(err){ console.error('[매입일지 구독 오류] '+store, err&&err.message?err.message:err); });
+      unsubs.push(u);
+    });
+  }
+
+  function rowsOf(store, date){ var d=(data[store]||{})[date]; return (d&&Array.isArray(d.rows))?d.rows:[]; }
+  function statusOf(store, date){ var d=(data[store]||{})[date]; if(!d) return 'none'; return d.status==='done'?'done':'progress'; }
+  function scopeDates(store){ return Object.keys(data[store]||{}).filter(inScope).sort(); }
+  function storeAgg(store){
+    var dates=scopeDates(store); var total=0, count=0, byDept={};
+    dates.forEach(function(dt){ rowsOf(store,dt).forEach(function(r){ var a=+r.amount||0; total+=a; count++;
+      var k=r.dept||'(부서없음)'; byDept[k]=(byDept[k]||0)+a; }); });
+    return { dates:dates, total:total, count:count, byDept:byDept };
+  }
+
+  // ===== 도넛 SVG =====
+  function donutSvg(segs, size, thick){
+    var total=segs.reduce(function(a,s){return a+s.value;},0);
+    var r=(size-thick)/2, c=2*Math.PI*r, cx=size/2, cy=size/2;
+    var html='<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'">';
+    html+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="#efeee8" stroke-width="'+thick+'"/>';
+    if(total>0){
+      var off=0;
+      segs.forEach(function(s){
+        if(s.value<=0) return;
+        var frac=s.value/total, len=frac*c;
+        html+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+s.color+'" stroke-width="'+thick+'"'
+          +' stroke-dasharray="'+len+' '+(c-len)+'" stroke-dashoffset="'+(-off)+'"'
+          +' transform="rotate(-90 '+cx+' '+cy+')" stroke-linecap="butt"><title>'+esc(s.label)+' '+fmt$(s.value)+'</title></circle>';
+        off+=len;
+      });
+    }
+    html+='</svg>';
+    return html;
+  }
+
+  // ===== 렌더 =====
+  function render(){
+    $('dvScopeText').innerHTML=scopeLabel();
+    var stores=scopeStores();
+    var aggs={}, grand=0, grandCnt=0, active=0;
+    stores.forEach(function(s){ var a=storeAgg(s); aggs[s]=a; grand+=a.total; grandCnt+=a.count; if(a.count>0) active++; });
+    $('dvGrand').textContent=fmt$(grand);
+    $('dvGrandSub').textContent=grandCnt+'건 · '+stores.length+'개 매장 조회';
+    $('dvStoreCnt').textContent=active;
+    $('dvStoreCntSub').textContent='기록 있는 매장 · Stores with records';
+
+    // 메인 도넛: 매장별 비중
+    var segs=stores.map(function(s,i){ return { label:s, value:aggs[s].total, color:PALETTE[i%PALETTE.length] }; })
+      .filter(function(x){ return x.value>0; }).sort(function(a,b){ return b.value-a.value; });
+    $('dvMainDonut').innerHTML=donutSvg(segs,200,30)
+      +'<div class="dv-donut-center"><span class="k">TOTAL</span><span class="v">'+fmt$(grand)+'</span></div>';
+    $('dvMainLegend').innerHTML=segs.length? segs.map(function(x){
+      var pct=grand>0?Math.round(x.value/grand*1000)/10:0;
+      return '<div class="dv-lg-row"><span class="dv-lg-dot" style="background:'+x.color+'"></span><span class="nm">'+esc(x.label)+'</span>'
+        +'<span class="amt">'+fmt$(x.value)+'</span><span class="pct">'+pct+'%</span></div>'; }).join('')
+      : '<div class="dv-none">조회 범위에 기록이 없습니다 · No data</div>';
+
+    // 매장 카드
+    var singleDay = period ? (period.start===period.end ? period.start : null)
+                           : ($('dvDay').value ? ($('dvYear').value+'-'+('0'+$('dvMonth').value).slice(-2)+'-'+('0'+(+$('dvDay').value)).slice(-2)) : null);
+    $('dvGrid').innerHTML=stores.map(function(s,i){
+      var a=aggs[s];
+      var badge='';
+      if(singleDay){ var st=statusOf(s, singleDay);
+        badge=st==='done'?'<span class="dv-badge done">완료 F · FINAL</span>'
+          :st==='progress'?'<span class="dv-badge progress">진행중 · OPEN</span>'
+          :'<span class="dv-badge none">기록 없음</span>'; }
+      var dsegs=Object.keys(a.byDept).map(function(k,j){ return {label:k, value:a.byDept[k], color:PALETTE[j%PALETTE.length]}; })
+        .sort(function(x,y){ return y.value-x.value; });
+      var deptRows=dsegs.slice(0,4).map(function(x){
+        return '<div class="dv-lg-row"><span class="dv-lg-dot" style="background:'+x.color+'"></span><span class="nm">'+esc(x.label)+'</span><span class="amt">'+fmt$(x.value)+'</span></div>'; }).join('')
+        +(dsegs.length>4?'<div class="dv-none">외 '+(dsegs.length-4)+'개 부서</div>':'');
+      return '<div class="dv-store">'
+        +'<div class="dv-store-head"><span class="dv-store-name">'+esc(s)+'</span>'+badge+'</div>'
+        +'<div class="dv-store-mid">'
+          +'<div class="dv-mini-donut">'+donutSvg(dsegs,92,15)+'</div>'
+          +'<div class="dv-store-nums"><span class="dv-store-amt">'+fmt$(a.total)+'</span>'
+          +'<span class="dv-store-sub">'+a.count+'건 · '+a.dates.length+'일 기록</span></div>'
+        +'</div>'
+        +(dsegs.length?('<div class="dv-store-depts">'+deptRows+'</div>'):'<div class="dv-none">기록 없음 · No records</div>')
+        +'<div class="dv-store-foot"><button class="dv-detail-btn" data-store="'+esc(s)+'" type="button">상세 보기 · DETAIL</button></div>'
+        +'</div>';
+    }).join('');
+    $('dvEmptyAll').style.display=(grandCnt===0)?'block':'none';
+  }
+
+  // 상세 팝업
+  document.addEventListener('click',function(e){
+    var t=e.target; var s=t.getAttribute&&t.getAttribute('data-store');
+    if(s) openDetail(s);
+  });
+  function openDetail(store){
+    $('dvDetTitle').textContent=store+' · 매입 상세';
+    var dates=scopeDates(store);
+    var html='';
+    if(!dates.length) html='<div class="dv-det-empty">조회 범위에 기록이 없습니다 · No records</div>';
+    dates.forEach(function(dt){
+      var rows=rowsOf(store,dt).slice().sort(function(a,b){ return (a.createdAt||0)-(b.createdAt||0); });
+      var d=(data[store]||{})[dt]||{};
+      var st=statusOf(store,dt);
+      var total=rows.reduce(function(a,r){return a+(+r.amount||0);},0);
+      html+='<div class="dv-day-blk">'
+        +'<div class="dv-day-head"><span class="dv-day-date">'+dt+'</span>'
+        +(st==='done'?'<span class="dv-badge done">완료 F</span>':'<span class="dv-badge progress">진행중</span>')
+        +(d.recorder?'<span class="dv-store-sub">담당 '+esc(d.recorder.name||'')+'</span>':'')
+        +(d.manager?'<span class="dv-store-sub">결재 '+esc(d.manager.name||'')+'</span>':'')
+        +'<span class="dv-day-total">'+fmt$(total)+'</span></div>'
+        +(rows.length? '<table class="dv-det-tbl"><tr><th>업체 VENDOR</th><th>인보이스 INVOICE</th><th class="num">금액 AMOUNT</th><th>부서 DEPT</th><th>비고 MEMO</th></tr>'
+          +rows.map(function(r){ return '<tr class="'+(r.manual?'r-manual':'')+'"><td>'+esc(r.vendor)+(r.manual?'<span class="dv-manual-mark">수동</span>':'')+'</td>'
+            +'<td>'+esc(r.invoice)+'</td><td class="num">'+fmt$(r.amount)+'</td><td>'+esc(r.dept)+'</td><td>'+esc(r.memo||'')+'</td></tr>'; }).join('')
+          +'</table>' : '<div class="dv-det-empty">내역 없음</div>')
+        +'</div>';
+    });
+    $('dvDetBody').innerHTML=html;
+    $('dvDetOv').classList.add('show');
+  }
+  $('dvDetX').onclick=function(){ $('dvDetOv').classList.remove('show'); };
+  $('dvDetOv').addEventListener('click',function(e){ if(e.target===$('dvDetOv')) $('dvDetOv').classList.remove('show'); });
+
+  // ===== 부서 관리 (app-config/purchase-departments) =====
+  function normDept(x){ return { id:(x&&x.id)||('d_'+Date.now()+'_'+Math.random().toString(36).slice(2,7)), name:String((x&&x.name)||'').trim() }; }
+  function watchDepts(){
+    fns().onSnapshot(fns().doc(db(),'app-config',DEPT_DOC), function(snap){
+      var d=(snap&&snap.exists&&snap.exists())?(snap.data()||{}):{};
+      deptRaw=(Array.isArray(d.list)?d.list:[]).map(normDept).filter(function(x){return x.name;});
+      depts=deptRaw.map(function(x){return x.name;});
+      renderDeptList();
+    }, function(){});
+  }
+  async function saveDepts(){
+    try{ await fns().setDoc(fns().doc(db(),'app-config',DEPT_DOC), { list:deptRaw, updatedAt:Date.now() }, { merge:true }); return true; }
+    catch(e){ toast('저장 실패 — 네트워크/권한 확인','error'); return false; }
+  }
+  function renderDeptList(){
+    var box=$('dvDeptList'); if(!box) return;
+    box.innerHTML=deptRaw.length? deptRaw.map(function(d){
+      return '<div class="dv-dept-row"><span class="nm">'+esc(d.name)+'</span>'
+        +'<button class="dv-dept-x" data-dept="'+esc(d.id)+'" type="button" title="부서 삭제">✕</button></div>'; }).join('')
+      : '<div class="dv-dept-empty">등록된 부서가 없습니다 · No departments</div>';
+    Array.prototype.forEach.call(box.querySelectorAll('.dv-dept-x'),function(b){
+      b.onclick=function(){
+        var id=b.getAttribute('data-dept');
+        var d=deptRaw.filter(function(x){return x.id===id;})[0]; if(!d) return;
+        uiConfirm('부서 삭제','['+d.name+'] 부서를 삭제하시겠습니까?\n매장 입력 화면의 부서 선택에서 제거됩니다.','Delete this department?','삭제 · DELETE',function(){
+          deptRaw=deptRaw.filter(function(x){return x.id!==id;});
+          saveDepts().then(function(ok){ if(ok) toast('부서 삭제됨 · Deleted','success'); });
+        });
+      };
+    });
+  }
+  $('dvDeptMgrBtn').onclick=function(){ renderDeptList(); $('dvDeptOv').classList.add('show'); setTimeout(function(){ $('dvDeptNew').focus(); },80); };
+  $('dvDeptX').onclick=function(){ $('dvDeptOv').classList.remove('show'); };
+  $('dvDeptOv').addEventListener('click',function(e){ if(e.target===$('dvDeptOv')) $('dvDeptOv').classList.remove('show'); });
+  function addDept(){
+    var inp=$('dvDeptNew'); var name=String(inp.value||'').trim();
+    if(!name){ toast('부서 이름을 입력하세요 · Enter a name','error'); inp.focus(); return; }
+    var dup=deptRaw.some(function(x){ return x.name.toUpperCase()===name.toUpperCase(); });
+    if(dup){ toast('이미 등록된 부서입니다 · Already registered','error'); inp.select(); return; }
+    deptRaw=deptRaw.concat([normDept({name:name})]);
+    saveDepts().then(function(ok){ if(ok){ inp.value=''; inp.focus(); toast('부서 추가됨 · Added','success'); } });
+  }
+  $('dvDeptAdd').onclick=addDept;
+  $('dvDeptNew').addEventListener('keydown',function(e){ if(e.key==='Enter'&&!e.isComposing) addDept(); });
+
+  // ===== 시작 =====
+  function boot(){
+    fillFilters();
+    updateRangeBtn();
+    ready(function(){
+      fns().getDoc(fns().doc(db(),'app-config','stores')).then(function(snap){
+        var d=(snap&&snap.exists&&snap.exists())?(snap.data()||{}):{};
+        var ls=(Array.isArray(d.list)?d.list:[]).map(function(s){ return String((s&&s.name)||'').trim(); }).filter(Boolean);
+        if(ls.length){ ALL_STORES=ls; fillFilters(); }
+        subscribeAll();
+      }).catch(function(){ subscribeAll(); });
+      watchDepts();
+    });
+    render();
+  }
+  boot();
+})();
+</script>
+</body>
+</html>

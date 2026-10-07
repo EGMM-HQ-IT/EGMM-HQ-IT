@@ -2328,6 +2328,8 @@
   .eg-sys-row { flex-wrap: wrap; gap: 6px; }
   .eg-sys-label { font-family: var(--serif); font-weight: 800; font-size: 12px; letter-spacing: .08em; color: var(--text-faint); margin-right: 4px; }
   .eg-sys-btn { padding: 6px 11px; font-size: 12px; }
+  .eg-topbar-brand { display:flex; align-items:center; gap:12px; }
+  .eg-home-btn { margin-left:4px; }
   .eg-userbox .eg-user-row { display: flex; align-items: baseline; gap: 8px; font-size: 12px; padding: 3px 2px; }
   .eg-userbox .eg-user-row .k { flex: 0 0 68px; font-size: 10.5px; font-weight: 800; letter-spacing: .06em; color: var(--text-faint); }
   .eg-userbox .eg-user-row .v { flex: 1; font-weight: 700; color: var(--text); word-break: break-all; }
@@ -2894,6 +2896,8 @@
  <header class="eg-topbar">
    <div class="eg-topbar-brand">
      <div class="egmm-wordmark">EGMM<span class="dot">.</span></div>
+     <!-- [2026-10-07] 초기 화면 돌아가기 — 열려 있는 메뉴 화면을 닫고 EGMM 첫 화면으로 (로그인 유지) -->
+     <button class="eg-top-exit eg-sys-btn eg-home-btn" id="egMainBtn" type="button" title="초기 화면으로 (로그인 유지)">⌂ 초기 화면</button>
    </div>
    <!-- [2026-10-02] SYSTEM 메뉴 — 상단바 (LV-0 관리자에게만 표시) -->
    <div class="eg-topbar-actions eg-sys-row" id="egSysRow">
@@ -3537,6 +3541,16 @@
   applyTheme(curTheme());
   // 메뉴별 iframe 유지(캐시): 전환 시 재로드 없음
   var __frames={};
+  /* [2026-10-07] 초기 화면: 프레임·큰 팝업 전부 숨기고 첫 화면 표시 (세션 유지) */
+  function showWelcome(){
+    try{ hideAll(); $('egmmMenu').classList.add('active'); }catch(e){}
+    for(var k in __frames){ __frames[k].style.display='none'; }
+    var w=$('egWelcome'); if(w) w.style.display='';
+    Array.prototype.forEach.call(document.querySelectorAll('.eg-side .egmm-menu-btn'), function(b){ b.classList.remove('active'); });
+    try{ var big=document.getElementById('egMgrPop'); if(big) big.classList.remove('show'); }catch(e){}
+    window.scrollTo(0,0);
+  }
+  var __mainBtn=$('egMainBtn'); if(__mainBtn) __mainBtn.onclick=showWelcome;
   function openInFrame(url, btn){
     var w=$('egWelcome'); if(w) w.style.display='none';
     for(var k in __frames){ __frames[k].style.display='none'; }
