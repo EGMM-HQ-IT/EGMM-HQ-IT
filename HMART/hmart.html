@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>H-MART</title>
+<!-- ============================================================================
+   HMART/hmart.html — H-MART 매장 초기 화면 (2026-10-07)
+   · 레이아웃: EGMM/EGMM.html 과 동일 (상단바 · 왼쪽 USER 박스 + 메뉴 카드 · 오른쪽 프레임)
+   · 입장: FUNCTION-ACCESS-GATE.js (Firestore egmm-hq-it / DB egmm / ACCESS 계정) — EGMM 과 같은 세션(egmmAccessAuth) 공유
+   · 매장: ACCESS/{ID}.stores (ACCESS 관리에서 지정) · 비어 있거나 LV-0 = 모든 매장 → 매장 선택
+   · 메뉴 권한: MENU 컬렉션 (MENU-HMART-PLU-LIST · MENU-HMART-UPC-LIST · MENU-HMART-DAILY-PURCHASE) — EGMM 과 같은 규칙
+   ========================================================================== -->
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<style>
+  :root {
+    --bg: #EDEAE3; --bg-elev: #FFFDFA; --bg-elev-2: #F7F4ED;
+    --border: #E4DFD4; --border-bright: #D6CFC0;
+    --text: #1E1B16; --text-dim: #4C463C; --text-faint: #8C8578;
+    --accent: #1E1B16; --accent-soft: #E9EFEA; --accent-warm: #2F5D46;
+    --brass: #A98A55; --danger: #9C3327; --success: #2a8a4a;
+    --serif: 'Pretendard', 'Malgun Gothic', '맑은 고딕', system-ui, sans-serif;
+    --mono: 'Pretendard', 'Malgun Gothic', '맑은 고딕', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--text); font-family: var(--mono); min-height: 100vh; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+  body::before { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image: radial-gradient(circle at 20% 10%, rgba(169,138,85,0.06) 0%, transparent 40%), radial-gradient(circle at 80% 90%, rgba(30,27,22,0.03) 0%, transparent 40%); }
+
+  /* ===== NIGHT 모드 (EGMM · PLU/UPC 와 같은 팔레트 · localStorage pluLocalTheme 공유) ===== */
+  html[data-theme=night] { color-scheme: dark;
+    --bg:#12151c; --bg-elev:#1a1f2a; --bg-elev-2:#161a23; --border:#2a3140; --border-bright:#3c4557;
+    --text:#e7eaf2; --text-dim:#a3acbf; --text-faint:#6d7689; --accent:#3b62c4; --accent-soft:#222a3a; --accent-warm:#d4af6a;
+    --danger:#e05b5b; --success:#3fae6a; }
+  html[data-theme=night] #hmMenu { background: var(--bg); }
+  html[data-theme=night] body::before { display: none; }
+  html[data-theme=night] .eg-side { background: var(--bg); }
+  html[data-theme=night] .eg-frame { background: var(--bg); }
+  html[data-theme=night] .egmm-menu-btn:hover { background: var(--bg-elev-2); }
+  html[data-theme=night] .egmm-card { box-shadow: 0 1px 0 rgba(255,255,255,.04) inset, 0 14px 44px rgba(0,0,0,.35); }
+  html[data-theme=night] .egmm-menu-btn.active, html[data-theme=night] .egmm-menu-btn.active:hover { background: var(--accent-soft); }
+  html[data-theme=night] .eg-topbar { box-shadow: 0 2px 14px rgba(0,0,0,.35); }
+
+  /* ===== 런처 홈 (EGMM 과 동일) ===== */
+  #hmMenu { display: flex; position: fixed; inset: 0; z-index: 90; overflow: hidden; flex-direction: column;
+    background: radial-gradient(125% 85% at 50% -12%, #ffffff 0%, var(--bg) 44%, #f1efe6 100%); }
+  .eg-topbar { flex: 0 0 50px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px;
+    background: var(--bg-elev); border-bottom: 1px solid var(--border); box-shadow: 0 2px 14px rgba(30,27,22,.05); }
+  .egmm-wordmark { font-family: var(--serif); font-weight: 800; font-size: 17px; letter-spacing: .12em; line-height: .9; color: var(--text); display: inline-flex; align-items: flex-end; }
+  .egmm-wordmark .dot { color: var(--accent-warm); }
+  .eg-topbar-brand { display:flex; align-items:center; gap:12px; }
+  .eg-topbar-actions { display: flex; align-items: center; gap: 10px; }
+  .eg-top-exit { position: relative; display: inline-flex; align-items: center; gap: 7px; background: var(--bg-elev); border: 1px solid var(--border); color: var(--text-dim);
+    padding: 9px 15px; border-radius: 999px; font-family: var(--mono); font-size: 13px; font-weight: 700; cursor: pointer; transition: border-color .15s, color .15s, transform .12s; }
+  .eg-top-exit:hover { border-color: var(--accent-warm); color: var(--text); }
+  .eg-top-exit:active { transform: scale(.97); }
+  .eg-sys-btn { padding: 6px 11px; font-size: 12px; }
+  .eg-home-btn { margin-left:4px; }
+  .eg-store-chip { font-family: var(--serif); font-weight: 800; font-size: 12px; letter-spacing: .08em; color: var(--text-faint); }
+  .eg-store-chip b { color: var(--accent-warm); margin-left: 6px; font-size: 13px; }
+
+  .eg-body { flex: 1; display: grid; grid-template-columns: 230px 1fr; min-height: 0; }
+  .eg-side { min-height: 0; overflow-y: auto; padding: 12px 8px 16px; border-right: 1px solid var(--border); background: linear-gradient(180deg, #fbfaf6, var(--bg)); }
+  .eg-main { min-height: 0; position: relative; background: var(--bg); }
+  .eg-frame { width: 100%; height: 100%; border: 0; display: block; background: #fff; position: absolute; inset: 0; }
+  .eg-welcome { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
+  .eg-welcome-eyebrow { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .22em; color: var(--text-dim); }
+  .eg-welcome-mark { font-size: 58px; font-weight: 900; letter-spacing: .01em; color: var(--text); }
+  .eg-welcome-mark .dot { color: var(--accent-warm, #2F5D46); }
+  .eg-welcome-sub { font-size: 15px; color: var(--text-dim); }
+  .eg-welcome-store { margin-top: 6px; font-family: var(--serif); font-size: 13px; font-weight: 800; letter-spacing: .14em; color: var(--accent-warm); text-transform: uppercase; }
+
+  .egmm-cards { display: flex; flex-direction: column; gap: 9px; width: 100%; }
+  .egmm-card { width: 100%; box-sizing: border-box; background: var(--bg-elev); border: 1px solid var(--border); border-radius: 12px; padding: 11px 11px 9px;
+    box-shadow: 0 1px 0 #fff inset, 0 14px 44px rgba(30,27,22,.07); opacity: 0; transform: translateY(14px); animation: egmmRise .55s cubic-bezier(.2,.8,.2,1) forwards; }
+  .egmm-card:nth-child(1) { animation-delay: .05s; } .egmm-card:nth-child(2) { animation-delay: .13s; }
+  @keyframes egmmRise { to { opacity: 1; transform: none; } }
+  .egmm-card-head { display: flex; align-items: center; gap: 8px; padding-bottom: 7px; margin-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .egmm-card-tick { width: 6px; height: 19px; border-radius: 2px; background: var(--accent-warm); flex: 0 0 auto; }
+  .egmm-card-name { font-family: var(--serif); font-weight: 800; font-size: 15px; letter-spacing: .03em; color: var(--text); }
+  .egmm-menu-btn { position: relative; width: 100%; display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    padding: 7px 9px; border-radius: 8px; font-family: var(--mono); font-size: 12px; font-weight: 700; cursor: pointer; margin-bottom: 5px; text-align: left; overflow: hidden;
+    transition: border-color .16s, background .16s, transform .12s, box-shadow .16s; height: 38px; box-sizing: border-box; }
+  .egmm-menu-btn .mlab { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; flex: 1 1 auto; min-width: 0; }
+  .egmm-menu-btn::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent-warm); transform: scaleY(0); transform-origin: center; transition: transform .18s ease; }
+  .egmm-menu-btn:hover { border-color: var(--border-bright); background: #fff; box-shadow: 0 6px 18px rgba(30,27,22,.06); }
+  .egmm-menu-btn:hover::before { transform: scaleY(1); }
+  .egmm-menu-btn:focus-visible { outline: 2px solid var(--accent-warm); outline-offset: 2px; }
+  .egmm-menu-btn:active { transform: scale(.99); }
+  .egmm-menu-btn.active, .egmm-menu-btn.active:hover { border-color: #9C3327 !important; box-shadow: 0 0 0 1px #9C3327 inset; background: var(--accent-soft, #f0eee5); color: var(--text); font-weight: 800; }
+
+  /* 접속자 박스 */
+  .eg-userbox .eg-user-row { display: flex; align-items: baseline; gap: 8px; font-size: 12px; padding: 3px 2px; }
+  .eg-userbox .eg-user-row .k { flex: 0 0 68px; font-size: 10.5px; font-weight: 800; letter-spacing: .06em; color: var(--text-faint); }
+  .eg-userbox .eg-user-row .v { flex: 1; font-weight: 700; color: var(--text); word-break: break-all; min-width: 0; }
+  .eg-cloud-row .v.ok { color: #1e7a46; } .eg-cloud-row .v.need { color: #b7791f; } .eg-cloud-row .v.err { color: #9C3327; }
+  .eg-store-sel { width: 100%; border: 1px solid var(--border); background: var(--bg-elev); color: var(--text); border-radius: 7px; padding: 4px 6px; font: inherit; font-size: 12px; font-weight: 800; }
+  .eg-store-sel:focus { outline: none; border-color: var(--accent-warm); }
+  .eg-userbox .eg-user-btns { display: flex; gap: 5px; margin-top: 8px; }
+  .eg-user-btn { flex: 1; min-width: 0; border: 1px solid var(--border); background: var(--bg-elev); color: var(--text-dim); border-radius: 9px; padding: 7px 2px; font: inherit; font-size: 10.5px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+  .eg-user-btn:hover { border-color: var(--accent-warm); color: var(--text); }
+  .eg-user-btn.danger:hover { border-color: #9C3327; color: #9C3327; }
+
+  /* 처음으로 확인 팝업 */
+  .eg-exit-ov { position: fixed; inset: 0; z-index: 140; display: none; align-items: center; justify-content: center; background: rgba(30,27,22,.34); backdrop-filter: blur(2px); }
+  .eg-exit-ov.show { display: flex; }
+  .eg-exit-modal { width: 340px; background: var(--bg-elev); border: 1px solid var(--border); border-radius: 16px; padding: 22px 22px 18px; box-shadow: 0 24px 64px rgba(30,27,22,.28); text-align: center; }
+  .eg-exit-title { font-weight: 900; font-size: 17px; color: var(--text); margin-bottom: 10px; }
+  .eg-exit-text { font-size: 14px; color: var(--text-dim); margin-bottom: 18px; }
+  .eg-exit-btns { display: flex; gap: 10px; }
+  .eg-ex-btn { flex: 1; padding: 11px 0; border-radius: 10px; border: 1.5px solid var(--border); background: var(--bg); color: var(--text-dim); font-family: var(--mono); font-size: 14px; font-weight: 800; cursor: pointer; }
+  .eg-ex-btn:hover { border-color: var(--accent-warm); color: var(--text); }
+  .eg-ex-btn.danger { background: #b04141; border-color: #b04141; color: #fff; }
+  .eg-ex-btn.danger:hover { background: #983434; border-color: #983434; color: #fff; }
+
+  /* 매장 선택 팝업 (여러 매장 권한 · 첫 진입) */
+  .hm-store-ov { position: fixed; inset: 0; z-index: 150; display: none; align-items: center; justify-content: center; background: rgba(30,27,22,.34); backdrop-filter: blur(2px); }
+  .hm-store-ov.show { display: flex; }
+  .hm-store-card { width: 380px; max-width: 92vw; background: var(--bg-elev); border: 1px solid var(--border); border-radius: 16px; padding: 22px; box-shadow: 0 24px 64px rgba(30,27,22,.28); }
+  .hm-store-title { font-family: var(--serif); font-weight: 900; font-size: 18px; letter-spacing: .1em; text-align: center; color: var(--text); margin-bottom: 4px; }
+  .hm-store-sub { text-align: center; font-size: 12px; color: var(--text-dim); margin-bottom: 14px; }
+  .hm-store-list { display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow-y: auto; }
+  .hm-store-btn { border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 10px; padding: 11px 14px; font: inherit; font-size: 14px; font-weight: 800; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center; }
+  .hm-store-btn small { font-size: 11px; color: var(--text-faint); font-weight: 700; }
+  .hm-store-btn:hover { border-color: var(--accent-warm); background: var(--accent-soft); }
+  .hm-store-empty { text-align: center; font-size: 13px; color: var(--danger); padding: 14px 4px; font-weight: 700; line-height: 1.6; }
+  @media (max-width: 760px) { .eg-body { grid-template-columns: 170px 1fr; } }
+</style>
+</head>
+<body>
+<script src="../FUNCTION-FIREBASE-EGMM.js"></script>
+<script src="../FUNCTION-ACCESS-GATE.js"></script>
+<script>
+  /* 입장: ACCESS 계정 로그인 (EGMM 과 같은 세션 공유 · 메뉴별 권한은 아래 applyMenuPerms 에서) */
+  AccessGate.require({ title:'H-MART' }).then(function(u){ window.__hmUser=u; try{ window.__hmStart&&window.__hmStart(u); }catch(e){ console.error(e); } });
+</script>
+
+<div id="hmMenu">
+ <header class="eg-topbar">
+   <div class="eg-topbar-brand">
+     <div class="egmm-wordmark">H-MART<span class="dot">.</span></div>
+     <button class="eg-top-exit eg-sys-btn eg-home-btn" id="hmMainBtn" type="button" title="초기 화면으로 (로그인 유지)">⌂ 초기 화면</button>
+   </div>
+   <div class="eg-topbar-actions">
+     <span class="eg-store-chip">STORE<b id="hmTopStore">—</b></span>
+   </div>
+ </header>
+ <div class="eg-body">
+ <aside class="eg-side">
+ <div class="egmm-cards">
+  <div class="egmm-card eg-userbox">
+    <div class="egmm-card-head"><span class="egmm-card-tick"></span><span class="egmm-card-name">USER</span></div>
+    <div class="eg-user-row"><span class="k">NAME</span><span class="v" id="hmUserName">—</span></div>
+    <div class="eg-user-row"><span class="k">ID</span><span class="v" id="hmUserId">—</span></div>
+    <div class="eg-user-row"><span class="k">PERMISSION</span><span class="v" id="hmUserRank">—</span></div>
+    <div class="eg-user-row"><span class="k">STORE</span><span class="v" id="hmStoreBox">—</span></div>
+    <div class="eg-user-row eg-cloud-row"><span class="k">CLOUD</span><span class="v" id="hmCloudState">연결 확인 중…</span></div>
+    <div class="eg-user-btns">
+      <button class="eg-user-btn" id="hmThemeBtn" type="button" title="화면 모드 전환 (DAY / NIGHT)">🌙 NIGHT</button>
+      <button class="eg-user-btn" id="hmExitBtn" type="button" title="처음 화면으로">⌂ HOME</button>
+      <button class="eg-user-btn danger" id="hmLogoutBtn" type="button" title="로그아웃">⏻ LOGOUT</button>
+    </div>
+  </div>
+
+  <div class="egmm-card">
+    <div class="egmm-card-head"><span class="egmm-card-tick"></span><span class="egmm-card-name">MART</span></div>
+    <button class="egmm-menu-btn" id="hmPluListBtn" type="button"><span class="mlab">PLU LIST</span></button>
+    <button class="egmm-menu-btn" id="hmUpcListBtn" type="button"><span class="mlab">UPC LIST</span></button>
+    <button class="egmm-menu-btn" id="hmPurchaseBtn" type="button"><span class="mlab">DAILY PURCHASE</span></button>
+  </div>
+ </div>
+ </aside>
+
+ <main class="eg-main">
+   <div class="eg-welcome" id="hmWelcome">
+     <div class="eg-welcome-eyebrow">매장 관리 · STORE</div>
+     <div class="eg-welcome-mark">H-MART<span class="dot">.</span></div>
+     <div class="eg-welcome-sub">왼쪽 메뉴에서 기능을 선택하세요</div>
+     <div class="eg-welcome-store" id="hmWelcomeStore"></div>
+   </div>
+ </main>
+ </div>
+</div>
+
+<!-- 매장 선택 팝업 -->
+<div class="hm-store-ov" id="hmStoreOv"><div class="hm-store-card">
+  <div class="hm-store-title">STORE</div>
+  <div class="hm-store-sub">접속할 매장을 선택하세요</div>
+  <div class="hm-store-list" id="hmStoreList"></div>
+</div></div>
+
+<script>
+(function(){
+  'use strict';
+  var $=function(id){ return document.getElementById(id); };
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+
+  /* ── 메뉴 코드 (MENU 관리에 등록하면 EGMM 과 같은 규칙으로 표시/숨김 · 미등록 = 제한 없음) ── */
+  var MENU_CODES={ hmPluListBtn:'MENU-HMART-PLU-LIST', hmUpcListBtn:'MENU-HMART-UPC-LIST', hmPurchaseBtn:'MENU-HMART-DAILY-PURCHASE' };
+  var PAGES={ hmPluListBtn:'PLU-LIST.HTML', hmUpcListBtn:'UPC-LIST.HTML', hmPurchaseBtn:'daily-purchase.html' };
+  var SS_STORE='hmartStore';
+
+  var user=null, fb=null, stores=[], allowed=[], cur=null;   /* cur = {code,name} */
+  var __frames={};
+
+  /* ── NIGHT 모드 (EGMM 과 동일 · 프레임에도 적용) ── */
+  var THEME_KEY='pluLocalTheme';
+  function curTheme(){ try{ return localStorage.getItem(THEME_KEY)==='night'?'night':'day'; }catch(e){ return 'day'; } }
+  function applyTheme(t){
+    t=(t==='night')?'night':'day';
+    document.documentElement.setAttribute('data-theme',t);
+    var b=$('hmThemeBtn'); if(b) b.textContent=(t==='night')?'☀️ DAY':'🌙 NIGHT';
+    for(var k in __frames){ try{ var d=__frames[k].contentDocument; if(d&&d.documentElement) d.documentElement.setAttribute('data-theme',t); }catch(e){} }
+  }
+  $('hmThemeBtn').onclick=function(){ var t=(curTheme()==='night')?'day':'night'; try{ localStorage.setItem(THEME_KEY,t); }catch(e){} applyTheme(t); };
+  applyTheme(curTheme());
+
+  /* ── 프레임 ── */
+  function showWelcome(){
+    for(var k in __frames){ __frames[k].style.display='none'; }
+    $('hmWelcome').style.display='';
+    Array.prototype.forEach.call(document.querySelectorAll('.eg-side .egmm-menu-btn'), function(b){ b.classList.remove('active'); });
+    window.scrollTo(0,0);
+  }
+  $('hmMainBtn').onclick=showWelcome;
+  function openInFrame(url, btn){
+    $('hmWelcome').style.display='none';
+    for(var k in __frames){ __frames[k].style.display='none'; }
+    var f=__frames[url];
+    if(!f){
+      f=document.createElement('iframe');
+      f.className='eg-frame'; f.title='content'; f.src=url; f.setAttribute('allowfullscreen',''); f.allow='fullscreen';
+      f.addEventListener('load', function(){ try{ f.contentDocument.documentElement.setAttribute('data-theme', curTheme()); }catch(e){} sendStore(f); });
+      document.querySelector('.eg-main').appendChild(f);
+      __frames[url]=f;
+    }
+    f.style.display='block';
+    Array.prototype.forEach.call(document.querySelectorAll('.eg-side .egmm-menu-btn'), function(b){ b.classList.remove('active'); });
+    if(btn) btn.classList.add('active');
+  }
+  Object.keys(PAGES).forEach(function(id){ var b=$(id); if(b) b.onclick=function(){ if(!cur){ openStorePick(); return; } openInFrame(PAGES[id], b); }; });
+
+  /* 전체 화면 중계 (PLU/UPC LIST 의 FULL SCREEN · EGMM 과 동일) */
+  document.addEventListener('fullscreenchange',function(){ var el=document.fullscreenElement; Array.prototype.forEach.call(document.querySelectorAll('iframe'),function(f){ try{ f.contentWindow.postMessage({plu:'fullscreenState',on:(el===f)},'*'); }catch(x){} }); });
+  window.addEventListener('message',function(e){ var d=e.data||{}; if(d.plu==='fullscreen'){
+      try{ var fr=null; Array.prototype.forEach.call(document.querySelectorAll('iframe'),function(f){ if(f.contentWindow===e.source) fr=f; }); if(fr&&d.on&&fr.requestFullscreen) fr.requestFullscreen(); else if(!d.on&&document.fullscreenElement) document.exitFullscreen(); }catch(x){} return; }
+    if(d.plu==='syncChip'){ var v=$('hmCloudState'); v.textContent=String(d.text||''); v.className='v '+(d.cls||''); v.title=d.title||''; }
+  });
+
+  /* ── 매장 ── */
+  function sendStore(f){ try{ f.contentWindow.postMessage({ hmart:'store', code:cur?cur.code:'', name:cur?cur.name:'' },'*'); }catch(e){} }
+  function setStore(s){
+    cur=s||null;
+    try{ if(cur) sessionStorage.setItem(SS_STORE, JSON.stringify(cur)); else sessionStorage.removeItem(SS_STORE); }catch(e){}
+    try{ if(cur) localStorage.setItem('hmartLastStore', cur.code); }catch(e){}
+    var nm=cur?(cur.name||cur.code):'—';
+    $('hmTopStore').textContent=nm; $('hmWelcomeStore').textContent=cur?nm:'';
+    renderStoreBox();
+    for(var k in __frames){ sendStore(__frames[k]); }
+  }
+  function renderStoreBox(){
+    var box=$('hmStoreBox');
+    if(allowed.length>1){
+      box.innerHTML='<select class="eg-store-sel" id="hmStoreSel">'+allowed.map(function(s){ return '<option value="'+esc(s.code)+'"'+(cur&&cur.code===s.code?' selected':'')+'>'+esc(s.name||s.code)+'</option>'; }).join('')+'</select>';
+      $('hmStoreSel').onchange=function(){ var c=this.value; for(var i=0;i<allowed.length;i++){ if(allowed[i].code===c){ setStore(allowed[i]); break; } } };
+    } else box.textContent=cur?(cur.name||cur.code):(allowed.length?'':'매장 미지정');
+  }
+  function openStorePick(){
+    var list=$('hmStoreList');
+    if(!allowed.length){ list.innerHTML='<div class="hm-store-empty">이 계정에 지정된 매장이 없습니다.<br>EGMM › ACCESS 관리에서 매장을 지정하세요.</div>'; }
+    else list.innerHTML=allowed.map(function(s){ return '<button class="hm-store-btn" type="button" data-code="'+esc(s.code)+'"><span>'+esc(s.name||s.code)+'</span><small>'+esc(s.nameKo||'')+'</small></button>'; }).join('');
+    Array.prototype.forEach.call(list.querySelectorAll('.hm-store-btn'),function(b){ b.onclick=function(){ var c=b.getAttribute('data-code'); for(var i=0;i<allowed.length;i++){ if(allowed[i].code===c){ setStore(allowed[i]); break; } } $('hmStoreOv').classList.remove('show'); }; });
+    $('hmStoreOv').classList.add('show');
+  }
+  /* 계정의 매장 목록 → allowed. 비어 있거나 '*' 또는 LV-0 = 모든 매장 */
+  function resolveStores(acctStores){
+    var lv=(user&&typeof user.level==='number')?user.level:null;
+    var p=Array.isArray(acctStores)?acctStores.map(function(x){ return String(x||'').trim().toUpperCase(); }).filter(Boolean):[];
+    if(lv===0 || !p.length || p.indexOf('*')>=0) allowed=stores.slice();
+    else allowed=stores.filter(function(s){ return p.indexOf(String(s.code).toUpperCase())>=0 || p.indexOf(String(s.name||'').toUpperCase())>=0; });
+    /* 이전 선택 복원 (같은 탭 세션 → 마지막 선택) */
+    var prev=null; try{ prev=JSON.parse(sessionStorage.getItem(SS_STORE)||'null'); }catch(e){}
+    var prevCode=(prev&&prev.code)||''; if(!prevCode){ try{ prevCode=localStorage.getItem('hmartLastStore')||''; }catch(e){} }
+    var hit=null; allowed.forEach(function(s){ if(s.code===prevCode) hit=s; });
+    if(hit) setStore(hit);
+    else if(allowed.length===1) setStore(allowed[0]);
+    else { setStore(null); openStorePick(); }
+  }
+
+  /* ── 접속자 박스 ── */
+  function fillUser(){
+    $('hmUserName').textContent=user.fullName||user.id||'—'; $('hmUserId').textContent=user.id||'—';
+    var perm=(Array.isArray(user.perms)&&user.perms.indexOf('*')>=0)?'ALL':((Array.isArray(user.perms)&&user.perms.length)?user.perms.length+' MENU':'');
+    $('hmUserRank').textContent=[(typeof user.level==='number')?('LV-'+user.level):'',user.rank||'',perm].filter(Boolean).join(' · ')||'—';
+  }
+  $('hmLogoutBtn').onclick=function(){ ['egmmGate','egmmUser','egmmAuth','egmmAccessAuth',SS_STORE].forEach(function(k){ try{ sessionStorage.removeItem(k); }catch(e){} }); location.reload(); };
+  (function(){
+    var ov=document.createElement('div'); ov.className='eg-exit-ov'; ov.id='hmExitOv';
+    ov.innerHTML='<div class="eg-exit-modal"><div class="eg-exit-title">← 처음으로</div><div class="eg-exit-text">H-MART 를 나가고 처음 화면으로 돌아갈까요?</div><div class="eg-exit-btns"><button class="eg-ex-btn" id="hmExCancel" type="button">취소</button><button class="eg-ex-btn danger" id="hmExOk" type="button">나가기</button></div></div>';
+    document.body.appendChild(ov);
+    $('hmExitBtn').onclick=function(){ ov.classList.add('show'); };
+    ov.addEventListener('click', function(e){ if(e.target===ov) ov.classList.remove('show'); });
+    $('hmExCancel').onclick=function(){ ov.classList.remove('show'); };
+    $('hmExOk').onclick=function(){ ov.classList.remove('show'); ['egmmGate','egmmAuth','egmmUser','egmmAccessAuth',SS_STORE].forEach(function(k){ try{ sessionStorage.removeItem(k); }catch(e){} }); window.location.href='../index.html'; };
+  })();
+
+  /* ── 메뉴 권한 (EGMM applyMenuPerms 와 같은 규칙) ── */
+  function applyMenuPerms(){
+    var perms=Array.isArray(user.perms)?user.perms:[], lv=(typeof user.level==='number')?user.level:null;
+    if(lv===0 || perms.indexOf('*')>=0) return;
+    return fb.getDocs(fb.collection(fb.db,'MENU')).then(function(snap){
+      var menus={}; snap.forEach(function(ds){ if(ds.id.charAt(0)!=='_') menus[ds.id]=ds.data()||{}; });
+      Object.keys(MENU_CODES).forEach(function(btnId){
+        var btn=$(btnId); if(!btn) return;
+        var code=MENU_CODES[btnId], m=menus[code], ok;
+        if(!m) ok=true;
+        else if(m.active===false) ok=false;
+        else ok = perms.indexOf(code)>=0
+          || (Array.isArray(m.allowUsers) && m.allowUsers.indexOf(user.id)>=0)
+          || (Array.isArray(m.allowRanks) && user.rank && m.allowRanks.indexOf(user.rank)>=0)
+          || (typeof m.level==='number' && lv!==null && lv<=m.level);
+        if(!ok) btn.style.display='none';
+      });
+    }).catch(function(e){ console.warn('[메뉴 권한 필터 실패 — 전체 표시]', e); });
+  }
+
+  /* ── 시작 ── */
+  window.__hmStart=function(u){
+    user=u; fillUser();
+    window.EgmmFB.ready.then(function(f){
+      fb=f; $('hmCloudState').textContent='연결됨'; $('hmCloudState').className='v ok';
+      applyMenuPerms();
+      /* STORE 목록(order 순) + 계정 매장(ACCESS/{ID}.stores) */
+      return Promise.all([
+        fb.getDocs(fb.collection(fb.db,'STORE')).then(function(snap){ var arr=[]; snap.forEach(function(ds){ if(ds.id.charAt(0)==='_') return; var d=ds.data()||{}; arr.push({ code:ds.id, name:d.name||ds.id, nameKo:d.nameKo||'', order:(typeof d.order==='number')?d.order:999 }); }); arr.sort(function(a,b){ return a.order-b.order || String(a.name).localeCompare(String(b.name)); }); stores=arr; }),
+        fb.getDoc(fb.doc(fb.db,'ACCESS',String(user.id||'').toUpperCase())).then(function(sn){ var d=(sn&&sn.exists&&sn.exists())?(sn.data()||{}):{}; return d.stores; }).catch(function(){ return null; })
+      ]).then(function(r){ resolveStores(r[1]); });
+    }).catch(function(e){ console.error(e); $('hmCloudState').textContent='CLOUD 연결 실패'; $('hmCloudState').className='v err'; $('hmStoreBox').textContent='—'; });
+  };
+  if(window.__hmUser) window.__hmStart(window.__hmUser);
+})();
+</script>
+</body>
+</html>

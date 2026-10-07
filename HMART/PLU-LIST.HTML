@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PLU LIST</title>
+<!-- ============================================================================
+   HMART/PLU-LIST.HTML — H-MART 매장용 PLU LIST (보기 전용 · 2026-10-07)
+   · ITEMLIST/PLU_MANAGER.html 이 CLOUD(Firestore egmm-hq-it / DB egmm / PLU-LIST)에 저장한 데이터를 읽기만 함
+     (_META 목차 · _CONFIG 필드 레이아웃 · _PACK 업체별 압축 묶음 / 행 문서)
+   · 편집 기능 없음. 카테고리 탭 · 검색('+' AND · ',' OR) · 필드 고정 · FULL SCREEN 만 제공
+   · 매장별 값(sv): 상위(hmart.html)가 알려 준 매장 또는 sessionStorage.hmartStore 의 매장 값을 마스터 값 위에 표시
+   · UPC-LIST.HTML 은 이 파일에서 생성 (APP_MODE/FB_ROOT/KEY_LABELS 만 다름)
+   ========================================================================== -->
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+<style>
+  :root { --bg:#EDEAE3; --bg-elev:#FFFDFA; --bg-elev-2:#F7F4ED; --border:#E4DFD4; --border-bright:#D6CFC0;
+    --text:#1E1B16; --text-dim:#4C463C; --text-faint:#8C8578; --accent-soft:#E9EFEA; --accent-warm:#2F5D46; --danger:#9C3327;
+    --mono:'Pretendard','Malgun Gothic','맑은 고딕',system-ui,sans-serif; }
+  html[data-theme=night] { color-scheme:dark; --bg:#12151c; --bg-elev:#1a1f2a; --bg-elev-2:#161a23; --border:#2a3140; --border-bright:#3c4557;
+    --text:#e7eaf2; --text-dim:#a3acbf; --text-faint:#6d7689; --accent-soft:#222a3a; --accent-warm:#d4af6a; --danger:#e05b5b; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html, body { height:100%; background:var(--bg); color:var(--text); font-family:var(--mono); -webkit-font-smoothing:antialiased; }
+  body { display:flex; flex-direction:column; overflow:hidden; }
+  .vl-top { flex:0 0 auto; display:flex; align-items:center; gap:10px; padding:8px 14px; background:var(--bg-elev); border-bottom:1px solid var(--border); flex-wrap:wrap; }
+  .vl-title { font-weight:900; font-size:15px; letter-spacing:.1em; color:var(--text); white-space:nowrap; }
+  .vl-title small { font-weight:800; font-size:10px; letter-spacing:.14em; color:var(--text-faint); margin-left:6px; }
+  .vl-tabs { display:flex; gap:4px; flex-wrap:wrap; }
+  .vl-tab { border:1px solid var(--border); background:var(--bg); color:var(--text-dim); border-radius:8px; padding:6px 11px; font:inherit; font-size:12px; font-weight:800; cursor:pointer; white-space:nowrap; }
+  .vl-tab:hover { border-color:var(--border-bright); color:var(--text); }
+  .vl-tab.active { background:var(--accent-warm); border-color:var(--accent-warm); color:#fff; }
+  .vl-tab small { font-weight:700; opacity:.7; margin-left:4px; }
+  .vl-right { margin-left:auto; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .vl-search { border:1.5px solid var(--border); background:var(--bg); color:var(--text); border-radius:9px; padding:7px 11px; font:inherit; font-size:13px; font-weight:700; width:240px; }
+  .vl-search:focus { outline:none; border-color:var(--accent-warm); }
+  .vl-chk { display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:800; color:var(--text-dim); cursor:pointer; white-space:nowrap; }
+  .vl-chk input { accent-color:var(--accent-warm); }
+  .vl-btn { border:1px solid var(--border); background:var(--bg-elev); color:var(--text-dim); border-radius:9px; padding:7px 11px; font:inherit; font-size:12px; font-weight:800; cursor:pointer; white-space:nowrap; }
+  .vl-btn:hover { border-color:var(--accent-warm); color:var(--text); }
+  .vl-cnt { font-size:11.5px; font-weight:800; color:var(--text-faint); white-space:nowrap; }
+  .vl-chip { font-size:11px; font-weight:800; padding:4px 9px; border-radius:999px; border:1px solid var(--border); background:var(--bg); color:var(--text-dim); white-space:nowrap; }
+  .vl-chip.ok { color:#1e7a46; border-color:#9fcfb3; } .vl-chip.err { color:var(--danger); border-color:var(--danger); } .vl-chip.need { color:#b7791f; }
+  .vl-store { font-size:11px; font-weight:800; color:var(--accent-warm); letter-spacing:.06em; white-space:nowrap; }
+  .vl-wrap { flex:1; min-height:0; overflow:auto; position:relative; background:var(--bg-elev); }
+  table.vl { border-collapse:separate; border-spacing:0; font-size:12px; table-layout:fixed; min-width:100%; }
+  .vl th, .vl td { border-right:1px solid var(--border); border-bottom:1px solid var(--border); padding:4px 6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; background:var(--bg-elev); }
+  .vl thead th { position:sticky; z-index:3; background:var(--bg-elev-2); color:var(--text-dim); font-weight:800; font-size:11px; letter-spacing:.03em; text-align:center; }
+  .vl thead tr.gh th { top:0; height:22px; font-size:10px; color:var(--text-faint); border-bottom:1px solid var(--border); }
+  .vl thead tr.fh th { top:22px; height:30px; border-bottom:2px solid var(--border-bright); cursor:pointer; user-select:none; }
+  .vl thead tr.fh th:hover { color:var(--text); background:var(--accent-soft); }
+  .vl thead tr.fh th.frz-on { color:var(--accent-warm); }
+  .vl td.r { text-align:right; } .vl td.c { text-align:center; }
+  .vl tr.sub td { background:var(--accent-soft); color:var(--text); font-weight:900; font-size:12px; letter-spacing:.02em; border-right:0; }
+  .vl tr.sub td small { font-weight:700; color:var(--text-faint); margin-left:8px; }
+  .vl tbody tr:hover td { background:#f3f1ea; }
+  html[data-theme=night] .vl tbody tr:hover td { background:#1f2531; }
+  .vl tr.lock td { color:var(--danger); }
+  .vl td.chk { text-align:center; font-weight:900; color:var(--accent-warm); }
+  .vl td.upcerr { color:var(--danger); font-weight:800; }
+  .vl .frz { position:sticky; z-index:2; }
+  .vl thead .frz { z-index:4; }
+  .vl .frz-last { border-right:2px solid var(--accent-warm); }
+  .vl .hl { background:#ffe9a8; color:#1E1B16; border-radius:3px; padding:0 1px; }
+  .vl-empty { padding:40px 20px; text-align:center; color:var(--text-faint); font-weight:800; font-size:13px; line-height:1.8; }
+  .vl-err { color:var(--danger); }
+  .vl-guide { font-size:10.5px; color:var(--text-faint); font-weight:700; white-space:nowrap; }
+  :fullscreen body, body:fullscreen { background:var(--bg); }
+</style>
+</head>
+<body>
+<script src="../FUNCTION-FIREBASE-EGMM.js"></script>
+<script src="../FUNCTION-ACCESS-GATE.js"></script>
+<script>AccessGate.require({ title:'PLU LIST' }).then(function(u){ window.__vlUser=u; try{ window.__vlStart&&window.__vlStart(); }catch(e){ console.error(e); } });</script>
+
+<div class="vl-top">
+  <span class="vl-title" id="vlTitle">PLU LIST<small>VIEW ONLY</small></span>
+  <div class="vl-tabs" id="vlTabs"></div>
+  <div class="vl-right">
+    <span class="vl-store" id="vlStore"></span>
+    <input class="vl-search" id="vlSearch" type="search" placeholder="검색 ( + 모두 포함 · , 하나라도 )" autocomplete="off">
+    <label class="vl-chk" title="체크하면 모든 카테고리에서 검색"><input type="checkbox" id="vlAll"> 전체 카테고리</label>
+    <span class="vl-cnt" id="vlCnt"></span>
+    <span class="vl-chip" id="vlChip">CLOUD 연결 확인 중…</span>
+    <button class="vl-btn" id="vlReload" type="button" title="CLOUD 에서 다시 읽기">↻ 새로고침</button>
+    <button class="vl-btn" id="vlFull" type="button" title="전체 화면">⛶ FULL</button>
+  </div>
+</div>
+<div class="vl-wrap" id="vlWrap"><div class="vl-empty">CLOUD 데이터를 읽는 중…</div></div>
+
+<script>
+(function(){
+  'use strict';
+  /* ▼ 모드 설정 (UPC-LIST.HTML 생성 시 이 블록만 바뀜) ▼ */
+  var APP_MODE='PLU';
+  var FB_ROOT='PLU-LIST';
+  var KEY_LABELS={};
+  var PAGE_TITLE='PLU LIST';
+  /* ▲ 모드 설정 끝 ▲ */
+
+  var $=function(id){ return document.getElementById(id); };
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+  document.title=PAGE_TITLE; $('vlTitle').innerHTML=esc(PAGE_TITLE)+'<small>VIEW ONLY</small>';
+
+  var F=null, db=null;
+  var meta=null, cfg=null, parts=null;     /* parts: { 'bigId/subId': {rows,big,sub,pv} } */
+  var tabs=[];                             /* [{id,name,subs:[{id,name}]}] */
+  var layout=[];                           /* 마스터 레이아웃 (표시 필드만) */
+  var cur='';                              /* 현재 대분류 id */
+  var q='', allScope=false, frzKey='';
+  var store='';                            /* 매장 이름 (sv 덮어쓰기) */
+  var unsubMeta=null, loading=false;
+
+  /* ── 매장 (상위 hmart.html → postMessage / sessionStorage.hmartStore) ── */
+  function readStore(){ var s=null; try{ s=JSON.parse(sessionStorage.getItem('hmartStore')||'null'); }catch(e){} return s&&s.name?String(s.name):''; }
+  function setStore(nm){ store=String(nm||''); $('vlStore').textContent=store?('STORE · '+store):''; render(); }
+  window.addEventListener('message',function(e){ var d=e.data||{}; if(d.hmart==='store'){ setStore(d.name||d.code||''); } if(d.plu==='fullscreenState'){ fullState(!!d.on); } });
+
+  /* ── 설정 읽기 (_CONFIG gz 조각) ── */
+  function ungz(b64){ var bin=atob(b64), u8=new Uint8Array(bin.length); for(var i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i); return new TextDecoder().decode(pako.ungzip(u8)); }
+  function readConfig(meta){ var ps=[]; for(var p=0;p<(meta.configParts||1);p++){ var id=p===0?'_CONFIG':('_CONFIG__P'+(p+1)); ps.push(F.getDoc(F.doc(db,FB_ROOT,id)).then(function(sn){ return sn.exists()?sn.data():null; })); }
+    return Promise.all(ps).then(function(ds){ if(ds.some(function(d){ return !d; })) throw new Error('CONFIG 조각 누락'); var fmt=ds[0].fmt||'JS', payload=ds.map(function(d){ return d.d||''; }).join(''); return JSON.parse(fmt==='GZ'?ungz(payload):payload); }); }
+  function masterLayout(c){
+    var L=(c&&c.layouts)||{}; var m=L['델리'];
+    if(!m||!m.length){ for(var k in L){ if(L[k]&&L[k].length){ m=L[k]; break; } } }
+    if(!m) m=[];
+    return m.filter(function(f){ return f&&f.key&&!f.hidden; }).map(function(f){ var g=Object.assign({},f); if(KEY_LABELS[g.key]) g.label=KEY_LABELS[g.key]; return g; });
+  }
+  /* 행 문서 방식(압축 묶음 아님) 폴백 */
+  function readRowDocs(meta){
+    var out={}, jobs=[];
+    (meta.tree||[]).forEach(function(b){ (b.subs||[]).forEach(function(sb){ var key=b.id+'/'+sb.id;
+      jobs.push(Promise.all([ F.getDocs(F.collection(db,FB_ROOT,b.id,sb.id)), F.getDoc(F.doc(db,FB_ROOT,'_ORDERS',b.id,sb.id)).catch(function(){ return null; }) ]).then(function(r){
+        var rows=[]; r[0].forEach(function(ds){ var dd=ds.data(); if(dd&&dd.r) rows.push(dd.r); });
+        var ids=(r[1]&&r[1].exists&&r[1].exists()&&Array.isArray(r[1].data().ids))?r[1].data().ids:null;
+        if(ids){ var pos={}; ids.forEach(function(id,i){ pos[id]=i; }); rows.sort(function(a,c){ return ((pos[a.id]!=null)?pos[a.id]:1e9)-((pos[c.id]!=null)?pos[c.id]:1e9); }); }
+        out[key]={ rows:rows, big:b, sub:sb, pv:sb.pv||'' }; })); }); });
+    return Promise.all(jobs).then(function(){ return { parts:out }; });
+  }
+  function chip(t,cls){ var c=$('vlChip'); c.textContent=t; c.className='vl-chip '+(cls||''); try{ if(window.parent!==window) window.parent.postMessage({ plu:'syncChip', app:APP_MODE, text:t, cls:cls||'', title:t },'*'); }catch(e){} }
+
+  function load(force){
+    if(loading) return; loading=true;
+    chip('CLOUD 읽는 중…','need');
+    F.getDoc(F.doc(db,FB_ROOT,'_META')).then(function(ms){
+      var m=(ms.exists()&&ms.data()&&ms.data().ver==='v3')?ms.data():null;
+      if(!m) throw new Error('CLOUD 에 '+PAGE_TITLE+' 데이터가 없습니다 — EGMM 에서 먼저 CLOUD 동기화를 실행하세요');
+      if(!force&&meta&&meta.savedAt&&meta.savedAt===m.savedAt){ loading=false; chip('CLOUD 최신','ok'); return; }
+      meta=m;
+      return readConfig(m).catch(function(){ return null; }).then(function(c){ cfg=c; layout=masterLayout(c);
+        return window.EgmmFB.loadProductRows(F,db,FB_ROOT,m,parts?{parts:parts}:null).then(function(res){ return res||readRowDocs(m); });
+      }).then(function(res){
+        parts=res.parts;
+        tabs=(m.tree||[]).slice().sort(function(a,b){ return (a.order||0)-(b.order||0); }).map(function(b){ return { id:b.id, name:b.name||b.id, subs:(b.subs||[]).slice().sort(function(x,y){ return (x.order||0)-(y.order||0); }) }; });
+        if(!cur||!tabs.some(function(t){ return t.id===cur; })) cur=tabs.length?tabs[0].id:'';
+        loading=false; chip('CLOUD 최신 · '+(m.total||0)+'행','ok'); renderTabs(); render();
+      });
+    }).catch(function(e){ loading=false; console.error(e); chip('CLOUD 오류','err'); $('vlWrap').innerHTML='<div class="vl-empty vl-err">'+esc(e&&e.message||e)+'</div>'; });
+  }
+
+  /* ── 표시 유틸 (PLU MANAGER 와 같은 규칙) ── */
+  function fmtPrice(v){ var s=String(v==null?'':v).trim(); if(s==='') return ''; var n=parseFloat(s.replace(/[^0-9.\-]/g,'')); if(isNaN(n)) return s; if(n===0) return '-'; return '$'+n.toFixed(2); }
+  function fmtPercent(v){ var s=String(v==null?'':v).trim(); if(s==='') return ''; var n=parseFloat(s); if(isNaN(n)) return s; return (n*100).toFixed(1)+'%'; }
+  function optNum(v){ var s=String(v==null?'':v); var m=/^\s*([^.]{1,12})\.\s+/.exec(s); if(m) return m[1].trim(); var m2=/^\s*([0-9]+)\s*[.\/\-:]?\s*\S/.exec(s); if(m2) return m2[1]; return s; }
+  function optName(v){ var s=String(v==null?'':v); var m=/^\s*[^.]{1,12}\.\s+(.+)$/.exec(s); if(m) return m[1].trim(); var m2=/^\s*[0-9]+\s*[.\/\-:]?\s*(\S.*)$/.exec(s); if(m2) return m2[1].trim(); return s; }
+  function fieldByKey(k){ for(var i=0;i<layout.length;i++){ if(layout[i].key===k) return layout[i]; } return null; }
+  function selSrc(f,depth){ if(!f||depth>5) return null; if(f.type==='select'||(f.options&&f.options.length)) return f; if(f.share&&f.share!==f.key) return selSrc(fieldByKey(f.share),(depth||0)+1); return null; }
+  var normStore=function(s){ return String(s||'').toUpperCase().replace(/\s+/g,''); };
+  function getCell(row,f){
+    if(store&&!f.allStores&&row.sv){ var ns=normStore(store); for(var sk in row.sv){ if(normStore(sk)===ns){ var sv=row.sv[sk]; if(sv&&sv[f.key]!=null&&sv[f.key]!=='') return sv[f.key]; break; } } }
+    return (row.v&&row.v[f.key]!=null)?row.v[f.key]:'';
+  }
+  function disp(row,f){
+    var v=getCell(row,f);
+    if(f.type==='check') return v;
+    var sf=selSrc(f,0);
+    if(sf){ var s=String(v==null?'':v), nm=optName(s); if(nm===s&&sf.options){ var t=s.trim(); for(var i=0;i<sf.options.length;i++){ if(optNum(sf.options[i])===t) return optName(sf.options[i]); } } return nm; }
+    if(f.fmt==='price') return fmtPrice(v);
+    if(f.fmt==='percent') return fmtPercent(v);
+    return String(v==null?'':v);
+  }
+  function isOn(v){ var s=String(v==null?'':v).trim().toUpperCase(); return s==='1'||s==='TRUE'||s==='Y'||s==='YES'||s==='✓'; }
+
+  /* ── 검색: '+' AND · ',' OR ── */
+  function terms(){ var s=String(q||'').trim(); if(!s) return null; return s.split(',').map(function(g){ return g.split('+').map(function(t){ return t.trim().toUpperCase(); }).filter(Boolean); }).filter(function(g){ return g.length; }); }
+  function rowText(row){ var a=[]; layout.forEach(function(f){ a.push(String(disp(row,f)||'')); a.push(String(getCell(row,f)||'')); }); return a.join('\u0001').toUpperCase(); }
+  function hit(txt,T){ for(var i=0;i<T.length;i++){ var ok=true; for(var j=0;j<T[i].length;j++){ if(txt.indexOf(T[i][j])<0){ ok=false; break; } } if(ok) return true; } return false; }
+  function hl(s){ var T=terms(); if(!T) return esc(s); var words=[]; T.forEach(function(g){ g.forEach(function(w){ if(words.indexOf(w)<0) words.push(w); }); }); words.sort(function(a,b){ return b.length-a.length; });
+    var out='', str=String(s), up=str.toUpperCase(), i=0;
+    while(i<str.length){ var best=-1, bl=0; for(var w=0;w<words.length;w++){ if(up.substr(i,words[w].length)===words[w]&&words[w].length>bl){ best=w; bl=words[w].length; } }
+      if(best>=0){ out+='<span class="hl">'+esc(str.substr(i,bl))+'</span>'; i+=bl; } else { out+=esc(str.charAt(i)); i++; } }
+    return out; }
+
+  /* ── 렌더 ── */
+  function renderTabs(){
+    $('vlTabs').innerHTML=tabs.map(function(t){ var n=0; t.subs.forEach(function(sb){ var p=parts[t.id+'/'+sb.id]; n+=(p&&p.rows)?p.rows.length:0; });
+      return '<button class="vl-tab'+(t.id===cur?' active':'')+'" type="button" data-id="'+esc(t.id)+'">'+esc(t.name)+'<small>'+n+'</small></button>'; }).join('');
+    Array.prototype.forEach.call($('vlTabs').querySelectorAll('.vl-tab'),function(b){ b.onclick=function(){ cur=b.getAttribute('data-id'); renderTabs(); render(); $('vlWrap').scrollTop=0; }; });
+  }
+  function colClass(f){ if(f.type==='check') return 'chk'; if(f.align==='right'||f.fmt==='price'||f.fmt==='percent') return 'r'; if(f.align==='center') return 'c'; return ''; }
+  function frzIndex(){ if(!frzKey) return -1; for(var i=0;i<layout.length;i++){ if(layout[i].key===frzKey) return i; } return -1; }
+  function render(){
+    var wrap=$('vlWrap'); if(!meta||!parts){ return; }
+    if(!layout.length){ wrap.innerHTML='<div class="vl-empty">필드 설정(_CONFIG)을 읽지 못했습니다 — EGMM 에서 CLOUD 동기화를 다시 실행하세요</div>'; return; }
+    var T=terms(), useAll=allScope&&T, list=useAll?tabs:tabs.filter(function(t){ return t.id===cur; });
+    var fi=frzIndex(), widths=layout.map(function(f){ return Math.max(40,parseInt(f.w,10)||90); }), lefts=[], acc=0;
+    for(var i=0;i<layout.length;i++){ lefts.push(acc); acc+=widths[i]; }
+    var bigW=useAll?110:0;
+    var html='<table class="vl'+(fi>=0?' frz':'')+'"><colgroup>'+(useAll?'<col style="width:'+bigW+'px">':'')+layout.map(function(f,i){ return '<col style="width:'+widths[i]+'px">'; }).join('')+'</colgroup>';
+    /* 그룹 머리 */
+    var groups=[]; layout.forEach(function(f){ var g=f.group||''; if(groups.length&&groups[groups.length-1].g===g) groups[groups.length-1].n++; else groups.push({g:g,n:1}); });
+    html+='<thead><tr class="gh">'+(useAll?'<th></th>':'')+groups.map(function(g){ return '<th colspan="'+g.n+'">'+esc(g.g)+'</th>'; }).join('')+'</tr>';
+    html+='<tr class="fh">'+(useAll?'<th>대분류</th>':'')+layout.map(function(f,i){ var st=(fi>=0&&i<=fi)?' style="left:'+(bigW+lefts[i])+'px"':''; return '<th class="'+((fi>=0&&i<=fi)?'frz':'')+(i===fi?' frz-last frz-on':'')+'" data-k="'+esc(f.key)+'" title="클릭: 이 필드까지 왼쪽 고정 / 해제"'+st+'>'+esc(f.label||f.key)+'</th>'; }).join('')+'</tr></thead><tbody>';
+    var shown=0, total=0;
+    list.forEach(function(t){
+      t.subs.forEach(function(sb){
+        var p=parts[t.id+'/'+sb.id], rows=(p&&p.rows)||[]; total+=rows.length;
+        var vis=rows.filter(function(r){ return !T||hit(rowText(r),T); }); if(!vis.length) return;
+        html+='<tr class="sub"><td colspan="'+(layout.length+(useAll?1:0))+'">'+(useAll?esc(t.name)+' › ':'')+esc(sb.name||sb.id)+'<small>'+vis.length+'</small></td></tr>';
+        vis.forEach(function(r){ shown++;
+          var lock=r.v&&String(r.v.ITEM_LOCK)==='1';
+          html+='<tr'+(lock?' class="lock"':'')+'>'+(useAll?'<td class="c">'+esc(t.name)+'</td>':'');
+          layout.forEach(function(f,i){ var cls=colClass(f), d=disp(r,f), inner;
+            if(f.type==='check') inner=isOn(d)?'✓':'';
+            else if(APP_MODE==='UPC'&&f.key==='UPC_TOSHIBA'&&/^[✗?]/.test(String(d))){ cls+=' upcerr'; inner=esc(d); }
+            else inner=T?hl(d):esc(d);
+            var frz=(fi>=0&&i<=fi); if(frz) cls+=' frz'+(i===fi?' frz-last':'');
+            html+='<td class="'+cls.trim()+'"'+(frz?' style="left:'+(bigW+lefts[i])+'px"':'')+' title="'+esc(d)+'">'+inner+'</td>'; });
+          html+='</tr>'; });
+      });
+    });
+    html+='</tbody></table>';
+    if(!shown) html='<div class="vl-empty">'+(T?'검색 결과가 없습니다':'상품이 없습니다')+'</div>';
+    wrap.innerHTML=html;
+    $('vlCnt').textContent=(T?('검색 '+shown+' / '):'')+total+'개';
+    Array.prototype.forEach.call(wrap.querySelectorAll('thead tr.fh th[data-k]'),function(th){ th.onclick=function(){ var k=th.getAttribute('data-k'); frzKey=(frzKey===k)?'':k; render(); }; });
+    if(useAll){ Array.prototype.forEach.call(wrap.querySelectorAll('thead th:first-child, tbody td:first-child'),function(c){ c.classList.add('frz'); c.style.left='0px'; }); }
+  }
+
+  /* ── 검색 입력 ── */
+  var __st=null;
+  $('vlSearch').addEventListener('input',function(){ clearTimeout(__st); var v=this.value; __st=setTimeout(function(){ q=v; render(); },160); });
+  $('vlSearch').addEventListener('keydown',function(e){ if(e.key==='Escape'){ this.value=''; q=''; render(); } });
+  $('vlAll').addEventListener('change',function(){ allScope=this.checked; render(); });
+  $('vlReload').onclick=function(){ load(true); };
+
+  /* ── FULL SCREEN (프레임 안이면 상위에 요청 · PLU MANAGER 와 같은 메시지) ── */
+  function fullIs(){ return !!document.fullscreenElement; }
+  function fullState(on){ $('vlFull').textContent=on?'⛶ EXIT':'⛶ FULL'; }
+  $('vlFull').onclick=function(){
+    var on=!fullIs()&&$('vlFull').textContent.indexOf('EXIT')<0;
+    try{ if(on){ var p=document.documentElement.requestFullscreen(); if(p&&p.catch) p.catch(function(){ try{ window.parent.postMessage({plu:'fullscreen',on:true},'*'); }catch(e){} }); }
+      else if(document.fullscreenElement) document.exitFullscreen(); else { try{ window.parent.postMessage({plu:'fullscreen',on:false},'*'); }catch(e){} } }
+    catch(e){ try{ window.parent.postMessage({plu:'fullscreen',on:on},'*'); }catch(x){} }
+  };
+  document.addEventListener('fullscreenchange',function(){ fullState(fullIs()); });
+  /* 전체 화면에서 마우스 뒤로가기(4번 버튼) 무시 */
+  window.addEventListener('mouseup',function(e){ if(e.button===3||e.button===4){ e.preventDefault(); } });
+  window.addEventListener('mousedown',function(e){ if(e.button===3||e.button===4){ e.preventDefault(); } });
+
+  /* ── 시작 ── */
+  window.__vlStart=function(){
+    store=readStore(); $('vlStore').textContent=store?('STORE · '+store):'';
+    window.EgmmFB.ready.then(function(fb){ F=fb; db=fb.db;
+      /* _META 실시간 감시 → savedAt 바뀌면 다시 읽기 (EGMM 에서 저장하면 자동 반영) */
+      unsubMeta=F.onSnapshot(F.doc(db,FB_ROOT,'_META'),function(sn){ var d=sn.exists()?sn.data():null; if(!meta){ load(false); return; } if(d&&d.savedAt&&d.savedAt!==meta.savedAt) load(false); },function(e){ console.warn(e); load(false); });
+    }).catch(function(e){ chip('CLOUD 설정 없음','err'); $('vlWrap').innerHTML='<div class="vl-empty vl-err">CLOUD 설정이 없습니다 — FUNCTION-FIREBASE-EGMM.js 확인</div>'; });
+  };
+  if(window.__vlUser) window.__vlStart();
+})();
+</script>
+</body>
+</html>

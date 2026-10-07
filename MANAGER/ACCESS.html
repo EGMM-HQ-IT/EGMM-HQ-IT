@@ -182,6 +182,15 @@
           <label>차단 설정 (BLOCK)</label>
           <label class="toggle" id="blockToggle"><input type="checkbox" id="fBlocked"><span class="dot"></span><span id="blockLbl">허용 — 로그인 가능</span></label>
         </div>
+        <!-- [2026-10-07] H-MART 매장별 접속 — 계정에 허용할 매장 (STORE 관리 목록) -->
+        <div class="field">
+          <label>매장 (STORE) — H-MART 매장별 접속</label>
+          <div class="permbox">
+            <div class="chkgrid" id="storeGrid"></div>
+            <div class="permnote">체크한 매장만 H-MART 매장 화면(DAILY PURCHASE 등)에서 접속·입력할 수 있습니다.
+              아무것도 체크하지 않으면 모든 매장이 허용됩니다 (LV-0 은 항상 전체).</div>
+          </div>
+        </div>
         <div class="field">
           <label>메뉴 선택 (메인 메뉴 → 서브 메뉴)</label>
           <div class="permbox">
@@ -356,6 +365,7 @@
 
     fb.onSnapshot(fb.collection(fb.db,'STORE'), function(snap){
       stores={}; snap.forEach(function(ds){ if(ds.id.charAt(0)==='_') return; stores[ds.id]=ds.data()||{}; });
+      renderStoreGrid();
     }, function(e){ console.error(e); });
   }).catch(function(){ fbFail('Firebase 설정이 비어 있습니다'); });
   }
@@ -508,6 +518,22 @@
     $('permGrid').innerHTML = html || '<div class="empty" style="grid-column:1/-1">등록된 메뉴가 없습니다. MENU 관리에서 먼저 메뉴를 만드세요.</div>';
     syncAllToggle();
   }
+  /* [2026-10-07] 매장 체크 그리드 (STORE 관리 · order 순) */
+  function renderStoreGrid(){
+    var cur = editingId && users[editingId] && Array.isArray(users[editingId].stores) ? users[editingId].stores : currentStoresFromUI();
+    var codes=Object.keys(stores).sort(function(a,b){ return ((stores[a].order||0)-(stores[b].order||0)) || a.localeCompare(b); });
+    var html='';
+    codes.forEach(function(c){ var st=stores[c];
+      html+='<label class="chk"><input type="checkbox" class="st-chk" value="'+esc(c)+'"'+(cur.indexOf(c)>=0?' checked':'')+'>'
+        +'<span class="cd">'+esc(st.name||c)+'<small>'+esc(c)+(st.nameKo?' · '+esc(st.nameKo):'')+'</small></span></label>';
+    });
+    $('storeGrid').innerHTML = html || '<div class="empty" style="grid-column:1/-1">등록된 매장이 없습니다. STORE 관리에서 먼저 매장을 만드세요.</div>';
+  }
+  function currentStoresFromUI(){
+    var arr=[]; var g=$('storeGrid'); if(!g) return arr;
+    Array.prototype.forEach.call(g.querySelectorAll('input.st-chk'),function(c){ if(c.checked) arr.push(c.value); });
+    return arr;
+  }
   function currentPermsFromUI(){
     var arr=[];
     if($('fAll').checked) return ['*'];
@@ -535,6 +561,7 @@
     $('fBlocked').checked=false; syncBlockLbl();
     $('fAll').checked=false; syncAllToggle();
     Array.prototype.forEach.call($('permGrid').querySelectorAll('input'),function(c){ c.checked=false; });
+    Array.prototype.forEach.call($('storeGrid').querySelectorAll('input'),function(c){ c.checked=false; });
     $('delBtn').style.display='none';
     $('pwTestBtn').style.display='none';
     renderUsers();
@@ -553,6 +580,8 @@
     var perms=Array.isArray(u.perms)?u.perms:[];
     $('fAll').checked=perms.indexOf('*')>=0;
     Array.prototype.forEach.call($('permGrid').querySelectorAll('input'),function(c){ c.checked=perms.indexOf(c.value)>=0; });
+    var ust=Array.isArray(u.stores)?u.stores:[];
+    Array.prototype.forEach.call($('storeGrid').querySelectorAll('input'),function(c){ c.checked=ust.indexOf(c.value)>=0; });
     syncAllToggle();
     $('delBtn').style.display='';
     $('pwTestBtn').style.display='';
@@ -590,6 +619,7 @@
       rank:$('fRank').value||'',
       level:newLevel,
       perms:perms,
+      stores:currentStoresFromUI(),   /* [2026-10-07] H-MART 매장별 접속 (빈 배열 = 전체) */
       blocked:$('fBlocked').checked,
       memo:$('fMemo').value.trim(),
       pw: base.pw||'',
