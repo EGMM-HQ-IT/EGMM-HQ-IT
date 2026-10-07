@@ -1492,7 +1492,7 @@
     await pluAuthReady;
     let ms;
     try{ ms = await getDoc(doc(pluDb, PLU_ROOT, '_META')); }
-    catch(e){ throw new Error(pluErrText(e)); }
+    catch(e){ throw new Error('_META 읽기 실패 — '+pluErrText(e)); }
     if(!ms.exists() || !ms.data() || ms.data().ver!=='v3')
       throw new Error('egmm-hq-it(DB egmm)에 PLU 데이터가 없습니다 — plu-local-ver 에서 Firebase 업로드를 먼저 실행하세요');
     const meta = ms.data();
@@ -1524,12 +1524,12 @@
         /* [CLOUD 압축 묶음 · 2026-10-02] PLU MANAGER 가 업체(소분류)별 gzip 묶음으로 저장했으면 묶음 1개만 읽음 (행 수만큼 읽던 것 → 소분류 수만큼) */
         let docsArr=[];
         if(packOn){
-          let rows=null; try{ rows = await packReadSub(b.id, sb.id); }catch(e){ throw new Error(pluErrText(e)); }
+          let rows=null; try{ rows = await packReadSub(b.id, sb.id); }catch(e){ throw new Error('압축 묶음 '+b.id+'/'+sb.id+' 읽기 실패 — '+pluErrText(e)); }
           docsArr=(rows||[]).map(function(r,i){ return { id:'', data:function(){ return { plu:'', order:i, r:r }; } }; });
         } else {
           let snap;
           try{ snap = await getDocs(collection(pluDb, PLU_ROOT, b.id, sb.id)); }
-          catch(e){ throw new Error(pluErrText(e)); }
+          catch(e){ throw new Error(b.id+'/'+sb.id+' 읽기 실패 — '+pluErrText(e)); }
           snap.forEach(function(ds){ docsArr.push(ds); });
         }
         const part=[];
