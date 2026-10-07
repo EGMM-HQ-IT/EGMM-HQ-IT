@@ -30,7 +30,7 @@
   .panel h2 .ico{ width:28px; height:28px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:15px; background:#d9f5ec; }
   .panel h2 .cnt{ margin-left:auto; font-size:11px; font-weight:800; color:var(--text-faint); }
 
-  .addgrid{ display:grid; grid-template-columns:1fr 1fr 1.2fr auto; gap:8px; align-items:end; }
+  .addgrid{ display:grid; grid-template-columns:90px 1fr 1fr 1.2fr auto; gap:8px; align-items:end; }
   .field label{ display:block; font-size:12px; font-weight:800; color:var(--text-dim); margin-bottom:5px; }
   .field input{ width:100%; border:1.5px solid var(--border); border-radius:10px; padding:11px 13px; font:inherit; font-size:14px; font-weight:700; background:var(--bg); }
   .field input:focus{ outline:none; border-color:var(--accent-warm); background:#fff; }
@@ -46,13 +46,16 @@
   .btn.sm{ padding:8px 13px; font-size:12px; }
 
   .dlist{ display:flex; flex-direction:column; gap:7px; }
-  .drow{ display:grid; grid-template-columns:170px 1fr 1fr auto; gap:10px; align-items:center;
+  .drow{ display:grid; grid-template-columns:56px 170px 1fr 1fr auto; gap:10px; align-items:center;
     border:1.5px solid var(--border); border-radius:12px; padding:11px 14px; background:var(--bg); }
   .drow.edit{ border-color:var(--accent-warm); background:var(--accent-soft); }
   .drow .dc{ font-size:14px; font-weight:800; color:var(--accent-warm); letter-spacing:.02em; word-break:break-all; }
   .drow .dn{ font-size:15px; font-weight:800; }
   .drow .dk{ font-size:13px; font-weight:700; color:var(--text-dim); }
   .drow .acts{ display:flex; gap:6px; }
+  .drow .dnum{ display:inline-block; min-width:40px; text-align:center; font-size:14px; font-weight:900; padding:4px 8px; border-radius:9px; background:#2F5D46; color:#fff; }
+  .drow .dnum.none{ background:var(--border); color:var(--text-faint); font-weight:700; }
+  .btn.mv{ padding:8px 9px; font-size:12px; } .btn.mv:disabled{ opacity:.3; cursor:default; }
   .empty{ text-align:center; color:var(--text-faint); font-size:13px; font-weight:700; padding:26px 6px; border:2px dashed var(--border); border-radius:12px; }
 
   .toast{ position:fixed; top:26px; left:50%; transform:translateX(-50%) translateY(-16px); background:var(--text); color:#fff;
@@ -84,7 +87,7 @@
 
 <div class="wrap">
   <div class="page-topbar">
-    <h1>🏬 DEPARTMENT<small>매장 부서 생성 · 코드 관리 (DEPT-XXX)</small></h1>
+    <h1>🏬 DEPARTMENT<small>매장 부서 생성 · 코드 · 번호 관리 (DEPT-XXX)</small></h1>
     <span class="live">● LIVE</span>
   </div>
   <div class="banner" id="fbBanner"></div>
@@ -92,13 +95,15 @@
   <div class="panel">
     <h2><span class="ico">＋</span> <span id="addTitle">부서 추가</span></h2>
     <div class="addgrid">
+      <div class="field"><label>번호</label><input type="text" id="dNum" inputmode="numeric" placeholder="예: 2" autocomplete="off"></div>
       <div class="field"><label>부서 이름 (영문)</label><input type="text" id="dName" placeholder="예: FISH" autocomplete="off"></div>
       <div class="field"><label>한글명 (선택)</label><input type="text" id="dKo" placeholder="예: 생선" autocomplete="off"></div>
       <div class="field"><label>부서 코드</label><input type="text" id="dCode" placeholder="자동: DEPT-FISH" autocomplete="off"></div>
       <button class="btn" id="dSaveBtn" type="button">＋ 추가</button>
     </div>
     <div class="hint">부서는 이름이 아닌 <b>코드</b>로 관리됩니다 — 예: FISH 부서 → <b>DEPT-FISH</b> 코드로 저장/호출.
-      코드는 직급·부서·메뉴 전체에서 중복될 수 없으며, 중복 시 경고가 표시됩니다. 코드 수정은 FUNCTION-CODE 관리에서도 가능합니다.</div>
+      코드는 직급·부서·메뉴 전체에서 중복될 수 없으며, 중복 시 경고가 표시됩니다. 코드 수정은 FUNCTION-CODE 관리에서도 가능합니다.<br>
+      <b>번호</b>는 UPC LIST · PLU LIST 의 DEPARTMENT 칸에 쓰는 숫자입니다 — 번호를 넣으면 리스트의 DEPARTMENT 목록이 「번호. 부서이름」으로 자동 구성되고(실시간), 엑셀 불러오기의 DEPARTMENT 열 숫자도 이 번호로 해석됩니다. 번호는 부서마다 달라야 합니다. ↑↓ 로 표시 순서 변경.</div>
     <div style="margin-top:10px; display:none;" id="editActs">
       <button class="btn ghost sm" id="dCancelBtn" type="button">수정 취소</button>
     </div>
@@ -179,16 +184,20 @@
     return set;
   }
 
+  function sortedCodes(){ return Object.keys(depts).sort(function(a,b){ var oa=(depts[a].order!=null)?depts[a].order:9999, ob=(depts[b].order!=null)?depts[b].order:9999; return (oa-ob)||a.localeCompare(b); }); }
   function renderList(){
-    var codes=Object.keys(depts).sort();
+    var codes=sortedCodes();
     var html='';
-    codes.forEach(function(c){
-      var d=depts[c];
+    codes.forEach(function(c,i){
+      var d=depts[c], num=(d.num!=null&&d.num!=='')?String(d.num):'';
       html+='<div class="drow'+(c===editingCode?' edit':'')+'">'
+        +'<span class="dnum'+(num?'':' none')+'" title="DEPARTMENT 번호">'+(num?esc(num):'—')+'</span>'
         +'<span class="dc">'+esc(c)+'</span>'
         +'<span class="dn">'+esc(d.name||'')+'</span>'
         +'<span class="dk">'+esc(d.nameKo||'')+'</span>'
         +'<span class="acts">'
+        +'<button class="btn ghost mv" data-mv="-1" data-code="'+esc(c)+'" type="button" title="위로"'+(i===0?' disabled':'')+'>▲</button>'
+        +'<button class="btn ghost mv" data-mv="1" data-code="'+esc(c)+'" type="button" title="아래로"'+(i===codes.length-1?' disabled':'')+'>▼</button>'
         +'<button class="btn ghost sm" data-edit="'+esc(c)+'" type="button">수정</button>'
         +'<button class="btn danger sm" data-del="'+esc(c)+'" type="button">삭제</button>'
         +'</span></div>';
@@ -201,6 +210,18 @@
     Array.prototype.forEach.call($('dList').querySelectorAll('button[data-del]'),function(b){
       b.onclick=function(){ delDept(b.getAttribute('data-del')); };
     });
+    Array.prototype.forEach.call($('dList').querySelectorAll('button[data-mv]'),function(b){
+      b.onclick=function(){ moveDept(b.getAttribute('data-code'),parseInt(b.getAttribute('data-mv'),10)); };
+    });
+  }
+  /* 상하 이동: 표시 순서(order)를 0..n-1 로 다시 매긴 뒤 두 항목을 맞바꿔 기록 */
+  function moveDept(code,dir){
+    if(!fb) return;
+    var codes=sortedCodes(), i=codes.indexOf(code), j=i+dir; if(i<0||j<0||j>=codes.length) return;
+    var t=codes[i]; codes[i]=codes[j]; codes[j]=t;
+    var writes=[]; codes.forEach(function(c,k){ if(depts[c].order!==k){ depts[c].order=k; writes.push(fb.setDoc(fb.doc(fb.db,'DEPARTMENT',c),Object.assign({},depts[c],{order:k,updatedAt:Date.now()}))); } });
+    renderList();
+    Promise.all(writes).catch(function(e){ console.error(e); toast('순서 저장 실패 — 권한 확인','error'); });
   }
 
   $('dName').addEventListener('input',function(){
@@ -210,12 +231,13 @@
     }
   });
   $('dCode').addEventListener('input',function(){ $('dCode').dataset.touched='1'; });
+  $('dNum').addEventListener('input',function(){ this.value=this.value.replace(/[^0-9]/g,''); });
 
   function resetAdd(){
     editingCode=null;
     $('addTitle').textContent='부서 추가';
     $('dSaveBtn').textContent='＋ 추가';
-    $('dName').value=''; $('dKo').value=''; $('dCode').value='';
+    $('dName').value=''; $('dKo').value=''; $('dCode').value=''; $('dNum').value='';
     delete $('dCode').dataset.touched;
     $('editActs').style.display='none';
     renderList();
@@ -225,7 +247,7 @@
     editingCode=code;
     $('addTitle').textContent='부서 수정: '+code;
     $('dSaveBtn').textContent='💾 저장';
-    $('dName').value=d.name||''; $('dKo').value=d.nameKo||'';
+    $('dName').value=d.name||''; $('dKo').value=d.nameKo||''; $('dNum').value=(d.num!=null&&d.num!=='')?String(d.num):'';
     $('dCode').value=code; $('dCode').dataset.touched='1';
     $('editActs').style.display='';
     renderList();
@@ -241,12 +263,16 @@
     if(!name){ toast('부서 이름을 입력하세요','error'); $('dName').focus(); return; }
     if(!code){ toast('부서 코드를 입력하세요','error'); $('dCode').focus(); return; }
     if(code.charAt(0)==='_'){ toast('사용할 수 없는 코드','error'); return; }
+    var numRaw=$('dNum').value.trim(), num=null;
+    if(numRaw!==''){ if(!/^[0-9]+$/.test(numRaw)){ toast('번호는 숫자만','error'); $('dNum').focus(); return; } num=parseInt(numRaw,10);
+      var clash=Object.keys(depts).filter(function(c){ return c!==editingCode&&depts[c].num!=null&&String(depts[c].num)===String(num); })[0];
+      if(clash){ warnPopup('⚠️ 번호 중복','번호 '+num+' 은 이미 ['+(depts[clash].name||clash)+'] 에서 사용 중입니다.\n다른 번호를 입력하세요.'); return; } }
 
     var dup=allCodes(editingCode);
     if(dup[code]){ warnPopup('⚠️ 코드 중복','코드 "'+code+'" 는 이미 ['+dup[code]+'] 에서 사용 중입니다.\n다른 코드를 입력하세요.'); return; }
 
     var base = editingCode ? (depts[editingCode]||{}) : {};
-    var data={ code:code, name:name, nameKo:ko, order:(base.order!=null?base.order:Object.keys(depts).length),
+    var data={ code:code, name:name, nameKo:ko, num:num, order:(base.order!=null?base.order:Object.keys(depts).length),
       createdAt: base.createdAt||Date.now(), updatedAt: Date.now() };
 
     function write(){
