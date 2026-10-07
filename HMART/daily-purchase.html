@@ -1130,7 +1130,9 @@
       else if(e.key==='Escape'){ vHide(); }
     });
   }
-  window.addEventListener('scroll',vHide,true); window.addEventListener('resize',vHide);
+  /* 스크롤/크기 변경 시 목록 위치만 다시 계산 (입력칸 자체 스크롤은 무시) */
+  function vRepos(e){ if(!__vlist||__vlist.hidden||!__vinput) return; if(e&&e.target===__vinput) return; if(!document.body.contains(__vinput)){ vHide(); return; } vShow(__vinput); }
+  window.addEventListener('scroll',vRepos,true); window.addEventListener('resize',vRepos);
   function deptSelHtml(cls, val){
     var opts='<option value="">부서 선택 · DEPT</option>';
     depts.forEach(function(d){ opts+='<option value="'+esc(d)+'"'+(d===val?' selected':'')+'>'+esc(d)+'</option>'; });
