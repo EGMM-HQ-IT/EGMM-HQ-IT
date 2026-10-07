@@ -127,7 +127,8 @@
   /* 필드 사이 점선 구분 · 인보이스/부서/비고 가운데 정렬 · 업체명 붉은 글씨(축약어 제외) */
   .dp-tbl th, .dp-tbl td { border-right: 1px dotted var(--border-bright, #D6CFC0); }
   .dp-tbl th:last-child, .dp-tbl td:last-child { border-right: 0; }
-  .dp-tbl th:nth-child(3), .dp-tbl td:nth-child(3), .dp-tbl th:nth-child(5), .dp-tbl td:nth-child(5), .dp-tbl th:nth-child(6), .dp-tbl td:nth-child(6) { text-align: center; }
+  .dp-tbl th { text-align: center !important; }   /* 필드 이름은 전부 가운데 정렬 */
+  .dp-tbl td:nth-child(3), .dp-tbl td:nth-child(5), .dp-tbl td:nth-child(6) { text-align: center; }
   .dp-tbl td.c-vendor .vn { color: var(--danger, #9C3327); }
   .dp-left { min-width: 0; }
   .dp-tbl th { position: sticky; top: 0; z-index: 2; background: var(--bg); text-align: left; padding: 7px 9px;
@@ -697,12 +698,10 @@
 
   /* 업체 표시 이름 = 축약어(업체명) · 예: EGP-GRO(EGP(GROCERY)) */
   function vLabel(d){ if(!d) return ''; var c=String(d.code||'').trim(), n=String(d.name||'').trim(); return c?(n?c+'('+n+')':c):n; }
-  /* 리스트 표시: 축약어는 기본색, 업체명은 붉은 글씨 — "EGP-GRO(EGP(GROCERY))" → EGP-GRO + (EGP(GROCERY)) · 축약어 없는 값(직접 입력)은 전체 붉은 글씨 */
-  function vendorHtml(v){
-    v=String(v==null?'':v); var d=vDocByLabel(v);
-    if(d){ var c=String(d.code||'').trim(); return esc(c)+'<span class="vn">'+esc(v.slice(c.length))+'</span>'; }
-    return '<span class="vn">'+esc(v)+'</span>';
-  }
+  /* 표시용 업체명: 저장값 "EGP-GRO(EGP(GROCERY))" 에서 축약어를 떼고 업체명만 — 직접 입력 값은 그대로 */
+  function vName(v){ v=String(v==null?'':v); var d=vDocByLabel(v); return d?String(d.name||v).trim():v; }
+  /* 리스트 표시: 업체명만 붉은 글씨 */
+  function vendorHtml(v){ return '<span class="vn">'+esc(vName(v))+'</span>'; }
   function vDocByLabel(t){ t=String(t||'').trim(); if(!t) return null; for(var i=0;i<vendorDocs.length;i++){ if(vLabel(vendorDocs[i])===t) return vendorDocs[i]; } return null; }
   /* 검색: 1글자 = 축약어/업체명이 그 글자로 시작 · 2글자 이상 = 축약어/업체명/유사 이름에 포함 (대소문자 무시) */
   function vSearch(q){
@@ -1084,7 +1083,7 @@
       if(!ks.length) return '<span class="fl-none">내역 없음</span>';
       return ks.map(function(k){ return '<span class="fl-chip"><em>'+esc(k)+'</em><b>'+fmt$(map[k])+'</b></span>'; }).join('');
     }
-    v.innerHTML=chips(agg(function(r){ return r.vendor==='__manual__'?(r.vendorName||r.manualName||'(직접입력)'):(r.vendor||''); }));
+    v.innerHTML=chips(agg(function(r){ return r.vendor==='__manual__'?(r.vendorName||r.manualName||'(직접입력)'):vName(r.vendor||''); }));
     d.innerHTML=chips(agg(function(r){ return r.dept||''; }));
   }
   function sortedRows(){
@@ -1394,7 +1393,7 @@
       +'<div class="dp-stat-chip"><div class="k">기록 일수 · DAYS</div><div class="v">'+Object.keys(allDocs).length+'</div></div></div>'
       +'<div class="dp-stat-sec">월별 합계 · BY MONTH</div>'+tbl2('월','MONTH',byMon,false)
       +'<div class="dp-stat-sec">부서별 합계 · BY DEPARTMENT</div>'+tbl2('부서','DEPT',sumBy(rows,function(r){return r.dept;}),true)
-      +'<div class="dp-stat-sec">업체별 합계 · BY VENDOR</div>'+tbl2('업체','VENDOR',sumBy(rows,function(r){return r.vendor;}),true);
+      +'<div class="dp-stat-sec">업체별 합계 · BY VENDOR</div>'+tbl2('업체','VENDOR',sumBy(rows,function(r){return vName(r.vendor);}),true);
     openStat('ALL STATS', STORE+' · 전체 통계', html);
   };
 
@@ -1418,7 +1417,7 @@
         +'<tr class="tot"><td colspan="3">월 총액 · TOTAL</td><td class="num">'+fmt$(total)+'</td></tr></table>'
         : '<div class="dp-stat-empty">내역 없음 · No data</div>')
       +'<div class="dp-stat-sec">부서별 · BY DEPARTMENT</div>'+tbl2('부서','DEPT',sumBy(rows,function(r){return r.dept;}),true)
-      +'<div class="dp-stat-sec">업체별 · BY VENDOR</div>'+tbl2('업체','VENDOR',sumBy(rows,function(r){return r.vendor;}),true);
+      +'<div class="dp-stat-sec">업체별 · BY VENDOR</div>'+tbl2('업체','VENDOR',sumBy(rows,function(r){return vName(r.vendor);}),true);
   }
   function bindMonStat(){
     var ys=$('dpStatYear'), ms=$('dpStatMonth');
@@ -1435,10 +1434,10 @@
 
   $('stVenBtn').onclick=function(){
     var rows=aggRows(null);
-    var used=sumBy(rows.filter(function(r){return !r.manual;}),function(r){return r.vendor;});
+    var used=sumBy(rows.filter(function(r){return !r.manual;}),function(r){return vName(r.vendor);});
     var html='<div class="dp-stat-sec">등록 벤더 · REGISTERED VENDORS ('+vendors.length+')</div>'
       +(vendors.length? '<table class="dp-stat-tbl"><tr><th>업체 VENDOR</th><th class="num">건수</th><th class="num">누적 매입 TOTAL</th></tr>'
-        +vendors.slice().sort().map(function(v){ var u=used[v]||{total:0,count:0};
+        +vendors.map(vName).filter(function(v,i,a){ return a.indexOf(v)===i; }).sort().map(function(v){ var u=used[v]||{total:0,count:0};
           return '<tr><td class="strong">'+esc(v)+'</td><td class="num">'+u.count+'</td><td class="num">'+fmt$(u.total)+'</td></tr>'; }).join('')+'</table>'
         : '<div class="dp-stat-empty">HOMEPAGE MANAGER에 등록된 벤더가 없습니다 · No registered vendors</div>');
     openStat('ALL VENDORS','총 벤더리스트', html);
@@ -1446,7 +1445,7 @@
   $('stVenEtcBtn').onclick=function(){
     var rows=aggRows(null).filter(function(r){ return r.manual; });
     openStat('MANUAL VENDORS','기타 벤더리스트 (직접 입력)',
-      '<div class="dp-stat-sec">직접 입력 업체 · MANUAL VENDORS</div>'+tbl2('업체','VENDOR',sumBy(rows,function(r){return r.vendor;}),true));
+      '<div class="dp-stat-sec">직접 입력 업체 · MANUAL VENDORS</div>'+tbl2('업체','VENDOR',sumBy(rows,function(r){return vName(r.vendor);}),true));
   };
   $('stDeptBtn').onclick=function(){
     var rows=aggRows(null);
@@ -1475,7 +1474,7 @@
       +'<div class="p-date">'+esc(fmtDateKo(selDate))+'</div>'
       +'<table><colgroup><col class="col-vendor"><col class="col-invoice"><col class="col-amount"><col class="col-dept"><col class="col-memo"></colgroup>'
       +'<tr><th>업체 VENDOR</th><th>인보이스 INVOICE</th><th>금액 AMOUNT</th><th>부서 DEPT</th><th>비고 MEMO</th></tr>'
-      +rows.map(function(r){ return '<tr><td>'+esc(r.vendor)+'</td><td>'+esc(r.invoice)+'</td><td class="num">'+fmt$(r.amount)+'</td><td>'+esc(r.dept)+'</td><td>'+esc(r.memo||'')+'</td></tr>'; }).join('')
+      +rows.map(function(r){ return '<tr><td>'+esc(vName(r.vendor))+'</td><td>'+esc(r.invoice)+'</td><td class="num">'+fmt$(r.amount)+'</td><td>'+esc(r.dept)+'</td><td>'+esc(r.memo||'')+'</td></tr>'; }).join('')
       +'</table>'
       +'<div class="p-sec">부서별 합계 · DEPT SUBTOTAL</div>'
       +'<table><colgroup><col class="col-dept"><col class="col-dsum"></colgroup>'
