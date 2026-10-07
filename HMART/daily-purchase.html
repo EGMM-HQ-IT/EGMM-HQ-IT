@@ -253,6 +253,24 @@
   .dp-confirm-text { font-size: 14.5px; font-weight: 700; color: var(--text); line-height: 1.6; text-align: center; padding: 6px 0 2px; }
   .dp-confirm-text small { display: block; font-size: 12px; color: var(--text-dim); margin-top: 4px; }
 
+  /* [2026-10-07] 엑셀 업로드 미리보기 */
+  .dp-xl-modal { max-width: 980px; }
+  .dp-xl-top { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; margin-bottom: 12px; }
+  .dp-xl-top .dp-mrow { margin: 0; }
+  .dp-xl-top input[type=date], .dp-xl-top select { border: 1.5px solid var(--border); border-radius: 9px; padding: 8px 10px; font: inherit; font-size: 13px; font-weight: 800; background: var(--bg-elev); color: var(--text); }
+  .dp-xl-file { font-size: 12px; font-weight: 700; color: var(--text-dim); }
+  .dp-xl-map { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .dp-xl-map span { font-size: 11px; font-weight: 800; border: 1px solid var(--border); border-radius: 999px; padding: 3px 9px; background: var(--bg-elev); color: var(--text-dim); }
+  .dp-xl-map span b { color: var(--accent-warm); }
+  .dp-xl-map span.miss { color: var(--danger); border-color: #e3a3a3; }
+  .dp-stat-tbl td.xl-src { color: var(--text-faint); font-size: 11.5px; }
+  .dp-stat-tbl td .arrow { color: var(--text-faint); margin: 0 4px; }
+  .dp-stat-tbl td .ok { color: var(--accent-warm); font-weight: 800; }
+  .dp-stat-tbl td .man { color: #b3322e; font-weight: 800; }
+  .dp-stat-tbl td .bad { color: var(--danger); font-weight: 800; }
+  .dp-stat-tbl tr.skip td { opacity: .5; text-decoration: line-through; }
+  .dp-stat-tbl tr.dup td { background: #fff6e5; }
+
   /* 통계 팝업 내부 */
   .dp-stat-modal { max-width: 860px; }
   .dp-stat-sum { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
@@ -400,6 +418,8 @@
       <span class="dp-user-pill" id="dpUserPill" style="display:none">👤 <b id="dpUserName"></b> <span class="role" id="dpUserRole"></span></span>
       <button class="dp-mini-btn" id="dpPrintBtn" type="button" disabled>🖨 프린트 <span style="opacity:.6">PRINT</span></button>
       <button class="dp-mini-btn" id="dpExportBtn" type="button" disabled>⇩ 내보내기 <span style="opacity:.6">EXPORT</span></button>
+      <button class="dp-mini-btn" id="dpXlBtn" type="button" style="display:none" title="엑셀 파일의 매입 내역을 날짜를 지정해 등록">⇧ 엑셀 업로드 <span style="opacity:.6">EXCEL</span></button>
+      <input type="file" id="dpXlFile" accept=".xlsx,.xls,.csv" style="display:none">
     </div>
   </header>
 
@@ -529,6 +549,15 @@
   <div class="dp-mbody" id="dpStatBody"></div>
 </div></div>
 
+<!-- 엑셀 업로드 미리보기 팝업 -->
+<div class="dp-ov" id="dpXlOv"><div class="dp-modal dp-xl-modal">
+  <div class="dp-mhead"><span class="dp-mtick"></span>
+    <span class="dp-mhead-tx"><span class="dp-meyebrow">EXCEL UPLOAD</span><span class="dp-mtitle">엑셀 업로드 · 날짜 지정 등록</span></span>
+    <button class="dp-mx" id="dpXlX" type="button">✕</button>
+  </div>
+  <div class="dp-mbody" id="dpXlBody"></div>
+</div></div>
+
 <div class="dp-toast" id="dpToast"></div>
 <div id="dpPrint"></div>
 
@@ -548,7 +577,7 @@
   var STORE='';                       // 현재 보고 있는 매장 (표시 이름)
   var STORE_CODE='';                  // 현재 매장 코드 (STORE 문서 ID · Firestore 경로)
   var user=null;                      // {id,name,role:'account'|'manager',master,stores:[{code,name}]}
-  var vendors=[], depts=[], vendorDocs=[];   /* vendorDocs: VENDER 문서(유사 이름 인식용) */
+  var vendors=[], depts=[], vendorDocs=[], deptDocs=[];   /* vendorDocs/deptDocs: VENDER·DEPARTMENT 문서(유사 이름 인식용) */
   var allDocs={};                     // date(YYYY-MM-DD) -> day doc
   var unsubDays=null;
   var selDate=ymdOf(new Date());
@@ -680,8 +709,8 @@
       renderInputRow(); }, function(e){ console.warn('[매입일지] VENDER 읽기 실패', e); });
     // 부서 — EGMM › DEPARTMENT 관리 (DEPARTMENT 컬렉션 · 번호(num)/order 순)
     fns().onSnapshot(fns().collection(db(),'DEPARTMENT'), function(snap){
-      var arr=[]; snap.forEach(function(ds){ if(ds.id.charAt(0)==='_') return; var d=ds.data()||{}; if(d.name) arr.push({ name:String(d.name).trim(), order:(typeof d.num==='number')?d.num:((d.num!=null&&d.num!=='')?+d.num:d.order) }); });
-      arr.sort(byOrder); depts=arr.map(function(x){ return x.name; });
+      var arr=[], docs=[]; snap.forEach(function(ds){ if(ds.id.charAt(0)==='_') return; var d=ds.data()||{}; docs.push(Object.assign({code:ds.id},d)); if(d.name) arr.push({ name:String(d.name).trim(), order:(typeof d.num==='number')?d.num:((d.num!=null&&d.num!=='')?+d.num:d.order) }); });
+      arr.sort(byOrder); depts=arr.map(function(x){ return x.name; }); deptDocs=docs;
       renderInputRow(); renderRight(); }, function(e){ console.warn('[매입일지] DEPARTMENT 읽기 실패', e); });
   }
   // 매장 목록 — EGMM › STORE 관리 (STORE 컬렉션 · order 순)
@@ -819,6 +848,157 @@
   }
   var __xb=$('dpExportBtn'); if(__xb) __xb.onclick=exportDayCsv;
 
+  // ===== [2026-10-07] 엑셀 업로드 — 날짜를 지정해 엑셀의 매입 내역을 등록 =====
+  //  · 필드명 행(업체/인보이스/금액/부서/비고 와 비슷한 제목이 2개 이상인 행)이 시작점 · 중간 빈 줄 무시
+  //  · TOTAL/합계 줄, 또는 빈 줄 뒤에 데이터 모양이 아닌 줄이 나오면 끝
+  //  · 업체/부서 값은 EGMM VENDER·DEPARTMENT 의 축약어·이름·유사 이름(오타 허용)으로 인식 → 축약어(업체명)로 표시
+  var XL_FIELDS={
+    vendor:['VENDOR','VENDER','업체','업체명','벤더','거래처','SUPPLIER','COMPANY','회사'],
+    invoice:['INVOICE','INVOICE NO','INVOICE #','INV','INV NO','INV#','인보이스','인보이스번호','송장','송장번호','REF','REFERENCE','NO'],
+    amount:['AMOUNT','AMT','TOTAL','TOTAL AMOUNT','금액','합계','총액','PRICE','SUM','COST'],
+    dept:['DEPT','DEPARTMENT','부서','PART','파트','DIVISION'],
+    memo:['MEMO','NOTE','NOTES','REMARK','REMARKS','비고','메모','COMMENT','DESCRIPTION','설명']
+  };
+  var XL_TOTAL=['TOTAL','SUBTOTAL','GRANDTOTAL','합계','총계','소계','총합계','계'];
+  function xlKey(s){ return (window.EgmmFB&&window.EgmmFB.venderKey)?window.EgmmFB.venderKey(s):String(s==null?'':s).toUpperCase().replace(/[^A-Z0-9\uAC00-\uD7A3]/g,''); }
+  function xlDist(a,b,max){ var la=a.length, lb=b.length; if(Math.abs(la-lb)>max) return max+1; var prev=[],cur=[],i,j; for(j=0;j<=lb;j++) prev[j]=j;
+    for(i=1;i<=la;i++){ cur[0]=i; var mn=i; for(j=1;j<=lb;j++){ var c=a.charAt(i-1)===b.charAt(j-1)?0:1; cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+c); if(cur[j]<mn) mn=cur[j]; } if(mn>max) return max+1; var t=prev; prev=cur; cur=t; } return prev[lb]; }
+  /* 제목 셀 → 필드명 (정확 → 포함 → 1글자 오타) */
+  function xlFieldOf(cell){
+    var k=xlKey(cell); if(!k) return null; var f, i, c;
+    for(f in XL_FIELDS){ for(i=0;i<XL_FIELDS[f].length;i++){ if(xlKey(XL_FIELDS[f][i])===k) return f; } }
+    for(f in XL_FIELDS){ for(i=0;i<XL_FIELDS[f].length;i++){ c=xlKey(XL_FIELDS[f][i]); if(c.length>=3&&k.indexOf(c)>=0) return f; } }
+    for(f in XL_FIELDS){ for(i=0;i<XL_FIELDS[f].length;i++){ c=xlKey(XL_FIELDS[f][i]); if(c.length>=4&&k.length>=4&&xlDist(k,c,1)<=1) return f; } }
+    return null;
+  }
+  function xlIsTotal(v){ var k=xlKey(v); if(!k) return false; for(var i=0;i<XL_TOTAL.length;i++){ if(k===xlKey(XL_TOTAL[i])||k.indexOf(xlKey(XL_TOTAL[i]))===0) return true; } return false; }
+  function xlCell(v){ if(v==null) return ''; if(v instanceof Date) return ymdOf(v); return String(v).trim(); }
+  /* 시트(2차원 배열) → { map:{field:col}, header:행번호, rows:[{vendorSrc,invoice,amountRaw,deptSrc,memo,line}] } */
+  function xlParse(aoa){
+    var r, c, best=null;
+    for(r=0;r<aoa.length;r++){ var row=aoa[r]||[], map={}, n=0;
+      for(c=0;c<row.length;c++){ var f=xlFieldOf(xlCell(row[c])); if(f&&map[f]==null){ map[f]=c; n++; } }
+      if(n>=2&&map.vendor!=null&&map.amount!=null){ best={ header:r, map:map }; break; }
+      if(n>=2&&!best) best={ header:r, map:map, weak:true };
+    }
+    if(!best) return { err:'필드명 행을 찾지 못했습니다 — 업체/인보이스/금액/부서 같은 제목이 있는 행이 필요합니다' };
+    var map=best.map, rows=[], blank=false;
+    function val(row,f){ return map[f]!=null?xlCell(row[map[f]]):''; }
+    for(r=best.header+1;r<aoa.length;r++){
+      var row=aoa[r]||[]; var any=row.some(function(x){ return xlCell(x)!==''; });
+      if(!any){ blank=true; continue; }                                              /* 중간 빈 줄 무시 */
+      var cells=row.map(xlCell), vend=val(row,'vendor'), amtRaw=val(row,'amount');
+      if(cells.some(xlIsTotal)) break;                                               /* TOTAL 줄 = 끝 */
+      var looks=(vend!==''||val(row,'invoice')!=='') && !isNaN(parseAmt(amtRaw));    /* 데이터 모양: 업체/인보이스 + 숫자 금액 */
+      if(!looks){ if(blank) break; continue; }                                       /* 빈 줄 뒤 전혀 다른 줄 = 끝 · 아니면 건너뜀 */
+      blank=false;
+      rows.push({ line:r+1, vendorSrc:vend, invoice:val(row,'invoice'), amountRaw:amtRaw, deptSrc:val(row,'dept'), memo:val(row,'memo') });
+    }
+    return { header:best.header, map:map, rows:rows };
+  }
+  /* 업체/부서 인식 */
+  function xlResolve(rows){
+    rows.forEach(function(x){
+      var vd = x.vendorSrc ? (vDocByLabel(x.vendorSrc) || (window.EgmmFB&&window.EgmmFB.venderMatch ? window.EgmmFB.venderMatch(vendorDocs, x.vendorSrc) : null)) : null;
+      x.vendor = vd ? vLabel(vd) : x.vendorSrc; x.manual = !vd;
+      var dd = x.deptSrc ? (window.EgmmFB&&window.EgmmFB.deptMatch ? window.EgmmFB.deptMatch(deptDocs, x.deptSrc) : null) : null;
+      x.dept = dd ? String(dd.name||'').trim() : (depts.indexOf(x.deptSrc)>=0 ? x.deptSrc : '');
+      x.amount = parseAmt(x.amountRaw);
+    });
+    return rows;
+  }
+  var __xl=null;   /* { file, sheets:{name:aoa}, sheet, date, parsed, rows } */
+  function xlLib(){
+    if(window.XLSX) return Promise.resolve(window.XLSX);
+    return new Promise(function(res,rej){ var sc=document.createElement('script'); sc.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; sc.onload=function(){ res(window.XLSX); }; sc.onerror=function(){ rej(new Error('엑셀 모듈 로드 실패')); }; document.head.appendChild(sc); });
+  }
+  $('dpXlBtn').onclick=function(){ if(!user||(!isAccount()&&!isManager())){ denyPopup('기록 권한이 있는 계정으로 ID 로그인 후 사용할 수 있습니다.'); return; } $('dpXlFile').value=''; $('dpXlFile').click(); };
+  $('dpXlFile').addEventListener('change',function(){
+    var f=this.files&&this.files[0]; if(!f) return;
+    toast('엑셀 읽는 중…');
+    xlLib().then(function(XLSX){
+      var rd=new FileReader();
+      rd.onload=function(e){
+        try{
+          var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
+          var sheets={}, names=[]; wb.SheetNames.forEach(function(n){ var aoa=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:''}); if(aoa.some(function(r){ return (r||[]).some(function(x){ return xlCell(x)!==''; }); })){ sheets[n]=aoa; names.push(n); } });
+          if(!names.length){ uiAlert('엑셀 업로드','비어 있는 파일입니다.'); return; }
+          __xl={ file:f.name, sheets:sheets, names:names, sheet:names[0], date:selDate };
+          xlPrepare(); xlRender();
+        }catch(err){ console.error(err); uiAlert('엑셀 업로드','파일을 읽지 못했습니다 — '+(err&&err.message||err)); }
+      };
+      rd.readAsArrayBuffer(f);
+    }).catch(function(err){ uiAlert('엑셀 업로드', String(err&&err.message||err)); });
+  });
+  function xlPrepare(){ var p=xlParse(__xl.sheets[__xl.sheet]); __xl.parsed=p; __xl.rows=p.err?[]:xlResolve(p.rows); }
+  function xlRowState(x, date){
+    if(isNaN(x.amount)) return { cls:'skip', txt:'금액 없음' };
+    if(!x.vendor) return { cls:'skip', txt:'업체 없음' };
+    if(!x.dept) return { cls:'skip', txt:'부서 없음' };
+    if(x.invoice && dupExistsOn(date, x.vendor, x.invoice)) return { cls:'dup', txt:'중복 인보이스 (건너뜀)' };
+    return { cls:'', txt:x.manual?'직접 입력':'' };
+  }
+  function dupExistsOn(date, vendor, invoice){ return dupExists(vendor, invoice, null); }
+  function xlRender(){
+    var b=$('dpXlBody'), x=__xl, p=x.parsed;
+    var html='<div class="dp-xl-top">'
+      +'<div class="dp-mrow"><label>등록 날짜 · DATE</label><input type="date" id="dpXlDate" value="'+esc(x.date)+'"></div>'
+      +(x.names.length>1?('<div class="dp-mrow"><label>시트 · SHEET</label><select id="dpXlSheet">'+x.names.map(function(n){ return '<option value="'+esc(n)+'"'+(n===x.sheet?' selected':'')+'>'+esc(n)+'</option>'; }).join('')+'</select></div>'):'')
+      +'<div class="dp-mrow"><label>기본 부서 (부서 열이 없거나 인식 안 될 때) · DEFAULT DEPT</label><select id="dpXlDept"><option value="">— 없음 —</option>'+depts.map(function(d){ return '<option value="'+esc(d)+'">'+esc(d)+'</option>'; }).join('')+'</select></div>'
+      +'<div class="dp-xl-file">📄 '+esc(x.file)+'</div></div>';
+    if(p.err){ html+='<div class="dp-stat-empty">'+esc(p.err)+'</div>'; b.innerHTML=html+'<div class="dp-macts"><button class="dp-mbtn ghost" id="dpXlCancel" type="button">닫기 · CLOSE</button></div>'; xlBind(); return; }
+    html+='<div class="dp-xl-map">'+['vendor','invoice','amount','dept','memo'].map(function(f){ var lab={vendor:'업체',invoice:'인보이스',amount:'금액',dept:'부서',memo:'비고'}[f]; var c=p.map[f];
+      return '<span class="'+(c==null?'miss':'')+'">'+lab+' → <b>'+(c!=null?('열 '+(c+1)+' · '+esc(xlCell((x.sheets[x.sheet][p.header]||[])[c]))):'없음')+'</b></span>'; }).join('')+'<span>필드명 행 <b>'+(p.header+1)+'</b></span></div>';
+    var defDept=x.defDept||'';
+    var okN=0, dupN=0, skipN=0, manN=0;
+    var rowsHtml=x.rows.map(function(r,i){
+      var rr=Object.assign({}, r); if(!rr.dept&&defDept) rr.dept=defDept;
+      var st=xlRowState(rr, x.date);
+      if(st.cls==='skip') skipN++; else if(st.cls==='dup') dupN++; else { okN++; if(rr.manual) manN++; }
+      return '<tr class="'+st.cls+'"><td class="num">'+(i+1)+'</td>'
+        +'<td><span class="xl-src">'+esc(r.vendorSrc)+'</span>'+(rr.vendor&&rr.vendor!==r.vendorSrc?'<span class="arrow">→</span><span class="'+(rr.manual?'man':'ok')+'">'+esc(rr.vendor)+'</span>':(rr.manual&&rr.vendor?'<span class="arrow">·</span><span class="man">직접 입력</span>':''))+'</td>'
+        +'<td>'+esc(r.invoice)+'</td><td class="num">'+(isNaN(rr.amount)?'<span class="bad">'+esc(r.amountRaw)+'</span>':fmt$(rr.amount))+'</td>'
+        +'<td><span class="xl-src">'+esc(r.deptSrc)+'</span>'+(rr.dept?(rr.dept!==r.deptSrc?'<span class="arrow">→</span><span class="ok">'+esc(rr.dept)+'</span>':''):'<span class="arrow">·</span><span class="bad">부서 없음</span>')+'</td>'
+        +'<td>'+esc(r.memo)+'</td><td class="xl-src">'+esc(st.txt)+'</td></tr>';
+    }).join('');
+    html+='<div class="dp-stat-sum">'
+      +'<div class="dp-stat-chip"><div class="k">등록 가능 · OK</div><div class="v">'+okN+'</div></div>'
+      +'<div class="dp-stat-chip"><div class="k">직접 입력(미등록 업체)</div><div class="v">'+manN+'</div></div>'
+      +'<div class="dp-stat-chip"><div class="k">중복 인보이스</div><div class="v">'+dupN+'</div></div>'
+      +'<div class="dp-stat-chip"><div class="k">제외(금액/업체/부서 없음)</div><div class="v">'+skipN+'</div></div></div>'
+      +(x.rows.length?('<table class="dp-stat-tbl"><tr><th class="num">#</th><th>업체 VENDOR</th><th>인보이스</th><th class="num">금액</th><th>부서 DEPT</th><th>비고</th><th>상태</th></tr>'+rowsHtml+'</table>'):'<div class="dp-stat-empty">데이터 행이 없습니다</div>')
+      +'<div class="dp-macts"><button class="dp-mbtn ghost" id="dpXlCancel" type="button">취소 · CANCEL</button>'
+      +'<button class="dp-mbtn primary" id="dpXlOk" type="button"'+(okN?'':' disabled')+'>등록 '+okN+'건 · '+esc(x.date)+'</button></div>';
+    b.innerHTML=html; xlBind();
+    $('dpXlOv').classList.add('show');
+  }
+  function xlBind(){
+    var d=$('dpXlDate'); if(d) d.onchange=function(){ __xl.date=this.value||__xl.date; xlRender(); };
+    var sh=$('dpXlSheet'); if(sh) sh.onchange=function(){ __xl.sheet=this.value; xlPrepare(); xlRender(); };
+    var dd=$('dpXlDept'); if(dd){ dd.onchange=function(){ __xl.defDept=this.value; xlRender(); }; if(__xl.defDept!=null) dd.value=__xl.defDept; }
+    var c=$('dpXlCancel'); if(c) c.onclick=function(){ $('dpXlOv').classList.remove('show'); };
+    var ok=$('dpXlOk'); if(ok) ok.onclick=xlCommit;
+  }
+  $('dpXlX').onclick=function(){ $('dpXlOv').classList.remove('show'); };
+  async function xlCommit(){
+    var x=__xl; if(!x||!x.rows.length) return;
+    var date=x.date; if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){ toast('날짜를 지정하세요','error'); return; }
+    if(dayStatus(date)==='done'){ denyPopup('완료된 일자입니다. 매니저가 진행중으로 변경해야 합니다.'); return; }
+    if(!user||(!isAccount()&&!isManager())){ denyPopup('기록 권한이 없습니다.'); return; }
+    var rows=dayRows(date).slice(), added=0, defDept=x.defDept||'';
+    x.rows.forEach(function(r){
+      var rr=Object.assign({}, r); if(!rr.dept&&defDept) rr.dept=defDept;
+      var st=xlRowState(rr, date); if(st.cls) return;
+      if(rr.invoice && rows.some(function(q){ return String(q.vendor||'').toUpperCase()===rr.vendor.toUpperCase() && String(q.invoice||'').toUpperCase()===rr.invoice.toUpperCase(); })) return;
+      rows.push({ id:genId('r'), vendor:rr.vendor, manual:!!rr.manual, invoice:rr.invoice, amount:rr.amount, dept:rr.dept, memo:rr.memo||'', src:'excel',
+        createdAt:Date.now(), updatedAt:Date.now(), by:{id:user.id,name:user.name} });
+      added++;
+    });
+    if(!added){ toast('등록할 행이 없습니다','error'); return; }
+    var ok=await saveDay(date,{ rows:rows });
+    if(ok){ $('dpXlOv').classList.remove('show'); selDate=date; var p=date.split('-'); calY=+p[0]; calM=+p[1]; editingId=null; renderAll(); toast('엑셀 등록 완료 · '+added+'건 ('+date+')','success'); }
+  }
+
   // ===== 렌더 =====
   function renderAll(){ renderHead(); renderList(); renderRight(); renderCal(); }
 
@@ -857,6 +1037,7 @@
     $('dpClearAllBtn').disabled=lockEdit;
     $('dpPrintBtn').disabled=(st!=='done'||!vis);
     var xb=$('dpExportBtn'); if(xb) xb.disabled=(!vis || !dayRows(selDate).length);
+    var ub=$('dpXlBtn'); if(ub) ub.style.display=(user&&(isAccount()||isManager()))?'':'none';   /* [2026-10-07] 엑셀 업로드 — 기록 권한 계정만 */
   }
 
   function renderFootTotals(hidden){
