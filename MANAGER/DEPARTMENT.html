@@ -70,6 +70,15 @@
   .modal h3.warn{ color:var(--danger); }
   .modal p{ color:var(--text-dim); font-size:14px; font-weight:600; line-height:1.6; margin-bottom:18px; white-space:pre-wrap; word-break:break-word; }
   .modal .macts{ display:flex; gap:8px; justify-content:flex-end; }
+  /* 유사 이름 — 여러 개 등록 (칩) */
+  .alias-box{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; border:1.5px solid var(--border); border-radius:10px; padding:6px 8px; background:var(--bg); min-height:46px; }
+  .alias-box:focus-within{ border-color:var(--accent-warm); background:#fff; }
+  .alias-chip{ display:inline-flex; align-items:center; gap:5px; background:var(--accent-soft); color:var(--text); border:1px solid var(--border); border-radius:999px; padding:4px 6px 4px 10px; font-size:12px; font-weight:800; }
+  .alias-chip button{ border:none; background:transparent; color:var(--text-faint); font-size:13px; font-weight:800; cursor:pointer; line-height:1; padding:0 2px; }
+  .alias-chip button:hover{ color:var(--danger); }
+  .alias-box input{ flex:1 1 140px; min-width:120px; border:none !important; background:transparent !important; padding:6px 4px !important; font:inherit; font-size:14px; font-weight:700; outline:none; }
+  .alias-add{ border:1px solid var(--border); background:var(--bg-elev); color:var(--accent-warm); border-radius:8px; padding:6px 10px; font:inherit; font-size:12px; font-weight:800; cursor:pointer; white-space:nowrap; }
+  .alias-add:hover{ border-color:var(--accent-warm); }
   .gate-note{ position:fixed; inset:0; z-index:9000; display:none; align-items:center; justify-content:center; background:var(--bg); }
   .gate-note.show{ display:flex; }
   .gate-note .gc{ background:var(--bg-elev); border:1.5px solid var(--border); border-radius:16px; padding:34px 40px; text-align:center; font-weight:800; color:var(--text-dim); line-height:1.8; }
@@ -101,7 +110,8 @@
       <div class="field"><label>한글명 (선택)</label><input type="text" id="dKo" placeholder="예: 생선" autocomplete="off"></div>
       <div class="field"><label>부서 코드</label><input type="text" id="dCode" placeholder="자동: DEPT-FISH" autocomplete="off"></div>
       <!-- [2026-10-07] 유사 이름 — 이 부서로 인식할 다른 표기 (VENDER 와 같은 방식) -->
-      <div class="field" style="grid-column:1/-1"><label>유사 이름 (이 부서로 인식할 다른 표기 · 쉼표 구분)</label><input type="text" id="dAliases" placeholder="예: SEAFOOD, 수산, FISH DEPT" autocomplete="off"></div>
+      <div class="field" style="grid-column:1/-1"><label>유사 이름 (이 부서로 인식할 다른 표기 · 여러 개 등록 가능)</label>
+        <div class="alias-box"><span id="aliasChips" style="display:contents"></span><input type="text" id="dAliases" placeholder="예: SEAFOOD 입력 후 Enter 또는 ＋ (쉼표로 여러 개 한 번에)" autocomplete="off"><button class="alias-add" id="aliasAddBtn" type="button">＋ 추가</button></div></div>
       <button class="btn" id="dSaveBtn" type="button">＋ 추가</button>
     </div>
     <div class="hint">부서는 이름이 아닌 <b>코드</b>로 관리됩니다 — 예: FISH 부서 → <b>DEPT-FISH</b> 코드로 저장/호출.
@@ -240,11 +250,26 @@
   $('dCode').addEventListener('input',function(){ $('dCode').dataset.touched='1'; });
   $('dNum').addEventListener('input',function(){ this.value=this.value.replace(/[^0-9]/g,''); });
 
+  /* ── 유사 이름 칩 편집기: 입력 후 Enter / [＋] 로 하나씩 추가 · 쉼표로 여러 개 한 번에 · × 로 삭제 ── */
+  var aliasList=[];
+  function aliasRender(){
+    var box=$('aliasChips'); box.innerHTML=aliasList.map(function(a,i){ return '<span class="alias-chip">'+esc(a)+'<button type="button" data-ai="'+i+'" title="삭제">✕</button></span>'; }).join('');
+    Array.prototype.forEach.call(box.querySelectorAll('button[data-ai]'),function(b){ b.onclick=function(){ aliasList.splice(+b.getAttribute('data-ai'),1); aliasRender(); }; });
+  }
+  function aliasAddFromInput(){
+    var inp=$('dAliases'), raw=inp.value; inp.value='';
+    raw.split(',').forEach(function(x){ x=x.trim(); var k=akey(x); if(!x||!k) return; if(aliasList.some(function(a){ return akey(a)===k; })) return; aliasList.push(x); });
+    aliasRender(); inp.focus();
+  }
+  function aliasSet(arr){ aliasList=(arr||[]).slice(); $('dAliases').value=''; aliasRender(); }
+  $('dAliases').addEventListener('keydown',function(e){ if(e.key==='Enter'&&!e.isComposing){ e.preventDefault(); aliasAddFromInput(); } });
+  $('dAliases').addEventListener('blur',function(){ if($('dAliases').value.trim()) aliasAddFromInput(); });
+  $('aliasAddBtn').onclick=aliasAddFromInput;
   function resetAdd(){
     editingCode=null;
     $('addTitle').textContent='부서 추가';
     $('dSaveBtn').textContent='＋ 추가';
-    $('dName').value=''; $('dKo').value=''; $('dCode').value=''; $('dNum').value=''; $('dAliases').value='';
+    $('dName').value=''; $('dKo').value=''; $('dCode').value=''; $('dNum').value=''; aliasSet([]);
     delete $('dCode').dataset.touched;
     $('editActs').style.display='none';
     renderList();
@@ -254,7 +279,7 @@
     editingCode=code;
     $('addTitle').textContent='부서 수정: '+code;
     $('dSaveBtn').textContent='💾 저장';
-    $('dName').value=d.name||''; $('dKo').value=d.nameKo||''; $('dNum').value=(d.num!=null&&d.num!=='')?String(d.num):''; $('dAliases').value=aliasesOf(d).join(', ');
+    $('dName').value=d.name||''; $('dKo').value=d.nameKo||''; $('dNum').value=(d.num!=null&&d.num!=='')?String(d.num):''; aliasSet(aliasesOf(d));
     $('dCode').value=code; $('dCode').dataset.touched='1';
     $('editActs').style.display='';
     renderList();
@@ -279,8 +304,8 @@
     if(dup[code]){ warnPopup('⚠️ 코드 중복','코드 "'+code+'" 는 이미 ['+dup[code]+'] 에서 사용 중입니다.\n다른 코드를 입력하세요.'); return; }
 
     /* 유사 이름: 쉼표 구분 · 빈 값/중복 제거 · 다른 부서의 코드·이름·유사 이름과 겹치면 거부 */
-    var aliases=[], seen={};
-    $('dAliases').value.split(',').forEach(function(x){ x=x.trim(); var k=akey(x); if(!x||!k||seen[k]) return; seen[k]=1; aliases.push(x); });
+    if($('dAliases').value.trim()) aliasAddFromInput();   /* 입력란에 남은 글자도 추가 */
+    var aliases=aliasList.slice();
     for(var ai=0; ai<aliases.length; ai++){
       var k2=akey(aliases[ai]), hitC=null;
       Object.keys(depts).forEach(function(c){ if(c===editingCode||hitC) return; var dd=depts[c]; if(akey(c)===k2||akey(dd.name)===k2||akey(dd.nameKo)===k2) hitC=c; aliasesOf(dd).forEach(function(al){ if(akey(al)===k2) hitC=c; }); });
