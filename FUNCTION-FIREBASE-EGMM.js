@@ -159,30 +159,58 @@
     });
   };
 
-  /* [2026-10-07] 업체(VENDER) 유사 이름 인식
+  /* [2026-10-07] 업체(VENDER) · 부서(DEPARTMENT) 유사 이름 인식
      venderKey(s)            : 비교 키 — 대소문자·공백·괄호 등 기호 무시 ("EGP (gr)" → "EGPGR")
-     venderMatch(venders, s) : 입력 이름이 어느 업체인지 — 축약어(문서 ID/code) · 업체명 · 유사 이름(aliases) 순으로 비교.
-                               venders = { 축약어: 문서 } 또는 문서 배열. 반환: 해당 업체 문서(없으면 null) */
+     venderMatch(venders, s) : 입력 이름이 어느 업체인지 — 축약어(문서 ID/code) → 업체명 → 유사 이름(aliases) 순으로 비교.
+     deptMatch(depts, s)     : 부서 — 코드 → 이름/한글명 → 유사 이름 → 번호(num)
+     [유사도] 정확히 같은 것이 없으면 오타를 허용해 가장 가까운 것을 찾는다 (키 4~7자: 1자 · 8자 이상: 2자 차이까지 —
+             글자 바뀜·빠짐·추가. 띄어쓰기·기호는 키에서 이미 제거). 같은 거리의 후보가 둘 이상이면 모호하므로 연결하지 않음.
+     venders/depts = { 코드: 문서 } 또는 문서 배열. 반환: 해당 문서(없으면 null) */
   window.EgmmFB.venderKey = function(s){ return String(s == null ? "" : s).toUpperCase().replace(/[^A-Z0-9\uAC00-\uD7A3\u3131-\u318E]/g, ""); };
+  function __editDist(a, b, max){                      /* Levenshtein · max 초과면 max+1 */
+    var la = a.length, lb = b.length;
+    if (Math.abs(la - lb) > max) return max + 1;
+    var prev = [], cur = [], i, j;
+    for (j = 0; j <= lb; j++) prev[j] = j;
+    for (i = 1; i <= la; i++){
+      cur[0] = i; var rowMin = cur[0];
+      for (j = 1; j <= lb; j++){
+        var c = (a.charAt(i - 1) === b.charAt(j - 1)) ? 0 : 1;
+        cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + c);
+        if (cur[j] < rowMin) rowMin = cur[j];
+      }
+      if (rowMin > max) return max + 1;
+      var t = prev; prev = cur; cur = t;
+    }
+    return prev[lb];
+  }
+  window.EgmmFB.fuzzyTol = function(key){ var n = key.length; return n >= 8 ? 2 : (n >= 4 ? 1 : 0); };
+  /* 공통: list(문서 배열) · namesOf(doc) → [비교할 문자열들] (앞쪽일수록 우선) */
+  function __nameMatch(list, s, namesOf){
+    var K = window.EgmmFB.venderKey, k = K(s); if (!k) return null;
+    var i, j, d, names;
+    /* 1) 정확 일치 — 필드 우선순위대로 */
+    var maxLen = 0; for (i = 0; i < list.length; i++){ names = namesOf(list[i] || {}); if (names.length > maxLen) maxLen = names.length; }
+    for (j = 0; j < maxLen; j++){ for (i = 0; i < list.length; i++){ d = list[i] || {}; names = namesOf(d); if (j < names.length && K(names[j]) === k) return d; } }
+    /* 2) 유사 일치 — 가장 가까운 것 (모호하면 null) */
+    var tol = window.EgmmFB.fuzzyTol(k); if (!tol) return null;
+    var best = null, bestD = tol + 1, bestKey = "", tie = false;
+    for (i = 0; i < list.length; i++){ d = list[i] || {}; names = namesOf(d);
+      for (j = 0; j < names.length; j++){ var nk = K(names[j]); if (!nk || nk.length < 3) continue;
+        var dist = __editDist(k, nk, tol);
+        if (dist < bestD){ bestD = dist; best = d; bestKey = nk; tie = false; }
+        else if (dist === bestD && best && best !== d && nk !== bestKey) tie = true;   /* 같은 이름(파트별 중복 등록)은 앞쪽 우선 · 다른 이름이면 모호 */ } }
+    return (best && !tie) ? best : null;
+  }
+  function __asList(v){ return Array.isArray(v) ? v : Object.keys(v || {}).map(function(c){ var d = v[c] || {}; if (!d.code) d = Object.assign({ code: c }, d); return d; }); }
   window.EgmmFB.venderMatch = function(venders, s){
-    var k = window.EgmmFB.venderKey(s); if (!k) return null;
-    var list = Array.isArray(venders) ? venders : Object.keys(venders || {}).map(function(c){ var d = venders[c] || {}; if (!d.code) d = Object.assign({ code: c }, d); return d; });
-    var i, d, a;
-    for (i = 0; i < list.length; i++){ d = list[i] || {}; if (window.EgmmFB.venderKey(d.code) === k) return d; }
-    for (i = 0; i < list.length; i++){ d = list[i] || {}; if (window.EgmmFB.venderKey(d.name) === k) return d; }
-    for (i = 0; i < list.length; i++){ d = list[i] || {}; a = Array.isArray(d.aliases) ? d.aliases : []; for (var j = 0; j < a.length; j++){ if (window.EgmmFB.venderKey(a[j]) === k) return d; } }
-    return null;
+    return __nameMatch(__asList(venders), s, function(d){ return [d.code, d.name].concat(Array.isArray(d.aliases) ? d.aliases : []); });
   };
-
-  /* [2026-10-07] 부서(DEPARTMENT) 유사 이름 인식 — venderMatch 와 같은 규칙 (코드 → 이름/한글명 → 유사 이름 · 번호(num)도 허용) */
   window.EgmmFB.deptMatch = function(depts, s){
-    var k = window.EgmmFB.venderKey(s); if (!k) return null;
-    var list = Array.isArray(depts) ? depts : Object.keys(depts || {}).map(function(c){ var d = depts[c] || {}; if (!d.code) d = Object.assign({ code: c }, d); return d; });
-    var i, d, a;
-    for (i = 0; i < list.length; i++){ d = list[i] || {}; if (window.EgmmFB.venderKey(d.code) === k) return d; }
-    for (i = 0; i < list.length; i++){ d = list[i] || {}; if (window.EgmmFB.venderKey(d.name) === k || (d.nameKo && window.EgmmFB.venderKey(d.nameKo) === k)) return d; }
-    for (i = 0; i < list.length; i++){ d = list[i] || {}; a = Array.isArray(d.aliases) ? d.aliases : []; for (var j = 0; j < a.length; j++){ if (window.EgmmFB.venderKey(a[j]) === k) return d; } }
-    if (/^[0-9]+$/.test(k)){ for (i = 0; i < list.length; i++){ d = list[i] || {}; if (d.num != null && String(d.num) === String(parseInt(k, 10))) return d; } }
+    var list = __asList(depts), k = window.EgmmFB.venderKey(s);
+    var hit = __nameMatch(list, s, function(d){ return [d.code, d.name, d.nameKo].concat(Array.isArray(d.aliases) ? d.aliases : []); });
+    if (hit) return hit;
+    if (/^[0-9]+$/.test(k)){ for (var i = 0; i < list.length; i++){ var d = list[i] || {}; if (d.num != null && String(d.num) === String(parseInt(k, 10))) return d; } }
     return null;
   };
 
