@@ -121,8 +121,14 @@
   .dp-list-wrap { flex: 1; min-height: 0; overflow: auto; padding: 0 16px; }
   .dp-tbl { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13.5px; table-layout: fixed; }
   /* [2026-10-07] 긴 업체명·인보이스·비고가 들어와도 표가 화면 밖으로 늘어나지 않도록 — 열 너비 고정 + 줄바꿈 */
-  .dp-tbl th:nth-child(1) { width: 40px; } .dp-tbl th:nth-child(4) { width: 120px; } .dp-tbl th:nth-child(5) { width: 140px; } .dp-tbl th:nth-child(6) { width: 20%; } .dp-tbl th:nth-child(7) { width: 118px; }
-  .dp-tbl td { overflow-wrap: anywhere; word-break: break-word; }
+  /* [2026-10-07] 열 너비: 인보이스·금액·부서 = 영문 20자 · 비고 = 30자 · 나머지 = 업체 */
+  .dp-tbl th:nth-child(1) { width: 40px; } .dp-tbl th:nth-child(3) { width: 150px; } .dp-tbl th:nth-child(4) { width: 150px; } .dp-tbl th:nth-child(5) { width: 150px; } .dp-tbl th:nth-child(6) { width: 220px; } .dp-tbl th:nth-child(7) { width: 118px; }
+  .dp-tbl td { overflow-wrap: break-word; }
+  /* 필드 사이 점선 구분 · 인보이스/부서/비고 가운데 정렬 · 업체명 붉은 글씨(축약어 제외) */
+  .dp-tbl th, .dp-tbl td { border-right: 1px dotted var(--border-bright, #D6CFC0); }
+  .dp-tbl th:last-child, .dp-tbl td:last-child { border-right: 0; }
+  .dp-tbl th:nth-child(3), .dp-tbl td:nth-child(3), .dp-tbl th:nth-child(5), .dp-tbl td:nth-child(5), .dp-tbl th:nth-child(6), .dp-tbl td:nth-child(6) { text-align: center; }
+  .dp-tbl td.c-vendor .vn { color: var(--danger, #9C3327); }
   .dp-left { min-width: 0; }
   .dp-tbl th { position: sticky; top: 0; z-index: 2; background: var(--bg); text-align: left; padding: 7px 9px;
     font-size: 10.5px; font-weight: 800; letter-spacing: .1em; color: var(--text-faint); border-bottom: 1.5px solid var(--border-bright); white-space: nowrap; }
@@ -691,6 +697,12 @@
 
   /* 업체 표시 이름 = 축약어(업체명) · 예: EGP-GRO(EGP(GROCERY)) */
   function vLabel(d){ if(!d) return ''; var c=String(d.code||'').trim(), n=String(d.name||'').trim(); return c?(n?c+'('+n+')':c):n; }
+  /* 리스트 표시: 축약어는 기본색, 업체명은 붉은 글씨 — "EGP-GRO(EGP(GROCERY))" → EGP-GRO + (EGP(GROCERY)) · 축약어 없는 값(직접 입력)은 전체 붉은 글씨 */
+  function vendorHtml(v){
+    v=String(v==null?'':v); var d=vDocByLabel(v);
+    if(d){ var c=String(d.code||'').trim(); return esc(c)+'<span class="vn">'+esc(v.slice(c.length))+'</span>'; }
+    return '<span class="vn">'+esc(v)+'</span>';
+  }
   function vDocByLabel(t){ t=String(t||'').trim(); if(!t) return null; for(var i=0;i<vendorDocs.length;i++){ if(vLabel(vendorDocs[i])===t) return vendorDocs[i]; } return null; }
   /* 검색: 1글자 = 축약어/업체명이 그 글자로 시작 · 2글자 이상 = 축약어/업체명/유사 이름에 포함 (대소문자 무시) */
   function vSearch(q){
@@ -1149,7 +1161,7 @@
       }
       return '<tr class="'+(r.manual?'r-manual':'')+'">'
         +'<td class="c-no">'+(i+1)+'</td>'
-        +'<td class="c-vendor">'+esc(r.vendor)+'</td>'
+        +'<td class="c-vendor">'+vendorHtml(r.vendor)+'</td>'
         +'<td class="c-invoice">'+esc(r.invoice)+'</td>'
         +'<td class="num">'+fmt$(r.amount)+'</td>'
         +'<td class="c-dept">'+esc(r.dept)+'</td>'
