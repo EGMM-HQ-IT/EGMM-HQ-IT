@@ -174,6 +174,18 @@
     return null;
   };
 
+  /* [2026-10-07] 부서(DEPARTMENT) 유사 이름 인식 — venderMatch 와 같은 규칙 (코드 → 이름/한글명 → 유사 이름 · 번호(num)도 허용) */
+  window.EgmmFB.deptMatch = function(depts, s){
+    var k = window.EgmmFB.venderKey(s); if (!k) return null;
+    var list = Array.isArray(depts) ? depts : Object.keys(depts || {}).map(function(c){ var d = depts[c] || {}; if (!d.code) d = Object.assign({ code: c }, d); return d; });
+    var i, d, a;
+    for (i = 0; i < list.length; i++){ d = list[i] || {}; if (window.EgmmFB.venderKey(d.code) === k) return d; }
+    for (i = 0; i < list.length; i++){ d = list[i] || {}; if (window.EgmmFB.venderKey(d.name) === k || (d.nameKo && window.EgmmFB.venderKey(d.nameKo) === k)) return d; }
+    for (i = 0; i < list.length; i++){ d = list[i] || {}; a = Array.isArray(d.aliases) ? d.aliases : []; for (var j = 0; j < a.length; j++){ if (window.EgmmFB.venderKey(a[j]) === k) return d; } }
+    if (/^[0-9]+$/.test(k)){ for (i = 0; i < list.length; i++){ d = list[i] || {}; if (d.num != null && String(d.num) === String(parseInt(k, 10))) return d; } }
+    return null;
+  };
+
   /* 코드 정규화: 대문자 · 영문/숫자 외 → '-' · 연속/양끝 '-' 제거 */
   window.EgmmFB.sanitizeCode = function(s){
     return String(s || "").toUpperCase()

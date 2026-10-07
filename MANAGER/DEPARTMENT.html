@@ -52,6 +52,7 @@
   .drow .dc{ font-size:14px; font-weight:800; color:var(--accent-warm); letter-spacing:.02em; word-break:break-all; }
   .drow .dn{ font-size:15px; font-weight:800; }
   .drow .dk{ font-size:13px; font-weight:700; color:var(--text-dim); }
+  .dal{ display:block; margin-top:2px; font-size:11px; font-weight:700; color:var(--accent-warm); word-break:break-all; }
   .drow .acts{ display:flex; gap:6px; }
   .drow .dnum{ display:inline-block; min-width:40px; text-align:center; font-size:14px; font-weight:900; padding:4px 8px; border-radius:9px; background:#2F5D46; color:#fff; }
   .drow .dnum.none{ background:var(--border); color:var(--text-faint); font-weight:700; }
@@ -99,11 +100,14 @@
       <div class="field"><label>부서 이름 (영문)</label><input type="text" id="dName" placeholder="예: FISH" autocomplete="off"></div>
       <div class="field"><label>한글명 (선택)</label><input type="text" id="dKo" placeholder="예: 생선" autocomplete="off"></div>
       <div class="field"><label>부서 코드</label><input type="text" id="dCode" placeholder="자동: DEPT-FISH" autocomplete="off"></div>
+      <!-- [2026-10-07] 유사 이름 — 이 부서로 인식할 다른 표기 (VENDER 와 같은 방식) -->
+      <div class="field" style="grid-column:1/-1"><label>유사 이름 (이 부서로 인식할 다른 표기 · 쉼표 구분)</label><input type="text" id="dAliases" placeholder="예: SEAFOOD, 수산, FISH DEPT" autocomplete="off"></div>
       <button class="btn" id="dSaveBtn" type="button">＋ 추가</button>
     </div>
     <div class="hint">부서는 이름이 아닌 <b>코드</b>로 관리됩니다 — 예: FISH 부서 → <b>DEPT-FISH</b> 코드로 저장/호출.
       코드는 직급·부서·메뉴 전체에서 중복될 수 없으며, 중복 시 경고가 표시됩니다. 코드 수정은 FUNCTION-CODE 관리에서도 가능합니다.<br>
-      <b>번호</b>는 UPC LIST · PLU LIST 의 DEPARTMENT 칸에 쓰는 숫자입니다 — 번호를 넣으면 리스트의 DEPARTMENT 목록이 「번호. 부서이름」으로 자동 구성되고(실시간), 엑셀 불러오기의 DEPARTMENT 열 숫자도 이 번호로 해석됩니다. 번호는 부서마다 달라야 합니다. ↑↓ 로 표시 순서 변경.</div>
+      <b>번호</b>는 UPC LIST · PLU LIST 의 DEPARTMENT 칸에 쓰는 숫자입니다 — 번호를 넣으면 리스트의 DEPARTMENT 목록이 「번호. 부서이름」으로 자동 구성되고(실시간), 엑셀 불러오기의 DEPARTMENT 열 숫자도 이 번호로 해석됩니다. 번호는 부서마다 달라야 합니다. ↑↓ 로 표시 순서 변경.<br>
+      <b>유사 이름</b>에 등록한 표기는 대소문자·공백·기호를 무시하고 비교해 이 부서로 인식됩니다 (EgmmFB.deptMatch). 같은 유사 이름을 두 부서에 넣을 수는 없습니다.</div>
     <div style="margin-top:10px; display:none;" id="editActs">
       <button class="btn ghost sm" id="dCancelBtn" type="button">수정 취소</button>
     </div>
@@ -175,6 +179,9 @@
   }).catch(function(){ fbFail('Firebase 설정이 비어 있습니다'); });
   });
 
+  /* 유사 이름 비교 키 — 대소문자·공백·기호 무시 (EgmmFB.venderKey 와 동일) */
+  function akey(s){ return String(s==null?'':s).toUpperCase().replace(/[^A-Z0-9\uAC00-\uD7A3\u3131-\u318E]/g,''); }
+  function aliasesOf(d){ return Array.isArray(d&&d.aliases)?d.aliases.map(function(x){ return String(x||'').trim(); }).filter(Boolean):[]; }
   function allCodes(exceptDeptCode){
     var set={};
     ranks.forEach(function(r){ if(r.code) set[String(r.code).toUpperCase()]='직급 '+r.name; });
@@ -194,7 +201,7 @@
         +'<span class="dnum'+(num?'':' none')+'" title="DEPARTMENT 번호">'+(num?esc(num):'—')+'</span>'
         +'<span class="dc">'+esc(c)+'</span>'
         +'<span class="dn">'+esc(d.name||'')+'</span>'
-        +'<span class="dk">'+esc(d.nameKo||'')+'</span>'
+        +'<span class="dk">'+esc(d.nameKo||'')+(aliasesOf(d).length?'<span class="dal">≈ '+esc(aliasesOf(d).join(', '))+'</span>':'')+'</span>'
         +'<span class="acts">'
         +'<button class="btn ghost mv" data-mv="-1" data-code="'+esc(c)+'" type="button" title="위로"'+(i===0?' disabled':'')+'>▲</button>'
         +'<button class="btn ghost mv" data-mv="1" data-code="'+esc(c)+'" type="button" title="아래로"'+(i===codes.length-1?' disabled':'')+'>▼</button>'
@@ -237,7 +244,7 @@
     editingCode=null;
     $('addTitle').textContent='부서 추가';
     $('dSaveBtn').textContent='＋ 추가';
-    $('dName').value=''; $('dKo').value=''; $('dCode').value=''; $('dNum').value='';
+    $('dName').value=''; $('dKo').value=''; $('dCode').value=''; $('dNum').value=''; $('dAliases').value='';
     delete $('dCode').dataset.touched;
     $('editActs').style.display='none';
     renderList();
@@ -247,7 +254,7 @@
     editingCode=code;
     $('addTitle').textContent='부서 수정: '+code;
     $('dSaveBtn').textContent='💾 저장';
-    $('dName').value=d.name||''; $('dKo').value=d.nameKo||''; $('dNum').value=(d.num!=null&&d.num!=='')?String(d.num):'';
+    $('dName').value=d.name||''; $('dKo').value=d.nameKo||''; $('dNum').value=(d.num!=null&&d.num!=='')?String(d.num):''; $('dAliases').value=aliasesOf(d).join(', ');
     $('dCode').value=code; $('dCode').dataset.touched='1';
     $('editActs').style.display='';
     renderList();
@@ -271,8 +278,17 @@
     var dup=allCodes(editingCode);
     if(dup[code]){ warnPopup('⚠️ 코드 중복','코드 "'+code+'" 는 이미 ['+dup[code]+'] 에서 사용 중입니다.\n다른 코드를 입력하세요.'); return; }
 
+    /* 유사 이름: 쉼표 구분 · 빈 값/중복 제거 · 다른 부서의 코드·이름·유사 이름과 겹치면 거부 */
+    var aliases=[], seen={};
+    $('dAliases').value.split(',').forEach(function(x){ x=x.trim(); var k=akey(x); if(!x||!k||seen[k]) return; seen[k]=1; aliases.push(x); });
+    for(var ai=0; ai<aliases.length; ai++){
+      var k2=akey(aliases[ai]), hitC=null;
+      Object.keys(depts).forEach(function(c){ if(c===editingCode||hitC) return; var dd=depts[c]; if(akey(c)===k2||akey(dd.name)===k2||akey(dd.nameKo)===k2) hitC=c; aliasesOf(dd).forEach(function(al){ if(akey(al)===k2) hitC=c; }); });
+      if(hitC){ warnPopup('⚠️ 유사 이름 중복','"'+aliases[ai]+'" 는 이미 ['+hitC+' · '+(depts[hitC].name||'')+'] 의 코드·이름 또는 유사 이름입니다.\n한 이름은 한 부서로만 인식될 수 있습니다.'); return; }
+    }
+
     var base = editingCode ? (depts[editingCode]||{}) : {};
-    var data={ code:code, name:name, nameKo:ko, num:num, order:(base.order!=null?base.order:Object.keys(depts).length),
+    var data={ code:code, name:name, nameKo:ko, num:num, aliases:aliases, order:(base.order!=null?base.order:Object.keys(depts).length),
       createdAt: base.createdAt||Date.now(), updatedAt: Date.now() };
 
     function write(){
