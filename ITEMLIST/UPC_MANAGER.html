@@ -6116,7 +6116,8 @@ function openFieldFxModal(){
      [2026-10-02] POS DESC 구성: 앞 문구 + 필드(N자 · 왼쪽/오른쪽) + 문구 + 필드 + 문구 + 필드 + 문구 + 필드 + 문구 + 필드 (최대 5필드 · 4문구)
      N 비움 = 나머지(18자에서 남는 글자수, 1개만). 합계가 18자를 넘으면 빨간색 에러. */
   var anyLay=S.layouts[curBig()]||[];
-  var fOpts=function(sel){ return '<option value="">(없음)</option>'+anyLay.filter(function(f){ return !f.formula; }).map(function(f){
+  /* [2026-10-07] 자동 계산 필드(UPC(TOSHIBA) 등)도 POS DESC 재료로 선택 가능 — POS DESC 자신만 제외 */
+  var fOpts=function(sel){ return '<option value="">(없음)</option>'+anyLay.filter(function(f){ return normKey(f.key)!=='ITEM_POS'&&!(f.share&&f.share!==f.key); }).map(function(f){
     return '<option value="'+escapeHtml(f.key)+'"'+(f.key===sel?' selected':'')+'>'+escapeHtml((f.group?f.group+' · ':'')+f.label)+'</option>'; }).join(''); };
   var sampleOf=function(big){ var subs=S.data[big]||{}; for(var k in subs){ if(Array.isArray(subs[k])&&subs[k].length) return subs[k][0]; } return null; };
   var h='<div class="plu-imp-hint" style="margin-bottom:6px;">카테고리(대분류)별로 각각 설정됩니다.<br>'
