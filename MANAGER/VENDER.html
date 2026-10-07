@@ -1,8 +1,11 @@
 <!DOCTYPE html>
 <!--
   VENDER.html — 업체(벤더) 관리 · EGMM > SYSTEM
-  Firestore(egmm-hq-it / DB egmm) VENDER/{축약어} = { code, name(업체명), nameKo, items(영업 품목 종류 · 쉼표 구분), order, createdAt, updatedAt }
+  Firestore(egmm-hq-it / DB egmm) VENDER/{축약어} = { code, name(업체명), nameKo, items(영업 품목 종류 · 쉼표 구분), aliases[](유사 이름), order, createdAt, updatedAt }
   축약어 = UPC MANAGER 의 VENDER 필드 값 · 불러오기에서 업체 지정 시 대분류(카테고리) 이름
+  [2026-10-07] 유사 이름(aliases): 같은 업체를 파트(MEAT·GROCERY·FISH…)별로 따로 등록할 수 있으므로 업체명 중복 허용.
+    대표 업체 옆에 비슷한 이름(예: EGP(GR), EGP(ASIAN), EGP GRO))을 등록하면 다른 앱에서 그 이름이 대표 업체로 인식된다
+    (EgmmFB.venderMatch — 대소문자·공백·기호 무시). 유사 이름은 다른 업체와 겹칠 수 없다.
 -->
 <html lang="ko">
 <head>
@@ -84,6 +87,7 @@
   .gate-note.show{ display:flex; }
   .gate-note .gc{ background:var(--bg-elev); border:1.5px solid var(--border); border-radius:16px; padding:34px 40px; text-align:center; font-weight:800; color:var(--text-dim); line-height:1.8; }
 
+  .dal{ display:block; margin-top:2px; font-size:11px; font-weight:700; color:var(--accent-warm); word-break:break-all; }
   @media (max-width:760px){
     .addgrid{ grid-template-columns:1fr 1fr; }
     .addgrid .btn{ grid-column:1/-1; }
@@ -110,10 +114,14 @@
       <div class="field"><label>한글명 (선택)</label><input type="text" id="dKo" placeholder="예: 서울트레이딩" autocomplete="off"></div>
       <div class="field"><label>축약어 (VENDER 코드)</label><input type="text" id="dCode" placeholder="예: STI-WA" autocomplete="off"></div>
       <div class="field"><label>영업 품목 종류</label><input type="text" id="dItems" placeholder="예: 라면, 과자, 음료, 냉동식품" autocomplete="off"></div>
+      <div class="field" style="grid-column:1/-1"><label>유사 이름 (이 업체로 인식할 다른 표기 · 쉼표 구분)</label><input type="text" id="dAliases" placeholder="예: EGP(GR), EGP(ASIAN), EGP GRO)" autocomplete="off"></div>
       <button class="btn" id="dSaveBtn" type="button">＋ 추가</button>
     </div>
     <div class="hint">업체는 <b>축약어</b>로 관리됩니다 — 축약어는 UPC MANAGER 의 <b>VENDER</b> 필드 값이자 불러오기 시 지정하는 업체(카테고리) 이름입니다. 예: 서울트레이딩 WA → <b>STI-WA</b>.
       영문 대문자·숫자·하이픈(-)만 사용, 중복 불가. 영업 품목 종류는 쉼표(,)로 여러 개 입력.</div>
+    <div class="hint"><b>업체명은 중복 등록 가능</b> — 한 업체가 MEAT · GROCERY · FISH 등 파트마다 다른 목록을 취급하면 축약어만 다르게 해서 파트별로 등록합니다.
+      <b>유사 이름</b>에 등록한 표기는 대소문자·공백·괄호 등 기호를 무시하고 비교해 이 업체(대표 업체명)로 인식됩니다 — 예: 대표 <b>EGP(GROCERY)</b> 에 EGP(GR), EGP(ASIAN), EGP GRO) 등록.
+      같은 유사 이름을 두 업체에 넣을 수는 없습니다.</div>
     <div style="margin-top:10px; display:none;" id="editActs">
       <button class="btn ghost sm" id="dCancelBtn" type="button">수정 취소</button>
     </div>
@@ -126,6 +134,7 @@
       <button class="sb" data-sort="name" type="button">업체명</button>
       <button class="sb" data-sort="nameKo" type="button">한글명</button>
       <button class="sb" data-sort="items" type="button">영업 품목</button>
+      <button class="sb" data-sort="aliases" type="button">유사 이름</button>
       <button class="sb" data-sort="manual" type="button">직접 순서 (▲▼)</button>
       <button class="sb dir" id="sortDir" type="button" title="오름차순 / 내림차순">▲ 오름차순</button>
     </div>
@@ -165,7 +174,11 @@
   $('mCancel').onclick=function(){ $('modalBg').classList.remove('show'); modalCb=null; };
   $('modalBg').addEventListener('click',function(e){ if(e.target===$('modalBg')){ $('modalBg').classList.remove('show'); modalCb=null; } });
 
-  var fb=null, depts={}, editingCode=null; /* depts = 업체(VENDER) 문서: {code,name,nameKo,order} */
+  var fb=null, depts={}, editingCode=null; /* depts = 업체(VENDER) 문서: {code,name,nameKo,items,aliases,order} */
+  /* 유사 이름 비교 키 — 대소문자·공백·기호 무시 (EgmmFB.venderKey 와 동일) */
+  function akey(s){ return String(s==null?'':s).toUpperCase().replace(/[^A-Z0-9\uAC00-\uD7A3\u3131-\u318E]/g,''); }
+  function aliasesOf(d){ return Array.isArray(d&&d.aliases)?d.aliases.map(function(x){ return String(x||'').trim(); }).filter(Boolean):[]; }
+  function aliasText(d){ return aliasesOf(d).join(', '); }
 
   function fbFail(msg){
     var b=$('fbBanner');
@@ -201,7 +214,7 @@
       return codes;
     }
     codes.sort(function(a,b){
-      var va=String(sortKey==='code'?a:(depts[a][sortKey]||'')), vb=String(sortKey==='code'?b:(depts[b][sortKey]||''));
+      var va=String(sortKey==='code'?a:(sortKey==='aliases'?aliasText(depts[a]):(depts[a][sortKey]||''))), vb=String(sortKey==='code'?b:(sortKey==='aliases'?aliasText(depts[b]):(depts[b][sortKey]||'')));
       if(va===''&&vb!=='') return 1; if(vb===''&&va!=='') return -1;
       var c=va.localeCompare(vb,'ko',{sensitivity:'base',numeric:true}); if(!c) c=a.localeCompare(b);
       return sortAsc?c:-c;
@@ -233,7 +246,7 @@
         +'<span class="dc">'+esc(c)+'</span>'
         +'<span class="dn">'+esc(d.name||'')+'</span>'
         +'<span class="dk">'+esc(d.nameKo||'')+'</span>'
-        +'<span class="di">'+esc(d.items||'')+'</span>'
+        +'<span class="di">'+esc(d.items||'')+(aliasesOf(d).length?'<span class="dal">≈ '+esc(aliasText(d))+'</span>':'')+'</span>'
         +'<span class="acts">'
         +'<button class="btn ghost sm" data-edit="'+esc(c)+'" type="button">수정</button>'
         +'<button class="btn danger sm" data-del="'+esc(c)+'" type="button">삭제</button>'
@@ -258,7 +271,7 @@
     editingCode=null;
     $('addTitle').textContent='업체 추가';
     $('dSaveBtn').textContent='＋ 추가';
-    $('dName').value=''; $('dKo').value=''; $('dCode').value=''; $('dItems').value='';
+    $('dName').value=''; $('dKo').value=''; $('dCode').value=''; $('dItems').value=''; $('dAliases').value='';
     delete $('dCode').dataset.touched;
     $('editActs').style.display='none';
     renderList();
@@ -268,7 +281,7 @@
     editingCode=code;
     $('addTitle').textContent='업체 수정: '+code;
     $('dSaveBtn').textContent='💾 저장';
-    $('dName').value=d.name||''; $('dKo').value=d.nameKo||''; $('dItems').value=d.items||'';
+    $('dName').value=d.name||''; $('dKo').value=d.nameKo||''; $('dItems').value=d.items||''; $('dAliases').value=aliasText(d);
     $('dCode').value=code; $('dCode').dataset.touched='1';
     $('editActs').style.display='';
     renderList();
@@ -289,8 +302,18 @@
     var dup=allCodes(editingCode);
     if(dup[code]){ warnPopup('⚠️ 코드 중복','코드 "'+code+'" 는 이미 ['+dup[code]+'] 에서 사용 중입니다.\n다른 코드를 입력하세요.'); return; }
 
+    /* 유사 이름: 쉼표 구분 · 빈 값/중복(비교 키 기준) 제거 */
+    var aliases=[], seen={};
+    $('dAliases').value.split(',').forEach(function(x){ x=x.trim(); var k=akey(x); if(!x||!k||seen[k]) return; seen[k]=1; aliases.push(x); });
+    /* 다른 업체의 축약어·유사 이름과 겹치면 인식이 모호해지므로 거부 (업체명은 파트별 중복 등록이 가능하므로 비교하지 않음) */
+    for(var ai=0; ai<aliases.length; ai++){
+      var k2=akey(aliases[ai]), hitC=null;
+      Object.keys(depts).forEach(function(c){ if(c===editingCode||hitC) return; if(akey(c)===k2) hitC=c; aliasesOf(depts[c]).forEach(function(al){ if(akey(al)===k2) hitC=c; }); });
+      if(hitC){ warnPopup('⚠️ 유사 이름 중복','"'+aliases[ai]+'" 는 이미 ['+hitC+' · '+(depts[hitC].name||'')+'] 의 축약어 또는 유사 이름입니다.\n한 이름은 한 업체로만 인식될 수 있습니다.'); return; }
+    }
+
     var base = editingCode ? (depts[editingCode]||{}) : {};
-    var data={ code:code, name:name, nameKo:ko, items:items, order:(base.order!=null?base.order:Object.keys(depts).length),
+    var data={ code:code, name:name, nameKo:ko, items:items, aliases:aliases, order:(base.order!=null?base.order:Object.keys(depts).length),
       createdAt: base.createdAt||Date.now(), updatedAt: Date.now() };
 
     function write(){

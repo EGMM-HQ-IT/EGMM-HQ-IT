@@ -159,6 +159,21 @@
     });
   };
 
+  /* [2026-10-07] 업체(VENDER) 유사 이름 인식
+     venderKey(s)            : 비교 키 — 대소문자·공백·괄호 등 기호 무시 ("EGP (gr)" → "EGPGR")
+     venderMatch(venders, s) : 입력 이름이 어느 업체인지 — 축약어(문서 ID/code) · 업체명 · 유사 이름(aliases) 순으로 비교.
+                               venders = { 축약어: 문서 } 또는 문서 배열. 반환: 해당 업체 문서(없으면 null) */
+  window.EgmmFB.venderKey = function(s){ return String(s == null ? "" : s).toUpperCase().replace(/[^A-Z0-9\uAC00-\uD7A3\u3131-\u318E]/g, ""); };
+  window.EgmmFB.venderMatch = function(venders, s){
+    var k = window.EgmmFB.venderKey(s); if (!k) return null;
+    var list = Array.isArray(venders) ? venders : Object.keys(venders || {}).map(function(c){ var d = venders[c] || {}; if (!d.code) d = Object.assign({ code: c }, d); return d; });
+    var i, d, a;
+    for (i = 0; i < list.length; i++){ d = list[i] || {}; if (window.EgmmFB.venderKey(d.code) === k) return d; }
+    for (i = 0; i < list.length; i++){ d = list[i] || {}; if (window.EgmmFB.venderKey(d.name) === k) return d; }
+    for (i = 0; i < list.length; i++){ d = list[i] || {}; a = Array.isArray(d.aliases) ? d.aliases : []; for (var j = 0; j < a.length; j++){ if (window.EgmmFB.venderKey(a[j]) === k) return d; } }
+    return null;
+  };
+
   /* 코드 정규화: 대문자 · 영문/숫자 외 → '-' · 연속/양끝 '-' 제거 */
   window.EgmmFB.sanitizeCode = function(s){
     return String(s || "").toUpperCase()

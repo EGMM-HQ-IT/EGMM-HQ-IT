@@ -540,7 +540,7 @@
   var STORE='';                       // 현재 보고 있는 매장 (표시 이름)
   var STORE_CODE='';                  // 현재 매장 코드 (STORE 문서 ID · Firestore 경로)
   var user=null;                      // {id,name,role:'account'|'manager',master,stores:[{code,name}]}
-  var vendors=[], depts=[];
+  var vendors=[], depts=[], vendorDocs=[];   /* vendorDocs: VENDER 문서(유사 이름 인식용) */
   var allDocs={};                     // date(YYYY-MM-DD) -> day doc
   var unsubDays=null;
   var selDate=ymdOf(new Date());
@@ -652,8 +652,9 @@
   function loadConfigs(){
     // 벤더 — EGMM › VENDER 관리 (VENDER 컬렉션 · order 순)
     fns().onSnapshot(fns().collection(db(),'VENDER'), function(snap){
-      var arr=[]; snap.forEach(function(ds){ if(ds.id.charAt(0)==='_') return; var d=ds.data()||{}; if(d.name) arr.push({ name:String(d.name).trim(), order:d.order }); });
-      arr.sort(byOrder); vendors=arr.map(function(v){ return v.name; });
+      var arr=[], docs=[]; snap.forEach(function(ds){ if(ds.id.charAt(0)==='_') return; var d=ds.data()||{}; docs.push(Object.assign({code:ds.id},d)); if(d.name) arr.push({ name:String(d.name).trim(), order:d.order }); });
+      arr.sort(byOrder); vendorDocs=docs;
+      var seen={}; vendors=arr.map(function(v){ return v.name; }).filter(function(n){ if(seen[n]) return false; seen[n]=1; return true; });   /* 파트별 중복 등록 업체명은 한 번만 */
       renderInputRow(); }, function(e){ console.warn('[매입일지] VENDER 읽기 실패', e); });
     // 부서 — EGMM › DEPARTMENT 관리 (DEPARTMENT 컬렉션 · 번호(num)/order 순)
     fns().onSnapshot(fns().collection(db(),'DEPARTMENT'), function(snap){
@@ -960,6 +961,11 @@
     var manual=(vsel&&vsel.value==='__manual__');
     var vendor=manual? String((scope.querySelector('.'+prefix+'-vendor-manual')||{}).value||'').trim()
                      : String((vsel||{}).value||'').trim();
+    /* [2026-10-07] 직접 입력한 업체명이 VENDER 의 축약어·업체명·유사 이름과 일치하면 대표 업체명으로 인식 (등록 업체로 저장) */
+    if(manual && vendor && window.EgmmFB && window.EgmmFB.venderMatch){
+      var hit=window.EgmmFB.venderMatch(vendorDocs, vendor);
+      if(hit && hit.name){ vendor=String(hit.name).trim(); manual=false; }
+    }
     return {
       vendor:vendor, manual:manual,
       invoice:String((scope.querySelector('.'+prefix+'-invoice')||{}).value||'').trim(),
