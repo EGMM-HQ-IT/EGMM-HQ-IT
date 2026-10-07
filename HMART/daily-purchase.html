@@ -148,6 +148,14 @@
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%239a9aa0' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
     background-repeat: no-repeat; background-position: right 9px center; }
   .dp-in.manual-in { margin-top: 5px; border-color: #e3a3a3; background: #fffafa; }
+  /* [2026-10-07] 업체 검색 상자 — 입력하면 축약어(업체명) 목록이 펼쳐짐 */
+  .dp-vlist { position: fixed; z-index: 400; background: var(--bg-elev); border: 1px solid var(--border-bright, var(--border)); border-radius: 10px; box-shadow: 0 14px 34px rgba(30,27,22,.18); max-height: 240px; overflow-y: auto; min-width: 240px; padding: 4px; }
+  .dp-vlist[hidden] { display: none; }
+  .dp-vitem { padding: 7px 10px; border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 800; color: var(--text); white-space: nowrap; }
+  .dp-vitem small { font-weight: 700; color: var(--text-faint); margin-left: 6px; }
+  .dp-vitem.on, .dp-vitem:hover { background: var(--accent-soft); }
+  .dp-vitem.manual { color: #b3322e; }
+  .dp-vnone { padding: 7px 10px; font-size: 12px; font-weight: 700; color: var(--text-faint); }
   .dp-add-btn { width: 100%; border: 1.5px dashed var(--border-bright); background: var(--bg-elev-2); color: var(--text-faint);
     border-radius: 9px; padding: 8px 0; font-size: 12.5px; font-weight: 800; cursor: pointer; transition: all .15s; }
   .dp-add-btn:hover { border-style: solid; border-color: var(--text); background: var(--text); color: #fff; box-shadow: 0 5px 14px rgba(26,26,29,.2); }
@@ -648,13 +656,27 @@
     if(d.hmart==='account'){ window.__dpUser=(d.user&&d.user.id)?d.user:null; loadAccount().then(applyUser); } });
   var __pendingStore='';
 
+  /* 업체 표시 이름 = 축약어(업체명) · 예: EGP-GRO(EGP(GROCERY)) */
+  function vLabel(d){ if(!d) return ''; var c=String(d.code||'').trim(), n=String(d.name||'').trim(); return c?(n?c+'('+n+')':c):n; }
+  function vDocByLabel(t){ t=String(t||'').trim(); if(!t) return null; for(var i=0;i<vendorDocs.length;i++){ if(vLabel(vendorDocs[i])===t) return vendorDocs[i]; } return null; }
+  /* 검색: 1글자 = 축약어/업체명이 그 글자로 시작 · 2글자 이상 = 축약어/업체명/유사 이름에 포함 (대소문자 무시) */
+  function vSearch(q){
+    q=String(q||'').trim().toUpperCase(); if(!q) return vendorDocs.slice();
+    return vendorDocs.filter(function(d){
+      var c=String(d.code||'').toUpperCase(), n=String(d.name||'').toUpperCase(), al=Array.isArray(d.aliases)?d.aliases:[];
+      if(q.length===1) return c.indexOf(q)===0||n.indexOf(q)===0;
+      if(c.indexOf(q)>=0||n.indexOf(q)>=0) return true;
+      for(var i=0;i<al.length;i++){ if(String(al[i]||'').toUpperCase().indexOf(q)>=0) return true; }
+      return false;
+    });
+  }
   function byOrder(a,b){ return ((typeof a.order==='number')?a.order:999)-((typeof b.order==='number')?b.order:999) || String(a.name||'').localeCompare(String(b.name||'')); }
   function loadConfigs(){
     // 벤더 — EGMM › VENDER 관리 (VENDER 컬렉션 · order 순)
     fns().onSnapshot(fns().collection(db(),'VENDER'), function(snap){
       var arr=[], docs=[]; snap.forEach(function(ds){ if(ds.id.charAt(0)==='_') return; var d=ds.data()||{}; docs.push(Object.assign({code:ds.id},d)); if(d.name) arr.push({ name:String(d.name).trim(), order:d.order }); });
-      arr.sort(byOrder); vendorDocs=docs;
-      var seen={}; vendors=arr.map(function(v){ return v.name; }).filter(function(n){ if(seen[n]) return false; seen[n]=1; return true; });   /* 파트별 중복 등록 업체명은 한 번만 */
+      vendorDocs=docs.slice().sort(byOrder);
+      vendors=vendorDocs.map(vLabel);   /* [2026-10-07] 표시·저장 값 = 축약어(업체명) — 파트별 중복 업체명도 축약어로 구분 */
       renderInputRow(); }, function(e){ console.warn('[매입일지] VENDER 읽기 실패', e); });
     // 부서 — EGMM › DEPARTMENT 관리 (DEPARTMENT 컬렉션 · 번호(num)/order 순)
     fns().onSnapshot(fns().collection(db(),'DEPARTMENT'), function(snap){
@@ -860,12 +882,41 @@
     return rows;
   }
 
+  /* [2026-10-07] 업체 입력 = 검색 상자 하나: 입력하면 축약어(업체명) 목록 · 클릭/Enter 로 선택 · 등록 업체가 아니면 직접 입력(manual) */
   function vendorSelHtml(cls, val, manual){
-    var opts='<option value="">업체 선택 · VENDOR</option>';
-    vendors.forEach(function(v){ opts+='<option value="'+esc(v)+'"'+(!manual&&v===val?' selected':'')+'>'+esc(v)+'</option>'; });
-    opts+='<option value="__manual__"'+(manual?' selected':'')+'>── 직접 입력 · MANUAL ──</option>';
-    return '<select class="dp-in '+cls+'">'+opts+'</select>';
+    return '<input class="dp-in '+cls+'" autocomplete="off" maxlength="60" placeholder="업체 검색 · VENDOR" value="'+esc(val||'')+'">';
   }
+  var __vlist=null, __vinput=null, __vidx=-1;
+  function vlistEl(){ if(!__vlist){ __vlist=document.createElement('div'); __vlist.className='dp-vlist'; __vlist.hidden=true; document.body.appendChild(__vlist);
+      __vlist.addEventListener('mousedown',function(e){ var it=e.target.closest('.dp-vitem'); if(!it) return; e.preventDefault(); vPick(it.getAttribute('data-v')); }); }
+    return __vlist; }
+  function vHide(){ if(__vlist){ __vlist.hidden=true; } __vidx=-1; }
+  function vPick(v){ if(__vinput){ __vinput.value=v; __vinput.dispatchEvent(new Event('change',{bubbles:true})); var nx=__vinput.closest('tr')&&__vinput.closest('tr').querySelector('.n-invoice,.e-invoice'); vHide(); if(nx) nx.focus(); else __vinput.focus(); } }
+  function vShow(input){
+    __vinput=input; var el=vlistEl(), q=input.value.trim(), list=vSearch(q).slice(0,40);
+    var html=list.map(function(d,i){ return '<div class="dp-vitem'+(i===__vidx?' on':'')+'" data-v="'+esc(vLabel(d))+'">'+esc(d.code||'')+'<small>'+esc(d.name||'')+(d.nameKo?' · '+esc(d.nameKo):'')+'</small></div>'; }).join('');
+    if(q && !vDocByLabel(q) && !list.some(function(d){ return vLabel(d)===q; })) html+='<div class="dp-vitem manual'+(__vidx===list.length?' on':'')+'" data-v="'+esc(q)+'">"'+esc(q)+'" 직접 입력<small>MANUAL</small></div>';
+    if(!html) html='<div class="dp-vnone">등록된 업체가 없습니다</div>';
+    el.innerHTML=html;
+    var r=input.getBoundingClientRect(); el.style.left=r.left+'px'; el.style.top=(r.bottom+3)+'px'; el.style.minWidth=Math.max(240,r.width)+'px';
+    var spaceBelow=window.innerHeight-r.bottom-8; el.style.maxHeight=Math.max(120,Math.min(240,spaceBelow))+'px';
+    el.hidden=false;
+  }
+  function bindVendorBox(input){
+    if(!input||input.__vb) return; input.__vb=1;
+    input.addEventListener('input',function(){ __vidx=-1; vShow(input); });
+    input.addEventListener('focus',function(){ __vidx=-1; vShow(input); });
+    input.addEventListener('blur',function(){ setTimeout(function(){ if(__vinput===input) vHide(); },120); });
+    input.addEventListener('keydown',function(e){
+      if(e.isComposing) return;
+      var items=__vlist&&!__vlist.hidden?__vlist.querySelectorAll('.dp-vitem'):[];
+      if(e.key==='ArrowDown'){ e.preventDefault(); if(!items.length){ vShow(input); return; } __vidx=Math.min(items.length-1,__vidx+1); vShow(input); }
+      else if(e.key==='ArrowUp'){ e.preventDefault(); __vidx=Math.max(-1,__vidx-1); vShow(input); }
+      else if(e.key==='Enter'){ e.preventDefault(); e.stopPropagation(); if(!items.length){ vHide(); return; } var pick=items[__vidx>=0?__vidx:0]; if(pick) vPick(pick.getAttribute('data-v')); }
+      else if(e.key==='Escape'){ vHide(); }
+    });
+  }
+  window.addEventListener('scroll',vHide,true); window.addEventListener('resize',vHide);
   function deptSelHtml(cls, val){
     var opts='<option value="">부서 선택 · DEPT</option>';
     depts.forEach(function(d){ opts+='<option value="'+esc(d)+'"'+(d===val?' selected':'')+'>'+esc(d)+'</option>'; });
@@ -886,8 +937,7 @@
       if(editingId===r.id){
         return '<tr class="dp-inrow" data-edit="'+esc(r.id)+'">'
           +'<td class="c-no">'+(i+1)+'</td>'
-          +'<td>'+vendorSelHtml('e-vendor', r.vendor, !!r.manual)
-            +'<input class="dp-in manual-in e-vendor-manual" style="display:'+(r.manual?'block':'none')+'" maxlength="40" placeholder="업체명 직접 입력" value="'+(r.manual?esc(r.vendor):'')+'"></td>'
+          +'<td>'+vendorSelHtml('e-vendor', r.vendor, !!r.manual)+'</td>'
           +'<td><input class="dp-in e-invoice" maxlength="30" value="'+esc(r.invoice)+'" placeholder="인보이스번호"></td>'
           +'<td><input class="dp-in e-amount" inputmode="decimal" value="'+esc(r.amount)+'" placeholder="0.00" style="text-align:right"></td>'
           +'<td>'+deptSelHtml('e-dept', r.dept)+'</td>'
@@ -906,6 +956,7 @@
           +'<button class="dp-row-btn del" data-del="'+esc(r.id)+'" type="button">삭제</button>'):'')+'</td></tr>';
     }).join('');
     $('dpEmpty').style.display=rows.length?'none':'block';
+    Array.prototype.forEach.call(tb.querySelectorAll('.e-vendor'),bindVendorBox);
     renderFootTotals(false);
     renderInputRow();
   }
@@ -920,12 +971,10 @@
     if(!isAccount() && !isManager()){ ib.innerHTML='<tr><td colspan="7"><div class="dp-lock-note">기록 권한이 없습니다</div></td></tr>'; return; }
     if(dayEntered(selDate)&&!editMode){ ib.innerHTML='<tr><td colspan="7"><div class="dp-lock-note">입력완료된 일자입니다</div></td></tr>'; return; }
     // 기존 입력값 보존
-    var keep={ vendor:'', manual:false, manualName:'', invoice:'', amount:'', dept:'', memo:'' };
+    var keep={ vendor:'', invoice:'', amount:'', dept:'', memo:'' };
     var old=ib.querySelector('tr[data-inrow]');
     if(old){
       var vs=old.querySelector('.n-vendor'); keep.vendor=vs?vs.value:'';
-      keep.manual=(keep.vendor==='__manual__');
-      var mn=old.querySelector('.n-vendor-manual'); keep.manualName=mn?mn.value:'';
       keep.invoice=(old.querySelector('.n-invoice')||{}).value||'';
       keep.amount=(old.querySelector('.n-amount')||{}).value||'';
       keep.dept=(old.querySelector('.n-dept')||{}).value||'';
@@ -933,23 +982,13 @@
     }
     ib.innerHTML='<tr class="dp-inrow" data-inrow="1">'
       +'<td class="c-no">＋</td>'
-      +'<td>'+vendorSelHtml('n-vendor', keep.manual?'':keep.vendor, keep.manual)
-        +'<input class="dp-in manual-in n-vendor-manual" style="display:'+(keep.manual?'block':'none')+'" maxlength="40" placeholder="업체명 직접 입력 · Manual vendor" value="'+esc(keep.manualName)+'"></td>'
+      +'<td>'+vendorSelHtml('n-vendor', keep.vendor, false)+'</td>'
       +'<td><input class="dp-in n-invoice" maxlength="30" placeholder="인보이스번호 · Invoice #" value="'+esc(keep.invoice)+'"></td>'
       +'<td><input class="dp-in n-amount" inputmode="decimal" placeholder="0.00" style="text-align:right" value="'+esc(keep.amount)+'"></td>'
       +'<td>'+deptSelHtml('n-dept', keep.dept)+'</td>'
       +'<td><input class="dp-in n-memo" maxlength="60" placeholder="비고 · Memo" value="'+esc(keep.memo)+'"></td>'
       +'<td class="c-act"><button class="dp-add-btn" id="dpAddRowBtn" type="button">＋ 추가 <span style="opacity:.7">ADD</span></button></td></tr>';
-    var vsel=ib.querySelector('.n-vendor'), vman=ib.querySelector('.n-vendor-manual');
-    function syncManual(){
-      var m=(vsel.value==='__manual__');
-      vsel.style.display=m?'none':'';
-      vman.style.display=m?'block':'none';
-      if(m) vman.focus();
-    }
-    vsel.onchange=syncManual;
-    vman.addEventListener('blur',function(){ if(!vman.value.trim()){ vsel.value=''; syncManual(); } });
-    syncManual();
+    bindVendorBox(ib.querySelector('.n-vendor'));
     var memoIn=ib.querySelector('.n-memo');
     memoIn.addEventListener('keydown',function(e){ if(e.key==='Enter'&&!e.isComposing) addRow(); });
     ib.querySelector('.n-amount').addEventListener('keydown',function(e){ if(e.key==='Enter'&&!e.isComposing) addRow(); });
@@ -957,14 +996,13 @@
   }
 
   function readInputRow(scope, prefix){
-    var vsel=scope.querySelector('.'+prefix+'-vendor');
-    var manual=(vsel&&vsel.value==='__manual__');
-    var vendor=manual? String((scope.querySelector('.'+prefix+'-vendor-manual')||{}).value||'').trim()
-                     : String((vsel||{}).value||'').trim();
-    /* [2026-10-07] 직접 입력한 업체명이 VENDER 의 축약어·업체명·유사 이름과 일치하면 대표 업체명으로 인식 (등록 업체로 저장) */
-    if(manual && vendor && window.EgmmFB && window.EgmmFB.venderMatch){
-      var hit=window.EgmmFB.venderMatch(vendorDocs, vendor);
-      if(hit && hit.name){ vendor=String(hit.name).trim(); manual=false; }
+    var vin=scope.querySelector('.'+prefix+'-vendor');
+    var vendor=String((vin||{}).value||'').trim(), manual=false;
+    /* [2026-10-07] 입력값 → 등록 업체: 축약어(업체명) 표시값 그대로 · 아니면 축약어/업체명/유사 이름으로 인식(EgmmFB.venderMatch) · 그래도 없으면 직접 입력(manual) */
+    if(vendor){
+      var doc=vDocByLabel(vendor);
+      if(!doc && window.EgmmFB && window.EgmmFB.venderMatch) doc=window.EgmmFB.venderMatch(vendorDocs, vendor);
+      if(doc){ vendor=vLabel(doc); manual=false; } else manual=true;
     }
     return {
       vendor:vendor, manual:manual,
@@ -996,7 +1034,7 @@
       var cur=$('dpInBody').querySelector('tr[data-inrow]')||tr;
       Array.prototype.forEach.call(cur.querySelectorAll('input'),function(el){ el.value=''; });
       var vs=cur.querySelector('.n-vendor'); if(vs){ vs.value=''; }
-      var vm=cur.querySelector('.n-vendor-manual'); if(vm){ vm.style.display='none'; }
+      vHide();
       toast('등록 완료 · Added','success');
       if(vs) vs.focus();
     }
