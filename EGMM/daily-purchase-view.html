@@ -58,6 +58,7 @@
   .dv-card-tick { width: 4px; height: 14px; border-radius: 2px; background: var(--accent-warm); }
   .dv-card-t { font-size: 12px; font-weight: 800; letter-spacing: .08em; }
   .dv-card-t small { color: var(--text-faint); font-weight: 700; letter-spacing: .04em; margin-left: 4px; }
+  circle.dv-seg { transition: stroke-dasharray .9s cubic-bezier(.2,.8,.2,1); }
   .dv-donut-wrap { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
   .dv-donut-box { position: relative; width: 200px; height: 200px; flex: 0 0 auto; }
   .dv-donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; pointer-events: none; }
@@ -471,8 +472,9 @@
       segs.forEach(function(s){
         if(s.value<=0) return;
         var frac=s.value/total, len=frac*c;
-        html+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+s.color+'" stroke-width="'+thick+'"'
-          +' stroke-dasharray="'+len+' '+(c-len)+'" stroke-dashoffset="'+(-off)+'"'
+        /* [2026-10-07] 그려지는 애니메이션: 0 → 실제 길이로 (CSS transition · 삽입 뒤 animateDonuts 가 목표값 적용) */
+        html+='<circle class="dv-seg" cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+s.color+'" stroke-width="'+thick+'"'
+          +' stroke-dasharray="0 '+c+'" stroke-dashoffset="'+(-off)+'" data-len="'+len+'" data-c="'+c+'"'
           +' transform="rotate(-90 '+cx+' '+cy+')" stroke-linecap="butt"><title>'+esc(s.label)+' '+fmt$(s.value)+'</title></circle>';
         off+=len;
       });
@@ -481,8 +483,22 @@
     return html;
   }
 
+  /* 삽입된 도넛 조각을 다음 프레임에 목표 길이로 — transition 으로 시계 방향으로 그려짐 (순서대로 약간씩 늦게) */
+  function animateDonuts(root){
+    var segs=(root||document).querySelectorAll('circle.dv-seg[data-len]');
+    if(!segs.length) return;
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){
+      Array.prototype.forEach.call(segs,function(el){
+        var svg=el.closest('svg'), idx=0; if(svg){ var all=svg.querySelectorAll('circle.dv-seg'); idx=Array.prototype.indexOf.call(all,el); }
+        el.style.transitionDelay=(idx*70)+'ms';
+        el.setAttribute('stroke-dasharray', el.getAttribute('data-len')+' '+(parseFloat(el.getAttribute('data-c'))-parseFloat(el.getAttribute('data-len'))));
+        el.removeAttribute('data-len');
+      });
+    }); });
+  }
   // ===== 렌더 =====
-  function render(){
+  function render(){ __render(); animateDonuts(document); }
+  function __render(){
     $('dvScopeText').innerHTML=scopeLabel();
     var stores=scopeStores();
     var aggs={}, grand=0, grandCnt=0, active=0;

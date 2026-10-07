@@ -74,8 +74,11 @@
   .chkgrid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(180px,1fr)); gap:6px; max-height:220px; overflow-y:auto; }
   .chk{ display:flex; align-items:center; gap:7px; border:1px solid var(--border); border-radius:8px; padding:7px 9px; background:var(--bg-elev); font-size:12px; font-weight:700; cursor:pointer; }
   .chk:hover{ border-color:var(--border-bright); }
-  .chk input{ accent-color:var(--accent-warm); }
-  .chk small{ display:block; font-size:10px; color:var(--text-faint); font-weight:700; }
+  .chk input{ accent-color:var(--accent-warm); width:16px; height:16px; flex:0 0 auto; margin:0; padding:0; }
+  /* [2026-10-07] .field label{display:block} 이 .chk/.toggle 의 flex 를 덮어써 체크박스와 이름이 겹치던 문제 — 명시도 높여 flex 유지 */
+  .field label.chk{ display:flex; margin-bottom:0; }
+  .field label.toggle{ display:inline-flex; margin-bottom:0; }
+  .chk small{ display:block; font-size:10px; color:var(--text-faint); font-weight:700; white-space:normal; line-height:1.3; }
   .chk .cd{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .chkgrid.dim{ opacity:.45; pointer-events:none; }
   .pg-main{ grid-column:1/-1; font-size:12px; font-weight:800; color:var(--accent-warm); letter-spacing:.05em;
@@ -196,8 +199,9 @@
           <div class="permbox">
             <label class="allrow chk" style="border:none;background:transparent;padding:0;"><input type="checkbox" id="fAll"> 전체 권한 ( * ) — 모든 메뉴 표시 (SYSTEM 은 LV-0 만)</label>
             <div class="chkgrid" id="permGrid"></div>
-            <div class="permnote">현재 만들어져 있는 메뉴가 <b>메인 메뉴별</b>로 표시됩니다. 체크한 서브 메뉴만 이 아이디에게 보이고,
-              체크하지 않은 메뉴는 보이지 않습니다. 직급별 허용·레벨(LV) 조건 중 하나라도 해당하면 함께 표시됩니다.</div>
+            <div class="permnote">EGMM · H-MART 화면의 메뉴가 <b>메인 메뉴별</b>로 표시됩니다. 체크한 서브 메뉴만 이 아이디에게 보이고,
+              체크하지 않은 메뉴는 보이지 않습니다. 직급별 허용·레벨(LV) 조건 중 하나라도 해당하면 함께 표시됩니다.<br>
+              <b style="color:#b7791f">MENU 미등록</b> 표시 메뉴는 아직 MENU 관리에 없는 메뉴로, 등록 전에는 모든 계정에 표시됩니다 — 제한하려면 MENU 관리에서 그 코드로 등록하세요.</div>
           </div>
         </div>
         <div class="field"><label>메모 (선택)</label><textarea id="fMemo" rows="2" placeholder=""></textarea></div>
@@ -499,20 +503,38 @@
     },'삭제',true);
   }
 
-  /* ── 메뉴 선택 그리드: 메인 메뉴별 그룹 → 서브 메뉴 체크 ── */
+  /* [2026-10-07] EGMM · H-MART 화면이 실제로 쓰는 메뉴 코드 전체 — MENU 관리에 아직 등록하지 않은 메뉴도 여기 목록에 나오게
+     (MENU 미등록 메뉴는 EGMM/H-MART 가 제한 없이 표시하므로, 체크해 제한하려면 MENU 관리에 그 코드를 등록해야 함) */
+  var KNOWN_MENUS=[
+    ['MENU-PLU-LIST','PLU LIST','EGMM · MART'],['MENU-UPC-LIST','UPC LIST / ITEM CODE','EGMM · MART'],['MENU-ITEM-ANALYZE','ITEM ANALYZE','EGMM · MART'],
+    ['MENU-CATEGORY-MANAGER','CATEGORY MANAGER','EGMM · MART'],['MENU-CALENDAR','CALENDAR','EGMM · MART'],['MENU-DAILY-PURCHASE-VIEW','DAILY PURCHASE','EGMM · MART'],
+    ['MENU-AD-LIST','AD LIST MANAGER','EGMM · ADVERTISING'],['MENU-WEEKLY-AD','WEEKLY AD MANAGER','EGMM · ADVERTISING'],
+    ['MENU-OCR','OCR','EGMM · ODP'],['MENU-TOOLS','TOOLS','EGMM · ODP'],['MENU-SHAWN-CLOUD','MANAGER','EGMM · ODP'],
+    ['MENU-REQUEST-CONFIRM','REQUEST CONFIRMATION','EGMM · REQUEST'],
+    ['MENU-HANA','HANA','EGMM · GUIDE'],['MENU-TAX','TAX','EGMM · GUIDE'],['MENU-EBT','EBT','EGMM · GUIDE'],['MENU-HARD-LIQUOR','HARD LIQUOR','EGMM · GUIDE'],
+    ['MENU-PRODUCT-NAME-MAKER','PRODUCT NAME MAKER','EGMM · GUIDE'],['MENU-DELI-MGMT','DELI MANAGEMENT','EGMM · GUIDE'],
+    ['MENU-ACCESS','ACCESS','EGMM · SYSTEM (LV-0)'],['MENU-STORE','STORE','EGMM · SYSTEM (LV-0)'],['MENU-DEPARTMENT','DEPARTMENT','EGMM · SYSTEM (LV-0)'],
+    ['MENU-MENU','MENU','EGMM · SYSTEM (LV-0)'],['MENU-FUNCTION-CODE','FUNCTION CODE','EGMM · SYSTEM (LV-0)'],['MENU-VENDER','VENDER','EGMM · SYSTEM (LV-0)'],
+    ['MENU-HMART-PLU-LIST','PLU LIST','H-MART'],['MENU-HMART-UPC-LIST','UPC LIST','H-MART'],['MENU-HMART-DAILY-PURCHASE','DAILY PURCHASE','H-MART']
+  ];
+  /* ── 메뉴 선택 그리드: 메인 메뉴별 그룹 → 서브 메뉴 체크 (MENU 등록 메뉴 + 화면이 쓰는 알려진 메뉴 코드) ── */
   function renderPermGrid(){
-    var codes=Object.keys(menus).sort();
+    var all={};
+    KNOWN_MENUS.forEach(function(k){ all[k[0]]={ name:k[1], portal:k[2], unreg:true }; });
+    Object.keys(menus).forEach(function(c){ var m=menus[c]||{}; var k=all[c]; all[c]=Object.assign({}, m, { name:m.name||(k&&k.name)||c, portal:m.portal||(k&&k.portal)||'기타', unreg:false }); });
+    var codes=Object.keys(all).sort();
     var cur = editingId && users[editingId] && Array.isArray(users[editingId].perms) ? users[editingId].perms : currentPermsFromUI();
     var byMain={};
-    codes.forEach(function(c){ var p=menus[c].portal||'기타'; (byMain[p]=byMain[p]||[]).push(c); });
+    codes.forEach(function(c){ var p=all[c].portal||'기타'; (byMain[p]=byMain[p]||[]).push(c); });
     var html='';
     Object.keys(byMain).sort().forEach(function(p){
       html+='<div class="pg-main">📂 '+esc(p)+'</div>';
       byMain[p].forEach(function(c){
-        var m=menus[c];
+        var m=all[c];
         var lv=(typeof m.level==='number')?(' · LV-'+m.level):'';
-        html+='<label class="chk"><input type="checkbox" value="'+esc(c)+'"'+(cur.indexOf(c)>=0?' checked':'')+'>'
-          +'<span class="cd">'+esc(m.name||c)+'<small>'+esc(c)+lv+'</small></span></label>';
+        var un=m.unreg?' · <span style="color:#b7791f">MENU 미등록</span>':'';
+        html+='<label class="chk" title="'+esc(c)+(m.unreg?' — MENU 관리에 등록하지 않은 메뉴: 모든 계정에 표시됩니다. 체크로 제한하려면 MENU 관리에서 이 코드를 등록하세요':'')+'"><input type="checkbox" value="'+esc(c)+'"'+(cur.indexOf(c)>=0?' checked':'')+'>'
+          +'<span class="cd">'+esc(m.name||c)+'<small>'+esc(c)+lv+un+'</small></span></label>';
       });
     });
     $('permGrid').innerHTML = html || '<div class="empty" style="grid-column:1/-1">등록된 메뉴가 없습니다. MENU 관리에서 먼저 메뉴를 만드세요.</div>';
