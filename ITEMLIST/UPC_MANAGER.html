@@ -429,6 +429,7 @@ try{ document.documentElement.setAttribute('data-theme', localStorage.getItem('p
   .plu-table.hasgr thead tr.plu-th-grrow th.plu-c-sel { height:auto; }
   /* [MODULE 16 · FORMULA] 계산 전용 셀 */
   .plu-table tbody td.plu-c-calc { background:#f5f5ef; color:#666; cursor:default; }
+  .plu-table tbody td.plu-c-upcerr { color:#c83a3a !important; font-weight:800; } /* [UPC(TOSHIBA)] 형식 오류 */
   /* 겹침 순서 수정: 입력/확인 모달(목록 편집 등)은 필드 편집 모달(2500) 위에 */
   .plu-modal-ov { z-index:3200; }
   #cfOv { z-index:9999 !important; } /* [2026-10-02] 확인/알림 창은 어떤 팝업(TRASH·히스토리·필드 메뉴 등 z 9990)보다 항상 위 */
@@ -1660,6 +1661,17 @@ function migrate(st){
     if(LOC_EXTRA_OPTIONS.length){ __m.forEach(function(f){ if(!isStoreField(f)) return; if(!Array.isArray(f.options)) f.options=[]; LOC_EXTRA_OPTIONS.forEach(function(o){ if(f.options.indexOf(o)<0){ f.options.push(o); __chg=true; } }); }); }
     if(__chg){ st.layouts['델리']=__m; st.dirtySinceSync=true; }
   })();
+  /* [UPC(TOSHIBA) · 2026-10-07] UPC MANAGER: UPC 바로 뒤에 자동 계산 필드 UPC(TOSHIBA) = UPCHANA() 1회 추가 (기존 값 변경 없음 · 다음 동기화 때 필드 설정만 전송) */
+  if(APP_MODE==='UPC'&&!st.flags.upcToshiba1){
+    st.flags.upcToshiba1=1;
+    (function(){
+      var m=masterLayoutOf(st);
+      if(m.some(function(f){ return normKey(f.key)==='UPC_TOSHIBA'; })) return;
+      var at=-1; for(var i=0;i<m.length;i++){ var k=normKey(m[i].key); if(k==='ITEM_PLU'||k==='PLU'||k==='UPC'){ at=i; break; } }
+      m.splice(at<0?0:at+1,0,{key:'UPC_TOSHIBA',label:'UPC(TOSHIBA)',group:(at>=0&&m[at].group)||'ITEM',w:104,type:'text',fmt:'text',align:'',store:false,hidden:false,noseed:true,formula:'UPCHANA()'});
+      st.layouts['델리']=m; st.flags.__posRecalc=1; st.dirtySinceSync=true;
+    })();
+  }
   /* [확정 2026-09-30 · UPC MANAGER] 1회 이관: 기본값 채움(LOCATION 99 · USE 1) + 중간 카테고리 = VENDER 값 */
   if((Object.keys(ROW_DEFAULTS).length||SUB_BY_VENDER)&&!st.flags.upcDef1){
     st.flags.upcDef1=1;
@@ -2049,10 +2061,55 @@ function __XL(){
   function NUM(v){ if(typeof v==='number') return v; var n=parseFloat(String(v).replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:n; }
   return {IF:IF,OR:OR,AND:AND,NOT:NOT,ISNUMBER:ISNUMBER,FIND:FIND,MID:MID,LEFT:LEFT,RIGHT:RIGHT,LEN:LEN,ROUND:ROUND,NUM:NUM};
 }
+/* ═══ [UPC(TOSHIBA) · 2026-10-07] UPC 변환 · 바코드 판별 모듈 (UPC_CONVERTER V3.0 의 FunctionUpc 알고리즘 그대로)
+   — UPC 필드 값 → HANA(TOSHIBA) 용 item_code. 형식에 안 맞으면 짧은 에러 표시. */
+var UpcConv=(function(){
+  function gs1Check(body){ var s=0,w=3; for(var i=body.length-1;i>=0;i--){ s+=(body.charCodeAt(i)-48)*w; w=(w===3)?1:3; } return String((10-(s%10))%10); }
+  function expandE(u){ var ns=u.charAt(0),x1=u.charAt(1),x2=u.charAt(2),x3=u.charAt(3),x4=u.charAt(4),x5=u.charAt(5),x6=u.charAt(6),man,prod;
+    if(x6==='0'||x6==='1'||x6==='2'){ man=x1+x2+x6+'00'; prod='00'+x3+x4+x5; } else if(x6==='3'){ man=x1+x2+x3+'00'; prod='000'+x4+x5; } else if(x6==='4'){ man=x1+x2+x3+x4+'0'; prod='0000'+x5; } else { man=x1+x2+x3+x4+x5; prod='0000'+x6; }
+    return ns+man+prod; }
+  function canonicalE(u){ var x3=u.charAt(3),x4=u.charAt(4),x5=u.charAt(5),x6=u.charAt(6); if(x6==='3') return !(x3==='0'||x3==='1'||x3==='2'); if(x6==='4') return x4!=='0'; if(x6>='5') return x5!=='0'; return true; }
+  function digitsOnly(raw){ var c=''; raw=String(raw==null?'':raw); for(var i=0;i<raw.length;i++){ var ch=raw.charAt(i); if(ch>='0'&&ch<='9') c+=ch; } return c; }
+  function stripZ(x){ var t=String(x).replace(/^0+/,''); return t===''?'0':t; }
+  function analyze(raw){
+    var code=digitsOnly(raw), n=code.length, r={code:code,len:n,type:'NONE',out:''};
+    if(n===0) return r;
+    switch(n){
+      case 8: case 7: {
+        var c8=(n===8)?code:'0'+code, actual=c8.charAt(7);
+        var e8ok=gs1Check(c8.substring(0,7))===actual, canE=(c8.charAt(0)==='0'||c8.charAt(0)==='1');
+        var exp=expandE(c8), ueok=canE&&gs1Check(exp)===actual, canon=canE&&canonicalE(c8);
+        if(e8ok&&ueok){ if(!canon){ r.type='EAN8'; r.out=c8.substring(0,7); } else { r.type='AMB'; } }
+        else if(ueok){ r.type='UPCE'; r.out=exp; }
+        else if(e8ok){ r.type='EAN8'; r.out=c8.substring(0,7); }
+        else { r.type='BAD'; r.out=code; }
+        return r; }
+      case 6: { r.type='UPCE'; r.out=expandE('0'+code); return r; }
+      case 12: { var ok12=gs1Check(code.substring(0,11))===code.charAt(11); r.type=ok12?'UPCA':'BAD'; r.out=code.substring(0,11); return r; }
+      case 13: { var ok13=gs1Check(code.substring(0,12))===code.charAt(12); r.type=ok13?(code.charAt(0)==='0'?'UPCA':'EAN13'):'BAD'; r.out=code.substring(0,12); return r; }
+      case 14: { var ok14=gs1Check(code.substring(0,13))===code.charAt(13); r.type=ok14?'GTIN14':'C128'; r.out=code; return r; }
+      case 10: case 11: { var t=code; r.type='UPCA';
+        if(n===11){ if(code.charAt(0)==='0') t=code.substring(1); }
+        else { if(code.charAt(0)==='0') t=code.substring(1); }
+        r.out=t.length>1?t.substring(0,t.length-1):t; return r; }
+      default: { if(n>=15){ r.type='C128'; r.out=code; } else { r.type='BAD'; r.out=code; } return r; }
+    }
+  }
+  /* HANA 규칙: EAN-8 → 0 보정 7자리 · UPC-E/UPC-A/EAN-13/GTIN-14 → 앞 0 제거 · CODE128 → 그대로 · 무효/확인불가 → 없음 */
+  function hana(raw){
+    var r=analyze(raw); if(!r.len) return {ok:true,val:''};
+    if(r.type==='AMB') return {ok:false,val:'?확인불가'};
+    if(r.type==='BAD') return {ok:false,val:'✗무효'};
+    if(r.type==='EAN8') return {ok:true,val:('0000000'+r.out).slice(-7)};
+    if(r.type==='UPCE'||r.type==='UPCA'||r.type==='EAN13'||r.type==='GTIN14') return {ok:true,val:stripZ(r.out)};
+    return {ok:true,val:r.out};
+  }
+  return { analyze:analyze, hana:hana, gs1Check:gs1Check };
+})();
 function compileFormula(expr){
   if(__fmlCache[expr]!==undefined) return __fmlCache[expr];
   var fn=null;
-  try{ fn=new Function('F','IF','OR','AND','NOT','ISNUMBER','FIND','MID','LEFT','RIGHT','LEN','ROUND','NUM','FFXPOS','"use strict";return ('+expr+');'); }
+  try{ fn=new Function('F','IF','OR','AND','NOT','ISNUMBER','FIND','MID','LEFT','RIGHT','LEN','ROUND','NUM','FFXPOS','UPCHANA','"use strict";return ('+expr+');'); }
   catch(e){ fn=null; }
   __fmlCache[expr]=fn; return fn;
 }
@@ -2063,6 +2120,7 @@ function calcRow(big,row,store){
     if(st){ var sv=row.sv&&row.sv[st]; if(sv&&sv[f.key]!=null) return String(sv[f.key]); }
     return String((row.v&&row.v[f.key]!=null)?row.v[f.key]:'');
   }
+  function UPCHANA(){ /* [UPC(TOSHIBA)] UPC 필드 → HANA 용 번호 · 형식 오류면 짧은 에러 */ var uf=fieldByKey(big,'ITEM_PLU')||fieldByKey(big,'PLU')||fieldByKey(big,'UPC'); return uf?UpcConv.hana(F(uf.key)).val:''; }
   function FFXPOS(){ /* [MODULE 23] 대분류별 POS DESC 구성 — 앞 문구 + (필드 N자(왼쪽/오른쪽) + 문구) × 5 = 18자 */
     return ffxPosBuild(ffxOf(big).pos, F);
   }
@@ -2075,7 +2133,7 @@ function calcRow(big,row,store){
       if(isShare){ out=F(f.share); }
       else {
         var fn=compileFormula(f.formula);
-        if(fn){ try{ var v=fn(F,X.IF,X.OR,X.AND,X.NOT,X.ISNUMBER,X.FIND,X.MID,X.LEFT,X.RIGHT,X.LEN,X.ROUND,X.NUM,FFXPOS);
+        if(fn){ try{ var v=fn(F,X.IF,X.OR,X.AND,X.NOT,X.ISNUMBER,X.FIND,X.MID,X.LEFT,X.RIGHT,X.LEN,X.ROUND,X.NUM,FFXPOS,UPCHANA);
           if(v==null) out='';
           else if(typeof v==='number') out=isNaN(v)?'':String(Math.round(v*1e10)/1e10);
           else out=String(v);
@@ -2598,6 +2656,7 @@ var GUIDE_UPC=[
   ['저장','모든 변경은 즉시 자동 저장되고 CLOUD(UPC-LIST)에 자동 동기화됩니다. EGMM 왼쪽 USER 박스의 CLOUD 칸에서 상태 확인.'],
   ['동기화 규칙','수정하면 조건 없이 무조건 CLOUD 로 전송됩니다(업체 이름이 한글이어도 자동 ID, 0건도 전송). 기본 데이터는 없고 모든 데이터(상품 + 필드 설정값)는 CLOUD 에서 가져옵니다. 열 때마다 무조건 CLOUD 의 최신 기록을 먼저 가져오고, 끝나기 전에는 수정·저장이 잠깁니다. 모든 행은 마지막 편집 시각(분 단위)을 가지며, CLOUD 와 합칠 때 행마다 더 최근에 편집된 쪽이 남습니다(같은 분이면 CLOUD). 이 컴퓨터에서 더 최근에 편집·추가·삭제한 행은 CLOUD 에도 그대로 등록되고, 다른 컴퓨터가 더 최근에 편집한 행은 이 화면에 반영됩니다(실시간 포함). CLOUD 에만 있는 상품은 TRASH 에 있는 것 외에는 지우지 않습니다. 동기화 상태는 EGMM 왼쪽 USER 박스의 CLOUD 칸에서 확인(클릭 = 즉시 동기화).'],
   ['데이터 편집','메뉴 > 데이터 편집: 현재 보고 있는 중간 카테고리 안에서 ① 중복 데이터 보기 — UPC / ITEM CODE 기준 체크 후 검색(표시 필드는 오른쪽 칸에서 선택), 별도 팝업에 그룹별로 구분 표시, 그룹 안 번호(NO)와 COST·SRP 높은/낮은순 정렬, 「1번만·2번만·3번만·중복 체크(1번 빼고 전부)」 버튼으로 한 번에 체크 후 삭제. ② 중복 데이터 삭제 — UPC / ITEM CODE 기준(둘 다 체크 = 둘 다 같아야 중복), SRP 또는 COST 높은/낮은 순으로 1개 또는 2개만 남기고 나머지 삭제. 삭제한 행은 모두 TRASH 보관. 사용중(USE 체크) 상품이 섞여 있으면 「강제로 함께 삭제할까요?」를 물은 뒤 확인하면 함께 삭제, 취소하면 사용중은 남기고 나머지만 삭제.'],
+  ['UPC(TOSHIBA)','UPC 바로 옆의 자동 계산 필드. UPC 값을 바코드 규칙(EAN-8 / UPC-E / UPC-A / EAN-13 / GTIN-14)으로 판별해 HANA(TOSHIBA) 용 번호로 바꿉니다 — UPC-A·UPC-E·EAN-13·GTIN-14 는 앞 0 제거, EAN-8 은 7자리로 0 보정, CODE128 은 그대로. 형식에 안 맞으면 칸에 「✗무효」(체크디짓 불일치·길이 오류), EAN-8 인지 UPC-E 인지 숫자만으로 구분이 안 되면 「?확인불가」가 붉게 표시됩니다. 엑셀 내보내기에는 값으로 나갑니다.'],
   ['UPC 기준만 업데이트','불러오는 파일에 ITEM CODE 열이 없으면 UPC 기준으로만 매칭합니다: 같은 업체(중간 카테고리)에서 UPC 가 같은 기존 행 전부에 파일에 있는 필드만 덮어쓰고(예: UPC · SRP 2열 파일 → SRP 만 갱신), 새 행은 만들지 않습니다(UPC 가 없을 때만 새 행). ITEM CODE 열이 있으면 업체 + UPC + ITEM CODE 규칙 그대로.'],
   ['필드 우클릭 메뉴','머리글을 우클릭하면 말풍선 메뉴가 뜹니다(필드 숨김 기능은 없어짐). 「필드 고정」: 엑셀 틀 고정처럼 그 필드까지 왼쪽 열 전부(선택열 포함)가 가로 스크롤에서 고정됩니다(검색·카테고리와 무관한 열 설정, 다시 누르면 해제). 범위는 지금 화면에 보이는 리스트(검색 중이면 검색 결과, 아니면 현재 중간 카테고리)이고 그 필드만 바뀝니다. ① 특정문자 삭제: 입력한 문자를 셀에서 전부 지움(예: 농심 매운 새우깡 → 매운 새우깡) ② 특정문자 교환: 찾을 문자를 바꿀 문자로 전부 교체 ③ 특정문자 채우기: 모든 셀을 입력한 값으로 채움 ④ 특정문자 추가: 현재 값의 맨 앞 또는 맨 뒤에 문자를 붙임(빈 셀은 그 문자만) ⑤ 특정문자 자동추가: 다른 필드 값 + 문자 + 현재 값 + 다른 필드 값 + 문자… 처럼 앞·뒤 항목을 몇 개든 순서대로 붙여 일괄 변경(필드 값이 빈 행은 그 항목만 건너뜀) ⑥ SRP 필드에서는 「SRP 가격 생성」: COST 에 마진 %를 적용(판매가 기준 COST÷(1−%) 또는 원가 기준 COST×(1+%))하고 체크한 끝자리(.29 .49 .79 .99) 중 계산값 이상인 가장 가까운 가격으로 만듦. 실행 전 변경 행 수를 확인하고 히스토리에 기록됩니다.'],
   ['카테고리 트리','하위 카테고리(NO · KOR · ENG)는 MART > CATEGORY MANAGER 에서 관리하는 공용 트리(PLU · UPC 공유)입니다. 리스트의 CATEGORY NO 셀을 클릭하면 현재 상위/중간 카테고리의 하위 목록이 드롭다운으로 나오고, 번호를 고르거나 입력하면 KOR · ENG 가 자동으로 채워집니다. 엑셀 불러오기도 NO 만 있으면 KOR · ENG 를 채웁니다. 트리에서 번호·이름을 바꾸면 이 리스트의 상품 행에 실시간으로 반영됩니다.'],
@@ -2869,7 +2928,7 @@ function renderContent(){
     var cls=(isCalc?'plu-c-calc':'editable')+gEdge[i]+(f.bold?' plu-c-bold':'')+(normKey(f.key)==='PLU'?' plu-c-no':'')+(i<=__frzIdx?' plu-frz'+(i===__frzIdx?' plu-frz-last':''):'');
     var sf=null; try{ sf=(f.type==='check')?null:selSrcSelect(f); }catch(e){}
     return {
-      f:f, key:f.key, isCalc:isCalc, isChk:(f.type==='check'&&!isCalc), isUse:(normKey(f.key)==='ITEM_USE'), all:!!f.allStores,
+      f:f, key:f.key, isCalc:isCalc, isChk:(f.type==='check'&&!isCalc), isUse:(normKey(f.key)==='ITEM_USE'), isTosh:(normKey(f.key)==='UPC_TOSHIBA'), all:!!f.allStores,
       open:'<td class="'+cls, openChk:'<td class="plu-c-check'+(i<=__frzIdx?' plu-frz'+(i===__frzIdx?' plu-frz-last':''):''),
       /* [요구 2026-10-01] 필드 편집의 바탕색·글씨색은 머리글뿐 아니라 그 열의 모든 셀에 적용 */
       mid:'" data-fi="'+i+'"'+((f.align||f.color||f.tcolor)?' style="'+(f.align?'text-align:'+f.align+';':'')+(f.color?'background:'+escapeHtml(f.color)+';':'')+(f.tcolor?'color:'+escapeHtml(f.tcolor)+';':'')+'"':'')+' title="'+(f.formula?'수식(자동 계산)':(isCalc?'쉐어(참조 자동)':''))+'">',
@@ -2936,7 +2995,7 @@ function __rowHtml(r){
       else if(P.fmt==='percent') d=fmtPercent(val);
       else d=String(val==null?'':val);
       if(V.dup&&k===V.dupKey){ var __dn=V.dup[matchNorm(val)]; if(__dn!=null){ out+=P.open+(hasSv?' plu-c-storeval':'')+' plu-c-dup" style="background:'+DUP_COLORS[__dn]+';color:#c83a3a;'+(P.f.align?'text-align:'+P.f.align+';':'')+'" data-fi="'+ci+'">'+escapeHtml(d)+'</td>'; continue; } }
-      out+=P.open+(hasSv?' plu-c-storeval':'')+P.mid+escapeHtml(d)+'</td>';
+      out+=P.open+(hasSv?' plu-c-storeval':'')+((P.isTosh&&(d==='✗무효'||d==='?확인불가'))?' plu-c-upcerr':'')+P.mid+escapeHtml(d)+'</td>';
     }
   }
   return out+'</tr>';
@@ -5498,6 +5557,7 @@ function runExport(keys,fx,useOnly,sortMode){
   function xlFx(f,R){
     if(f.share&&f.share!==f.key){ return (colOf[f.share]==null)?null:colRef(f.share,R); } /* 쉐어 = 원본 열 참조 */
     var src=String(f.formula||''); if(!src) return null;
+    if(src.indexOf('UPCHANA()')>=0) return null; /* [UPC(TOSHIBA)] 엑셀 함수로 표현 불가 → 값으로 내보냄 */
     src=src.split("FFXPOS()").join(posFormulaFromFfx(expBig)); /* [MODULE 23] 대분류별 POS 구성 전개 */
     var refs=(src.match(/F\('([^']+)'\)/g)||[]).map(function(t){ return t.slice(3,-2); });
     for(var i=0;i<refs.length;i++){ if(colOf[refs[i]]==null) return null; }
