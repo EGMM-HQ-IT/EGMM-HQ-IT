@@ -2,8 +2,8 @@
 <!-- EGMM · DAILY PURCHASE VIEW -->
 <!--
   EGMM/daily-purchase-view.html — EGMM 매장별 매입일지 보기 · DAILY PURCHASE VIEW (Paper & Pine)
-  읽기: hmart(col)/daily-purchase(doc)/{STORE}(subcol)/{YYYY-MM-DD}(doc)
-  부서 관리: app-config/purchase-departments {list:[{id,name}], updatedAt}  ← 매장 daily-purchase.html 부서 선택 목록
+  [2026-10-07 EGMM 연결] 읽기: Firestore(egmm-hq-it / DB egmm) DAILY-PURCHASE(col)/{STORE 코드}(doc)/DAYS(subcol)/{YYYY-MM-DD}(doc)
+    ← H-MART 매장 매입일지(HMART/daily-purchase.html)가 저장하는 경로 · 매장 목록 = STORE 컬렉션 · 부서 목록 = DEPARTMENT 컬렉션(보기만 · 변경은 EGMM › DEPARTMENT 관리)
   상단: 매장 / 년 / 월 / 일(전체보기) / 기간(달력 범위선택·파란 바탕) / 검색 · 초기 화면=전체 매장 한번에
   통계: 도넛(매장별 비중) + 매장 카드별 도넛(부서별)
 -->
@@ -198,22 +198,14 @@
 
   @media (max-width: 900px) { .dv-hero { grid-template-columns: 1fr; } }
 </style>
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-  const firebaseConfig = {
-    apiKey: "AIzaSyC6t78BS99LX3261cRmApBG8AcZ8HPVxr0",
-    authDomain: "the-shawn.firebaseapp.com",
-    projectId: "the-shawn",
-    storageBucket: "the-shawn.firebasestorage.app",
-    messagingSenderId: "519898602513",
-    appId: "1:519898602513:web:0f35e3dc9c29dce21665b0",
-    measurementId: "G-NKGYGC63JN"
-  };
-  const app = initializeApp(firebaseConfig);
-  window.firebaseDb = getFirestore(app);
-  window.firebaseFns = { doc, getDoc, setDoc, deleteDoc, collection, onSnapshot };
-  window.dispatchEvent(new Event('dv-firebase-ready'));
+<script src="../FUNCTION-FIREBASE-EGMM.js"></script>
+<script>
+  /* EGMM 공용 Firebase(egmm-hq-it / DB egmm) → 이 페이지가 쓰는 window.firebaseDb / firebaseFns */
+  window.EgmmFB.ready.then(function(fb){
+    window.firebaseDb=fb.db;
+    window.firebaseFns={ doc:fb.doc, getDoc:fb.getDoc, getDocs:fb.getDocs, setDoc:fb.setDoc, deleteDoc:fb.deleteDoc, collection:fb.collection, onSnapshot:fb.onSnapshot };
+    window.dispatchEvent(new Event('dv-firebase-ready'));
+  }).catch(function(e){ console.error('[매입일지 보기] CLOUD 설정 오류', e); });
 </script>
 </head>
 <body>
@@ -287,15 +279,12 @@
 <!-- 부서 관리 팝업 -->
 <div class="dv-ov" id="dvDeptOv"><div class="dv-modal" style="max-width:440px">
   <div class="dv-mhead"><span class="dv-mtick"></span>
-    <span class="dv-mhead-tx"><span class="dv-meyebrow">DEPARTMENTS</span><span class="dv-mtitle">부서 관리 · 등록/삭제</span></span>
+    <span class="dv-mhead-tx"><span class="dv-meyebrow">DEPARTMENTS</span><span class="dv-mtitle">부서 목록 · DEPARTMENT 관리와 연동</span></span>
     <button class="dv-mx" id="dvDeptX" type="button">✕</button>
   </div>
   <div class="dv-mbody">
     <div id="dvDeptList"></div>
-    <div class="dv-dept-add">
-      <input id="dvDeptNew" maxlength="30" placeholder="새 부서 이름 · New department" autocomplete="off">
-      <button id="dvDeptAdd" type="button">＋ 추가 ADD</button>
-    </div>
+    <div class="dv-dept-empty" style="padding-top:12px">부서 추가·삭제는 EGMM 상단 SYSTEM › <b>DEPARTMENT</b> 관리에서 합니다 (번호 순으로 표시)</div>
   </div>
 </div></div>
 
@@ -324,11 +313,11 @@
   function fns(){ return window.firebaseFns; }
   function ready(cb){ if(window.firebaseFns&&window.firebaseDb) return cb(); window.addEventListener('dv-firebase-ready', cb, {once:true}); }
 
-  var DEFAULT_STORES=['TACOMA','FEDERALWAY','BELLEVUE','BALLARD','REDMOND','LYNNWOOD','G-MART','MELLOW WAY','DISTRICT-H','M2M','UNIVERSITY'];
-  var ROOT_COL='hmart', ROOT_DOC='daily-purchase', DEPT_DOC='purchase-departments';
+  var ROOT_COL='DAILY-PURCHASE', DAYS_COL='DAYS';   /* DAILY-PURCHASE/{매장 코드}/DAYS/{날짜} */
+  var STORE_CODE={};                                  /* 표시 이름 → STORE 문서 코드 */
   var PALETTE=['#c9a961','#2f5d3a','#4a6fa5','#8a5a44','#b04141','#6b8e23','#7a5fa0','#c07d3a','#3f7d7a','#9c6b8f','#5a5a5a','#a3873a'];
 
-  var ALL_STORES=DEFAULT_STORES.slice();
+  var ALL_STORES=[];      // 매장 표시 이름 (STORE 컬렉션 order 순)
   var data={};            // store -> { date -> dayDoc }
   var unsubs=[];
   var depts=[], deptRaw=[];
@@ -453,7 +442,7 @@
     unsubs.forEach(function(u){ try{u();}catch(e){} }); unsubs=[]; data={};
     ALL_STORES.forEach(function(store){
       data[store]={};
-      var u=fns().onSnapshot(fns().collection(db(), ROOT_COL, ROOT_DOC, store), function(snap){
+      var u=fns().onSnapshot(fns().collection(db(), ROOT_COL, STORE_CODE[store]||store, DAYS_COL), function(snap){
         var m={}; snap.forEach(function(ds){ var d=ds.data()||{}; d.__id=ds.id; m[ds.id]=d; });
         data[store]=m; render();
       }, function(err){ console.error('[매입일지 구독 오류] '+store, err&&err.message?err.message:err); });
@@ -576,62 +565,37 @@
   $('dvDetX').onclick=function(){ $('dvDetOv').classList.remove('show'); };
   $('dvDetOv').addEventListener('click',function(e){ if(e.target===$('dvDetOv')) $('dvDetOv').classList.remove('show'); });
 
-  // ===== 부서 관리 (app-config/purchase-departments) =====
-  function normDept(x){ return { id:(x&&x.id)||('d_'+Date.now()+'_'+Math.random().toString(36).slice(2,7)), name:String((x&&x.name)||'').trim() }; }
+  // ===== 부서 목록 (EGMM DEPARTMENT 컬렉션 · 보기만) =====
   function watchDepts(){
-    fns().onSnapshot(fns().doc(db(),'app-config',DEPT_DOC), function(snap){
-      var d=(snap&&snap.exists&&snap.exists())?(snap.data()||{}):{};
-      deptRaw=(Array.isArray(d.list)?d.list:[]).map(normDept).filter(function(x){return x.name;});
-      depts=deptRaw.map(function(x){return x.name;});
+    fns().onSnapshot(fns().collection(db(),'DEPARTMENT'), function(snap){
+      var arr=[]; snap.forEach(function(ds){ if(ds.id.charAt(0)==='_') return; var d=ds.data()||{}; if(d.name) arr.push({ id:ds.id, name:String(d.name).trim(), num:(d.num!=null&&d.num!=='')?+d.num:null, order:(typeof d.order==='number')?d.order:999 }); });
+      arr.sort(function(x,y){ var a=(x.num!=null?x.num:1e6), b=(y.num!=null?y.num:1e6); return (a-b)||(x.order-y.order)||x.name.localeCompare(y.name); });
+      deptRaw=arr; depts=arr.map(function(x){ return x.name; });
       renderDeptList();
-    }, function(){});
-  }
-  async function saveDepts(){
-    try{ await fns().setDoc(fns().doc(db(),'app-config',DEPT_DOC), { list:deptRaw, updatedAt:Date.now() }, { merge:true }); return true; }
-    catch(e){ toast('저장 실패 — 네트워크/권한 확인','error'); return false; }
+    }, function(e){ console.warn('[매입일지 보기] DEPARTMENT 읽기 실패', e); });
   }
   function renderDeptList(){
     var box=$('dvDeptList'); if(!box) return;
     box.innerHTML=deptRaw.length? deptRaw.map(function(d){
-      return '<div class="dv-dept-row"><span class="nm">'+esc(d.name)+'</span>'
-        +'<button class="dv-dept-x" data-dept="'+esc(d.id)+'" type="button" title="부서 삭제">✕</button></div>'; }).join('')
+      return '<div class="dv-dept-row"><span class="nm">'+(d.num!=null?('<span style="color:var(--text-faint);margin-right:6px">'+d.num+'.</span>'):'')+esc(d.name)+'</span></div>'; }).join('')
       : '<div class="dv-dept-empty">등록된 부서가 없습니다 · No departments</div>';
-    Array.prototype.forEach.call(box.querySelectorAll('.dv-dept-x'),function(b){
-      b.onclick=function(){
-        var id=b.getAttribute('data-dept');
-        var d=deptRaw.filter(function(x){return x.id===id;})[0]; if(!d) return;
-        uiConfirm('부서 삭제','['+d.name+'] 부서를 삭제하시겠습니까?\n매장 입력 화면의 부서 선택에서 제거됩니다.','Delete this department?','삭제 · DELETE',function(){
-          deptRaw=deptRaw.filter(function(x){return x.id!==id;});
-          saveDepts().then(function(ok){ if(ok) toast('부서 삭제됨 · Deleted','success'); });
-        });
-      };
-    });
   }
-  $('dvDeptMgrBtn').onclick=function(){ renderDeptList(); $('dvDeptOv').classList.add('show'); setTimeout(function(){ $('dvDeptNew').focus(); },80); };
+  $('dvDeptMgrBtn').onclick=function(){ renderDeptList(); $('dvDeptOv').classList.add('show'); };
   $('dvDeptX').onclick=function(){ $('dvDeptOv').classList.remove('show'); };
   $('dvDeptOv').addEventListener('click',function(e){ if(e.target===$('dvDeptOv')) $('dvDeptOv').classList.remove('show'); });
-  function addDept(){
-    var inp=$('dvDeptNew'); var name=String(inp.value||'').trim();
-    if(!name){ toast('부서 이름을 입력하세요 · Enter a name','error'); inp.focus(); return; }
-    var dup=deptRaw.some(function(x){ return x.name.toUpperCase()===name.toUpperCase(); });
-    if(dup){ toast('이미 등록된 부서입니다 · Already registered','error'); inp.select(); return; }
-    deptRaw=deptRaw.concat([normDept({name:name})]);
-    saveDepts().then(function(ok){ if(ok){ inp.value=''; inp.focus(); toast('부서 추가됨 · Added','success'); } });
-  }
-  $('dvDeptAdd').onclick=addDept;
-  $('dvDeptNew').addEventListener('keydown',function(e){ if(e.key==='Enter'&&!e.isComposing) addDept(); });
 
   // ===== 시작 =====
   function boot(){
     fillFilters();
     updateRangeBtn();
     ready(function(){
-      fns().getDoc(fns().doc(db(),'app-config','stores')).then(function(snap){
-        var d=(snap&&snap.exists&&snap.exists())?(snap.data()||{}):{};
-        var ls=(Array.isArray(d.list)?d.list:[]).map(function(s){ return String((s&&s.name)||'').trim(); }).filter(Boolean);
-        if(ls.length){ ALL_STORES=ls; fillFilters(); }
-        subscribeAll();
-      }).catch(function(){ subscribeAll(); });
+      /* 매장 목록 — EGMM › STORE 관리 (order 순) · 데이터 경로는 STORE 문서 코드 */
+      fns().getDocs(fns().collection(db(),'STORE')).then(function(snap){
+        var arr=[]; snap.forEach(function(ds){ if(ds.id.charAt(0)==='_') return; var d=ds.data()||{}; arr.push({ code:ds.id, name:String(d.name||ds.id).trim(), order:(typeof d.order==='number')?d.order:999 }); });
+        arr.sort(function(a,b){ return (a.order-b.order)||a.name.localeCompare(b.name); });
+        STORE_CODE={}; ALL_STORES=arr.map(function(x){ var nm=x.name; if(STORE_CODE[nm]) nm=nm+' ('+x.code+')'; STORE_CODE[nm]=x.code; return nm; });
+        fillFilters(); subscribeAll();
+      }).catch(function(e){ console.error('[매입일지 보기] STORE 읽기 실패', e); toast('매장 목록을 읽지 못했습니다 — CLOUD 연결 확인','error'); });
       watchDepts();
     });
     render();
