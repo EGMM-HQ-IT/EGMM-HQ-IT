@@ -166,7 +166,13 @@
   .dp-tbl th:last-child, .dp-tbl td:last-child { border-right: 0; }
   .dp-tbl th { text-align: center !important; }   /* 필드 이름은 전부 가운데 정렬 */
   .dp-tbl td:nth-child(3), .dp-tbl td:nth-child(5), .dp-tbl td:nth-child(6) { text-align: center; }
-  .dp-tbl td.c-vendor .vn { color: var(--danger, #9C3327); }
+  .dp-tbl td.c-vendor .vn { color: var(--text); }                       /* 등록 업체 = 검은색 */
+  .dp-tbl td.c-vendor .vn.un, .dp-tbl td.c-dept .un { color: var(--danger, #9C3327); }   /* 미등록 업체·부서 = 붉은색 */
+  .dp-strip-btn .badge { display: inline-block; min-width: 16px; padding: 0 5px; border-radius: 999px; background: var(--danger); color: #fff; font-size: 10px; font-weight: 900; line-height: 16px; margin-left: 5px; }
+  .dp-reg-tbl td .dp-row-btn.reg { border-color: var(--accent-warm); color: var(--accent-warm); }
+  .dp-reg-form .dp-mrow input, .dp-reg-form .dp-mrow select { width: 100%; border: 1.5px solid var(--border); border-radius: 9px; padding: 9px 11px; font: inherit; font-size: 13.5px; font-weight: 700; background: var(--bg-elev); color: var(--text); }
+  .dp-reg-form .dp-mrow input:focus, .dp-reg-form .dp-mrow select:focus { outline: none; border-color: var(--accent-warm); }
+  .dp-reg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
   .dp-left { min-width: 0; }
   .dp-tbl th { position: sticky; top: 0; z-index: 2; background: var(--bg); text-align: left; padding: 7px 9px;
     font-size: 10.5px; font-weight: 800; letter-spacing: .1em; color: var(--text-faint); border-bottom: 1.5px solid var(--border-bright); white-space: nowrap; }
@@ -480,6 +486,7 @@
     <button class="dp-strip-btn" id="stMonBtn" type="button">월별 통계<small>MONTHLY STATS</small></button>
     <button class="dp-strip-btn" id="stVenBtn" type="button">총 벤더리스트<small>ALL VENDORS</small></button>
     <button class="dp-strip-btn" id="stDeptBtn" type="button">총 부서리스트<small>ALL DEPTS</small></button>
+    <button class="dp-strip-btn" id="stUnregBtn" type="button">미등록 업체·부서<span class="badge" id="dpUnregCnt" style="display:none">0</span><small>UNREGISTERED</small></button>
     <span class="dp-strip-lbl lbl2" style="margin-left:18px"><em>정리</em><small>SORT</small></span>
     <button class="dp-strip-btn dp-sort-btn on" data-sort="vendor" type="button">업체별<small>VENDOR</small></button>
     <button class="dp-strip-btn dp-sort-btn" data-sort="dept" type="button">부서별<small>DEPT</small></button>
@@ -740,9 +747,14 @@
   /* 업체 표시 이름 = 축약어(업체명) · 예: EGP-GRO(EGP(GROCERY)) */
   function vLabel(d){ if(!d) return ''; var c=String(d.code||'').trim(), n=String(d.name||'').trim(); return c?(n?c+'('+n+')':c):n; }
   /* 표시용 업체명: 저장값 "EGP-GRO(EGP(GROCERY))" 에서 축약어를 떼고 업체명만 — 직접 입력 값은 그대로 */
-  function vName(v){ v=String(v==null?'':v); var d=vDocByLabel(v); return d?String(d.name||v).trim():v; }
-  /* 리스트 표시: 업체명만 붉은 글씨 */
-  function vendorHtml(v){ return '<span class="vn">'+esc(vName(v))+'</span>'; }
+  /* 저장값 → VENDER 문서: 축약어(업체명) 표시값 그대로 · 아니면 축약어/업체명/유사 이름(오타 허용)으로 인식 — 직접 입력했던 업체도 나중에 등록되면 인식됨 */
+  function vDocOf(v){ v=String(v==null?'':v).trim(); if(!v) return null; return vDocByLabel(v) || ((window.EgmmFB&&window.EgmmFB.venderMatch)?window.EgmmFB.venderMatch(vendorDocs, v):null); }
+  function vName(v){ v=String(v==null?'':v); var d=vDocOf(v); return d?String(d.name||v).trim():v; }
+  /* 리스트 표시: 등록 업체 = 검은색 · 미등록(직접 입력) = 붉은색 */
+  function vendorHtml(v){ var d=vDocOf(v); return '<span class="vn'+(d?'':' un')+'" title="'+(d?'':'VENDER 에 등록되지 않은 업체')+'">'+esc(vName(v))+'</span>'; }
+  /* 부서 표시: DEPARTMENT 에 없는 부서는 붉은색 */
+  function dDocOf(name){ name=String(name==null?'':name).trim(); if(!name) return null; for(var i=0;i<deptDocs.length;i++){ if(String(deptDocs[i].name||'').trim()===name) return deptDocs[i]; } return (window.EgmmFB&&window.EgmmFB.deptMatch)?window.EgmmFB.deptMatch(deptDocs, name):null; }
+  function deptHtml(d){ var ok=!!dDocOf(d); return '<span class="'+(ok?'':'un')+'" title="'+(ok?'':'DEPARTMENT 에 등록되지 않은 부서')+'">'+esc(d)+'</span>'; }
   function vDocByLabel(t){ t=String(t||'').trim(); if(!t) return null; for(var i=0;i<vendorDocs.length;i++){ if(vLabel(vendorDocs[i])===t) return vendorDocs[i]; } return null; }
   /* 검색: 1글자 = 축약어/업체명이 그 글자로 시작 · 2글자 이상 = 축약어/업체명/유사 이름에 포함 (대소문자 무시) */
   function vSearch(q){
@@ -958,7 +970,8 @@
       var vd = x.vendorSrc ? (vDocByLabel(x.vendorSrc) || (window.EgmmFB&&window.EgmmFB.venderMatch ? window.EgmmFB.venderMatch(vendorDocs, x.vendorSrc) : null)) : null;
       x.vendor = vd ? vLabel(vd) : x.vendorSrc; x.manual = !vd;
       var dd = x.deptSrc ? (window.EgmmFB&&window.EgmmFB.deptMatch ? window.EgmmFB.deptMatch(deptDocs, x.deptSrc) : null) : null;
-      x.dept = dd ? String(dd.name||'').trim() : (depts.indexOf(x.deptSrc)>=0 ? x.deptSrc : '');
+      x.dept = dd ? String(dd.name||'').trim() : String(x.deptSrc||'').trim();   /* 미등록 부서도 그대로 등록 (붉은색 표시 · 미등록 목록에서 등록 가능) */
+      x.deptUnreg = !!(x.dept && !dd);
       x.amount = parseAmt(x.amountRaw);
     });
     return rows;
@@ -973,6 +986,7 @@
   $('dpXlBtn').onclick=function(){
     if(!user||(!isAccount()&&!isManager())){ denyPopup('기록 권한이 있는 계정으로 ID 로그인 후 사용할 수 있습니다.'); return; }
     __xlDate=selDate;
+    $('dpXlOv').querySelector('.dp-mtitle').textContent='엑셀 업로드 · 날짜 지정 등록'; $('dpXlOv').querySelector('.dp-meyebrow').textContent='EXCEL UPLOAD';
     $('dpXlBody').innerHTML='<div class="dp-confirm-text">엑셀의 매입 내역을 등록할 날짜를 지정하세요<small>Select the date to register the Excel rows</small></div>'
       +'<div class="dp-mrow" style="margin-top:14px"><label>등록 날짜 · DATE</label><input type="date" id="dpXlDate0" value="'+esc(selDate)+'" style="width:100%;border:1.5px solid var(--border);border-radius:9px;padding:10px 12px;font:inherit;font-size:15px;font-weight:800;background:var(--bg-elev);color:var(--text)"></div>'
       +'<div class="dp-merr" id="dpXlErr0"></div>'
@@ -1014,6 +1028,7 @@
   function dupExistsOn(date, vendor, invoice){ return dupExists(vendor, invoice, null); }
   function xlRender(){
     var b=$('dpXlBody'), x=__xl, p=x.parsed;
+    $('dpXlOv').querySelector('.dp-mtitle').textContent='엑셀 업로드 · 날짜 지정 등록'; $('dpXlOv').querySelector('.dp-meyebrow').textContent='EXCEL UPLOAD';
     var html='<div class="dp-xl-top">'
       +'<div class="dp-mrow"><label>등록 날짜 · DATE</label><input type="date" id="dpXlDate" value="'+esc(x.date)+'"></div>'
       +(x.names.length>1?('<div class="dp-mrow"><label>시트 · SHEET</label><select id="dpXlSheet">'+x.names.map(function(n){ return '<option value="'+esc(n)+'"'+(n===x.sheet?' selected':'')+'>'+esc(n)+'</option>'; }).join('')+'</select></div>'):'')
@@ -1031,7 +1046,7 @@
       return '<tr class="'+st.cls+'"><td class="num">'+(i+1)+'</td>'
         +'<td><span class="xl-src">'+esc(r.vendorSrc)+'</span>'+(rr.vendor&&rr.vendor!==r.vendorSrc?'<span class="arrow">→</span><span class="'+(rr.manual?'man':'ok')+'">'+esc(rr.vendor)+'</span>':(rr.manual&&rr.vendor?'<span class="arrow">·</span><span class="man">직접 입력</span>':''))+'</td>'
         +'<td>'+esc(r.invoice)+'</td><td class="num">'+(isNaN(rr.amount)?'<span class="bad">'+esc(r.amountRaw)+'</span>':fmt$(rr.amount))+'</td>'
-        +'<td><span class="xl-src">'+esc(r.deptSrc)+'</span>'+(rr.dept?(rr.dept!==r.deptSrc?'<span class="arrow">→</span><span class="ok">'+esc(rr.dept)+'</span>':''):'<span class="arrow">·</span><span class="bad">부서 없음</span>')+'</td>'
+        +'<td><span class="xl-src">'+esc(r.deptSrc)+'</span>'+(rr.dept?(rr.dept!==r.deptSrc?'<span class="arrow">→</span><span class="ok">'+esc(rr.dept)+'</span>':(rr.deptUnreg?'<span class="arrow">·</span><span class="man">미등록 부서</span>':'')):'<span class="arrow">·</span><span class="bad">부서 없음</span>')+'</td>'
         +'<td>'+esc(r.memo)+'</td><td class="xl-src">'+esc(st.txt)+'</td></tr>';
     }).join('');
     html+='<div class="dp-stat-sum">'
@@ -1069,11 +1084,98 @@
     });
     if(!added){ toast('등록할 행이 없습니다','error'); return; }
     var ok=await saveDay(date,{ rows:rows });
-    if(ok){ $('dpXlOv').classList.remove('show'); selDate=date; var p=date.split('-'); calY=+p[0]; calM=+p[1]; editingId=null; renderAll(); toast('엑셀 등록 완료 · '+added+'건 ('+date+')','success'); }
+    if(ok){ $('dpXlOv').classList.remove('show'); selDate=date; var p=date.split('-'); calY=+p[0]; calM=+p[1]; editingId=null; renderAll(); toast('엑셀 등록 완료 · '+added+'건 ('+date+')','success');
+      /* 미등록 업체·부서가 있으면 등록 목록 표시 */
+      var u=unregScan(); if(u.vendors.length||u.depts.length) setTimeout(openUnregList, 700); }
+  }
+
+  // ===== [2026-10-07] 미등록 업체·부서 목록 + 등록 팝업 (VENDER / DEPARTMENT 에 바로 등록) =====
+  function unregScan(){
+    var vm={}, dm={};
+    Object.keys(allDocs).forEach(function(k){ dayRows(k).forEach(function(r){
+      var v=String(r.vendor||'').trim(); if(v && !vDocOf(v)){ var kv=v.toUpperCase(); if(!vm[kv]) vm[kv]={ name:v, count:0, total:0, last:'' }; vm[kv].count++; vm[kv].total+=(+r.amount||0); if(k>vm[kv].last) vm[kv].last=k; }
+      var d=String(r.dept||'').trim(); if(d && !dDocOf(d)){ var kd=d.toUpperCase(); if(!dm[kd]) dm[kd]={ name:d, count:0, total:0, last:'' }; dm[kd].count++; dm[kd].total+=(+r.amount||0); if(k>dm[kd].last) dm[kd].last=k; }
+    }); });
+    var vs=Object.keys(vm).map(function(k){ return vm[k]; }).sort(function(a,b){ return b.count-a.count||a.name.localeCompare(b.name); });
+    var ds=Object.keys(dm).map(function(k){ return dm[k]; }).sort(function(a,b){ return b.count-a.count||a.name.localeCompare(b.name); });
+    return { vendors:vs, depts:ds };
+  }
+  function renderUnregBadge(){ var b=$('dpUnregCnt'); if(!b) return; var u=unregScan(), n=u.vendors.length+u.depts.length; b.textContent=n; b.style.display=n?'':'none'; }
+  function canRegister(){ return !!(user&&(isAccount()||isManager())); }
+  function openUnregList(){
+    var u=unregScan();
+    function tbl(list, kind){
+      if(!list.length) return '<div class="dp-stat-empty">없음 · None</div>';
+      return '<table class="dp-stat-tbl dp-reg-tbl"><tr><th>'+(kind==='v'?'업체 VENDOR':'부서 DEPT')+'</th><th class="num">건수</th><th class="num">누적 매입</th><th>최근</th><th></th></tr>'
+        +list.map(function(x){ return '<tr><td class="strong" style="color:var(--danger)">'+esc(x.name)+'</td><td class="num">'+x.count+'</td><td class="num">'+fmt$(x.total)+'</td><td>'+esc(x.last)+'</td>'
+          +'<td style="text-align:right"><button class="dp-row-btn reg" type="button" data-reg="'+kind+'" data-name="'+esc(x.name)+'">'+(canRegister()?'등록 · REGISTER':'등록 권한 없음')+'</button></td></tr>'; }).join('')+'</table>';
+    }
+    openStat('UNREGISTERED','미등록 업체 · 부서 (VENDER / DEPARTMENT 관리에 없음)',
+      '<div class="dp-stat-sec">미등록 업체 · UNREGISTERED VENDORS ('+u.vendors.length+')</div>'+tbl(u.vendors,'v')
+      +'<div class="dp-stat-sec">미등록 부서 · UNREGISTERED DEPARTMENTS ('+u.depts.length+')</div>'+tbl(u.depts,'d')
+      +'<div class="dp-stat-empty" style="padding:10px 0 0">등록하면 이 이름(및 유사 이름)으로 기록된 매입 내역이 자동으로 그 업체·부서로 인식됩니다</div>');
+    Array.prototype.forEach.call($('dpStatBody').querySelectorAll('button[data-reg]'),function(b){ b.onclick=function(){ if(!canRegister()){ denyPopup('기록 권한이 있는 계정으로 ID 로그인 후 등록할 수 있습니다.'); return; } if(b.getAttribute('data-reg')==='v') openVendorReg(b.getAttribute('data-name')); else openDeptReg(b.getAttribute('data-name')); }; });
+  }
+  $('stUnregBtn').onclick=openUnregList;
+  function sanitizeCode(v){ return (window.EgmmFB&&window.EgmmFB.sanitizeCode)?window.EgmmFB.sanitizeCode(v):String(v||'').toUpperCase().replace(/[^A-Z0-9]+/g,'-').replace(/-{2,}/g,'-').replace(/^-+|-+$/g,''); }
+  function regModal(title, bodyHtml){
+    $('dpXlBody').innerHTML='<div class="dp-reg-form">'+bodyHtml+'<div class="dp-merr" id="dpRegErr"></div>'
+      +'<div class="dp-macts"><button class="dp-mbtn ghost" id="dpRegCancel" type="button">취소 · CANCEL</button><button class="dp-mbtn primary" id="dpRegOk" type="button">등록 · REGISTER</button></div></div>';
+    $('dpXlOv').querySelector('.dp-mtitle').textContent=title; $('dpXlOv').querySelector('.dp-meyebrow').textContent='REGISTER';
+    $('dpXlOv').classList.add('show'); $('dpRegCancel').onclick=function(){ $('dpXlOv').classList.remove('show'); };
+  }
+  /* 업체 등록 — EGMM › VENDER 관리의 「업체 추가」와 같은 항목 */
+  function openVendorReg(name){
+    var deptOpts='<option value="">— 미지정 —</option>'+deptDocs.slice().sort(function(a,b){ var x=(a.num!=null&&a.num!=='')?+a.num:1e6, y=(b.num!=null&&b.num!=='')?+b.num:1e6; return x-y; }).map(function(d){ return '<option value="'+esc(d.code)+'">'+(d.num!=null&&d.num!==''?esc(d.num)+'. ':'')+esc(d.name||d.code)+'</option>'; }).join('');
+    regModal('업체 등록 · '+name,
+      '<div class="dp-reg-grid"><div class="dp-mrow"><label>업체명 · NAME</label><input id="rgName" maxlength="60" value="'+esc(name)+'"></div>'
+      +'<div class="dp-mrow"><label>한글명 (선택)</label><input id="rgKo" maxlength="40"></div>'
+      +'<div class="dp-mrow"><label>축약어 (VENDER 코드) · 필수</label><input id="rgCode" maxlength="30" style="text-transform:uppercase" placeholder="예: STI-WA"></div>'
+      +'<div class="dp-mrow"><label>부서 (카테고리)</label><select id="rgDept">'+deptOpts+'</select></div>'
+      +'<div class="dp-mrow"><label>영업 품목 종류 (쉼표 구분)</label><input id="rgItems" maxlength="100"></div>'
+      +'<div class="dp-mrow"><label>유사 이름 (쉼표 구분)</label><input id="rgAliases" maxlength="200" value="'+esc(name)+'"></div></div>'
+      +'<div class="dp-stat-empty" style="padding:4px 0 0;text-align:left">기록된 이름 「'+esc(name)+'」 은 유사 이름에 자동으로 들어가 있어, 등록 후 기존 매입 내역이 이 업체로 인식됩니다</div>');
+    $('rgName').addEventListener('input',function(){ if(!$('rgCode').dataset.t) $('rgCode').value=sanitizeCode($('rgName').value); });
+    $('rgCode').addEventListener('input',function(){ $('rgCode').dataset.t='1'; });
+    $('rgCode').value=sanitizeCode(name);
+    $('dpRegOk').onclick=function(){
+      var nm=$('rgName').value.trim().toUpperCase(), code=sanitizeCode($('rgCode').value), er=$('dpRegErr');
+      if(!nm){ er.textContent='업체명을 입력하세요'; return; } if(!code){ er.textContent='축약어를 입력하세요'; return; }
+      if(vendorDocs.some(function(d){ return String(d.code).toUpperCase()===code; })){ er.textContent='축약어 "'+code+'" 는 이미 사용 중입니다'; return; }
+      var aliases=[], seen={}; $('rgAliases').value.split(',').forEach(function(x){ x=x.trim(); var k=(window.EgmmFB&&window.EgmmFB.venderKey)?window.EgmmFB.venderKey(x):x.toUpperCase(); if(!x||!k||seen[k]) return; seen[k]=1; aliases.push(x); });
+      var items=$('rgItems').value.split(',').map(function(x){ return x.trim(); }).filter(Boolean).join(', ');
+      var data={ code:code, name:nm, nameKo:$('rgKo').value.trim(), items:items, aliases:aliases, dept:$('rgDept').value||'', order:vendorDocs.length, createdAt:Date.now(), updatedAt:Date.now(), by:user?user.id:'' };
+      $('dpRegOk').disabled=true;
+      fns().setDoc(fns().doc(db(),'VENDER',code), data).then(function(){ $('dpXlOv').classList.remove('show'); toast('업체 등록 완료 · '+code,'success'); setTimeout(function(){ renderAll(); openUnregList(); },600); })
+        .catch(function(e){ console.error(e); $('dpRegOk').disabled=false; er.textContent='등록 실패 — 권한/네트워크 확인'; });
+    };
+  }
+  /* 부서 등록 — EGMM › DEPARTMENT 관리의 「부서 추가」와 같은 항목 */
+  function openDeptReg(name){
+    regModal('부서 등록 · '+name,
+      '<div class="dp-reg-grid"><div class="dp-mrow"><label>부서 이름 (영문) · NAME</label><input id="rgName" maxlength="40" value="'+esc(name)+'"></div>'
+      +'<div class="dp-mrow"><label>한글명 (선택)</label><input id="rgKo" maxlength="40"></div>'
+      +'<div class="dp-mrow"><label>부서 코드 · 필수</label><input id="rgCode" maxlength="30" style="text-transform:uppercase" placeholder="자동: DEPT-…"></div>'
+      +'<div class="dp-mrow"><label>번호 (UPC/PLU LIST DEPARTMENT 숫자 · 선택)</label><input id="rgNum" inputmode="numeric" maxlength="3"></div>'
+      +'<div class="dp-mrow" style="grid-column:1/-1"><label>유사 이름 (쉼표 구분)</label><input id="rgAliases" maxlength="200" value="'+esc(name)+'"></div></div>');
+    $('rgName').addEventListener('input',function(){ if(!$('rgCode').dataset.t) $('rgCode').value='DEPT-'+sanitizeCode($('rgName').value); });
+    $('rgCode').addEventListener('input',function(){ $('rgCode').dataset.t='1'; });
+    $('rgCode').value='DEPT-'+sanitizeCode(name);
+    $('dpRegOk').onclick=function(){
+      var nm=$('rgName').value.trim().toUpperCase(), code=sanitizeCode($('rgCode').value), er=$('dpRegErr'), numRaw=$('rgNum').value.trim(), num=null;
+      if(!nm){ er.textContent='부서 이름을 입력하세요'; return; } if(!code){ er.textContent='부서 코드를 입력하세요'; return; }
+      if(deptDocs.some(function(d){ return String(d.code).toUpperCase()===code; })){ er.textContent='코드 "'+code+'" 는 이미 사용 중입니다'; return; }
+      if(numRaw!==''){ if(!/^[0-9]+$/.test(numRaw)){ er.textContent='번호는 숫자만'; return; } num=parseInt(numRaw,10); if(deptDocs.some(function(d){ return d.num!=null&&String(d.num)===String(num); })){ er.textContent='번호 '+num+' 은 이미 사용 중입니다'; return; } }
+      var aliases=[], seen={}; $('rgAliases').value.split(',').forEach(function(x){ x=x.trim(); var k=(window.EgmmFB&&window.EgmmFB.venderKey)?window.EgmmFB.venderKey(x):x.toUpperCase(); if(!x||!k||seen[k]) return; seen[k]=1; aliases.push(x); });
+      var data={ code:code, name:nm, nameKo:$('rgKo').value.trim(), num:num, aliases:aliases, order:deptDocs.length, createdAt:Date.now(), updatedAt:Date.now(), by:user?user.id:'' };
+      $('dpRegOk').disabled=true;
+      fns().setDoc(fns().doc(db(),'DEPARTMENT',code), data).then(function(){ $('dpXlOv').classList.remove('show'); toast('부서 등록 완료 · '+code,'success'); setTimeout(function(){ renderAll(); openUnregList(); },600); })
+        .catch(function(e){ console.error(e); $('dpRegOk').disabled=false; er.textContent='등록 실패 — 권한/네트워크 확인'; });
+    };
   }
 
   // ===== 렌더 =====
-  function renderAll(){ renderHead(); renderList(); renderRight(); renderCal(); }
+  function renderAll(){ renderHead(); renderList(); renderRight(); renderCal(); renderUnregBadge(); }
 
   function renderHead(){
     $('dpDateText').textContent=fmtDateKo(selDate);
@@ -1244,7 +1346,7 @@
         +'<td class="c-vendor">'+vendorHtml(r.vendor)+'</td>'
         +'<td class="c-invoice">'+esc(r.invoice)+'</td>'
         +'<td class="num">'+fmt$(r.amount)+'</td>'
-        +'<td class="c-dept">'+esc(r.dept)+'</td>'
+        +'<td class="c-dept">'+deptHtml(r.dept)+'</td>'
         +'<td class="c-memo" title="'+esc(r.memo||'')+'">'+esc(r.memo||'')+'</td>'
         +'<td class="c-act">'+(canEdit?('<button class="dp-row-btn" data-edit="'+esc(r.id)+'" type="button">수정</button> '
           +'<button class="dp-row-btn del" data-del="'+esc(r.id)+'" type="button">삭제</button>'):'')+'</td></tr>';
