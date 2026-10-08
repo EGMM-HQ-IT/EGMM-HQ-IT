@@ -59,6 +59,24 @@
   .dp-sum tr.grand td { border-top: 1.5px solid var(--border-bright); background: var(--accent-soft); font-weight: 900; font-size: 13.5px; }
   .dp-sum tr.grand td.lbl { color: #8a6d2e; letter-spacing: .08em; }
   .dp-sum tr.grand td.n { font-family: var(--serif); font-size: 15px; }
+  /* 엑셀 일괄 업로드 — 날짜별 드롭 박스 */
+  .dp-xl-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-top: 10px; }
+  .dp-xl-dow { text-align: center; font-size: 10px; font-weight: 800; letter-spacing: .08em; color: var(--text-faint); padding: 2px 0; }
+  .dp-xl-dow.sun { color: #c56a63; }
+  .dp-xl-day { min-height: 54px; border: 1.5px dashed var(--border); border-radius: 9px; padding: 4px 6px; background: var(--bg-elev); position: relative; cursor: pointer; transition: border-color .12s, background .12s; }
+  .dp-xl-day.blank { border-color: transparent; background: transparent; cursor: default; }
+  .dp-xl-day:not(.blank):hover, .dp-xl-day.over { border-color: var(--accent-warm); background: var(--accent-soft); }
+  .dp-xl-day.done { background: #fdecec; border-color: #e3a3a3; cursor: not-allowed; }
+  .dp-xl-day.has { border-style: solid; border-color: var(--accent-warm); }
+  .dp-xl-day .dn { font-size: 12px; font-weight: 800; color: var(--text-dim); }
+  .dp-xl-day .rec { position: absolute; right: 5px; top: 4px; font-size: 9.5px; font-weight: 800; color: var(--text-faint); }
+  .dp-xl-day .fls { display: flex; flex-direction: column; gap: 2px; margin-top: 3px; }
+  .dp-xl-day .fl { display: flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 1px 4px; max-width: 100%; }
+  .dp-xl-day .fl span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .dp-xl-day .fl b { color: var(--danger); cursor: pointer; flex: 0 0 auto; }
+  .dp-xl-dropall { margin-top: 10px; border: 1.5px dashed var(--border-bright); border-radius: 10px; padding: 9px 12px; text-align: center; font-size: 12px; font-weight: 700; color: var(--text-faint); }
+  .dp-xl-dropall.over { border-color: var(--accent-warm); background: var(--accent-soft); color: var(--text); }
+  .dp-xl-res td.ok { color: var(--accent-warm); font-weight: 800; } .dp-xl-res td.err { color: var(--danger); font-weight: 800; }
   /* 누계 팝업 */
   .dp-wk-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
   .dp-wk-tab { border: 1px solid var(--border); background: var(--bg-elev); color: var(--text-dim); border-radius: 999px; padding: 6px 13px; font-size: 12px; font-weight: 800; cursor: pointer; }
@@ -476,6 +494,7 @@
       <button class="dp-mini-btn sm" id="dpExportBtn" type="button" disabled>EXPORT</button>
       <button class="dp-mini-btn sm" id="dpXlBtn" type="button" style="display:none" title="엑셀 파일의 매입 내역을 날짜를 지정해 등록">EXCEL</button>
       <input type="file" id="dpXlFile" accept=".xlsx,.xls,.csv" style="display:none">
+      <input type="file" id="dpXlFiles" accept=".xlsx,.xls,.csv" multiple style="display:none">
     </div>
   </header>
 
@@ -987,12 +1006,21 @@
     if(!user||(!isAccount()&&!isManager())){ denyPopup('기록 권한이 있는 계정으로 ID 로그인 후 사용할 수 있습니다.'); return; }
     __xlDate=selDate;
     $('dpXlOv').querySelector('.dp-mtitle').textContent='엑셀 업로드 · 날짜 지정 등록'; $('dpXlOv').querySelector('.dp-meyebrow').textContent='EXCEL UPLOAD';
-    $('dpXlBody').innerHTML='<div class="dp-confirm-text">엑셀의 매입 내역을 등록할 날짜를 지정하세요<small>Select the date to register the Excel rows</small></div>'
+    __xlBatch={};
+    $('dpXlBody').innerHTML='<div class="dp-confirm-text">엑셀의 매입 내역을 등록할 날짜를 지정하세요<small>Select the date · or drop files onto the day boxes below for batch upload</small></div>'
       +'<div class="dp-mrow" style="margin-top:14px"><label>등록 날짜 · DATE</label><input type="date" id="dpXlDate0" value="'+esc(selDate)+'" style="width:100%;border:1.5px solid var(--border);border-radius:9px;padding:10px 12px;font:inherit;font-size:15px;font-weight:800;background:var(--bg-elev);color:var(--text)"></div>'
+      +'<div class="dp-mrow"><label>날짜별 박스 — 파일을 끌어다 놓으면 그 날짜로 등록 (여러 파일 · 여러 날짜 한 번에) · 클릭하면 파일 선택</label><div id="dpXlDays"></div>'
+      +'<div class="dp-xl-dropall" id="dpXlDropAll">여기에 떨어뜨리면 위 「등록 날짜」로 들어갑니다 · DROP HERE = SELECTED DATE</div></div>'
       +'<div class="dp-merr" id="dpXlErr0"></div>'
-      +'<div class="dp-macts"><button class="dp-mbtn ghost" id="dpXlCancel0" type="button">취소 · CANCEL</button><button class="dp-mbtn primary" id="dpXlPick" type="button">📄 엑셀 파일 선택 · CHOOSE FILE</button></div>';
+      +'<div class="dp-macts"><button class="dp-mbtn ghost" id="dpXlCancel0" type="button">취소 · CANCEL</button><button class="dp-mbtn ghost" id="dpXlPick" type="button">📄 파일 1개 선택 (미리보기) · ONE FILE</button><button class="dp-mbtn primary" id="dpXlBatch" type="button" disabled>일괄 등록 · BATCH (0)</button></div>';
     $('dpXlOv').classList.add('show');
     $('dpXlCancel0').onclick=function(){ $('dpXlOv').classList.remove('show'); };
+    $('dpXlDate0').addEventListener('change', xlDaysRender);
+    xlDaysRender();
+    var da=$('dpXlDropAll');
+    da.addEventListener('dragover',function(e){ e.preventDefault(); da.classList.add('over'); }); da.addEventListener('dragleave',function(){ da.classList.remove('over'); });
+    da.addEventListener('drop',function(e){ e.preventDefault(); da.classList.remove('over'); var d=$('dpXlDate0').value; if(!/^\d{4}-\d{2}-\d{2}$/.test(d)){ $('dpXlErr0').textContent='날짜를 지정하세요'; return; } xlBatchAdd(d, e.dataTransfer.files); });
+    $('dpXlBatch').onclick=xlBatchRun;
     $('dpXlPick').onclick=function(){
       var d=$('dpXlDate0').value;
       if(!/^\d{4}-\d{2}-\d{2}$/.test(d)){ $('dpXlErr0').textContent='날짜를 지정하세요 · Select a date'; return; }
@@ -1000,6 +1028,100 @@
       __xlDate=d; $('dpXlFile').value=''; $('dpXlFile').click();
     };
   };
+  /* ── 일괄 업로드: 날짜별 박스에 파일 드롭 → 한 번에 등록 ── */
+  var __xlBatch={}, __xlBoxDate='';
+  function xlBatchCount(){ var n=0; Object.keys(__xlBatch).forEach(function(d){ n+=__xlBatch[d].length; }); return n; }
+  function xlBatchAdd(date, files){
+    if(dayStatus(date)==='done'){ toast(date+' 는 완료(결재)된 일자 — 등록 불가','error'); return; }
+    var arr=__xlBatch[date]||(__xlBatch[date]=[]);
+    Array.prototype.forEach.call(files||[],function(f){ if(!/\.(xlsx|xls|csv)$/i.test(f.name)){ toast(f.name+' — 엑셀/CSV 파일만','error'); return; } if(arr.some(function(x){ return x.name===f.name&&x.size===f.size; })) return; arr.push(f); });
+    if(!arr.length) delete __xlBatch[date];
+    xlDaysRender();
+  }
+  function xlDaysRender(){
+    var box=$('dpXlDays'); if(!box) return;
+    var d=$('dpXlDate0').value||selDate, p=d.split('-'), y=+p[0], m=+p[1];
+    if(!y||!m){ box.innerHTML=''; return; }
+    var startDow=new Date(y,m-1,1).getDay(), days=new Date(y,m,0).getDate();
+    var html='<div class="dp-xl-days">'+['일','월','화','수','목','금','토'].map(function(w,i){ return '<div class="dp-xl-dow'+(i===0?' sun':'')+'">'+w+'</div>'; }).join('');
+    for(var i=0;i<startDow;i++) html+='<div class="dp-xl-day blank"></div>';
+    for(var dd=1;dd<=days;dd++){ var k=ymd(y,m,dd), st=dayStatus(k), n=dayRows(k).length, fl=__xlBatch[k]||[];
+      html+='<div class="dp-xl-day'+(st==='done'?' done':'')+(fl.length?' has':'')+(k===d?' sel':'')+'" data-date="'+k+'" title="'+k+(st==='done'?' · 완료(결재) — 등록 불가':'')+'">'
+        +'<span class="dn">'+dd+'</span>'+(n?'<span class="rec">'+n+'건</span>':'')
+        +(fl.length?'<div class="fls">'+fl.map(function(f,i){ return '<div class="fl"><span title="'+esc(f.name)+'">'+esc(f.name)+'</span><b data-rm="'+k+'|'+i+'" title="제외">✕</b></div>'; }).join('')+'</div>':'')
+        +'</div>'; }
+    html+='</div>';
+    box.innerHTML=html;
+    var cnt=xlBatchCount(), bb=$('dpXlBatch'); if(bb){ bb.disabled=!cnt; bb.textContent='일괄 등록 · BATCH ('+cnt+')'; }
+    Array.prototype.forEach.call(box.querySelectorAll('.dp-xl-day[data-date]'),function(el){
+      var k=el.getAttribute('data-date'), done=el.classList.contains('done');
+      el.addEventListener('dragover',function(e){ if(done) return; e.preventDefault(); el.classList.add('over'); });
+      el.addEventListener('dragleave',function(){ el.classList.remove('over'); });
+      el.addEventListener('drop',function(e){ e.preventDefault(); el.classList.remove('over'); if(done) return; xlBatchAdd(k, e.dataTransfer.files); });
+      el.addEventListener('click',function(e){ if(e.target.getAttribute&&e.target.getAttribute('data-rm')) return; if(done) return; __xlBoxDate=k; $('dpXlFiles').value=''; $('dpXlFiles').click(); });
+    });
+    Array.prototype.forEach.call(box.querySelectorAll('b[data-rm]'),function(b){ b.onclick=function(e){ e.stopPropagation(); var q=b.getAttribute('data-rm').split('|'); var arr=__xlBatch[q[0]]||[]; arr.splice(+q[1],1); if(!arr.length) delete __xlBatch[q[0]]; xlDaysRender(); }; });
+  }
+  $('dpXlFiles').addEventListener('change',function(){ if(__xlBoxDate&&this.files&&this.files.length) xlBatchAdd(__xlBoxDate,this.files); __xlBoxDate=''; });
+  /* 파일 → 첫 시트 파싱·인식 (단일/일괄 공통) */
+  function xlReadFile(f){
+    return xlLib().then(function(XLSX){ return new Promise(function(res,rej){
+      var rd=new FileReader();
+      rd.onload=function(e){ try{
+        var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
+        var sheets={}, names=[]; wb.SheetNames.forEach(function(n){ var aoa=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:''}); if(aoa.some(function(r){ return (r||[]).some(function(x){ return xlCell(x)!==''; }); })){ sheets[n]=aoa; names.push(n); } });
+        res({ sheets:sheets, names:names }); }catch(err){ rej(err); } };
+      rd.onerror=function(){ rej(new Error('읽기 실패')); };
+      rd.readAsArrayBuffer(f);
+    }); });
+  }
+  /* 인식된 행을 해당 날짜에 등록 (중복·제외 건너뜀) → {added,dup,skip} */
+  async function xlApplyRows(date, rowsResolved, defDept){
+    var rows=dayRows(date).slice(), added=0, dup=0, skip=0;
+    rowsResolved.forEach(function(r){
+      var rr=Object.assign({}, r); if(!rr.dept&&defDept) rr.dept=defDept;
+      var st=xlRowState(rr, date); if(st.cls==='skip'){ skip++; return; } if(st.cls==='dup'){ dup++; return; }
+      if(rr.invoice && rows.some(function(q){ return String(q.vendor||'').toUpperCase()===rr.vendor.toUpperCase() && String(q.invoice||'').toUpperCase()===rr.invoice.toUpperCase(); })){ dup++; return; }
+      rows.push({ id:genId('r'), vendor:rr.vendor, manual:!!rr.manual, invoice:rr.invoice, amount:rr.amount, dept:rr.dept, memo:rr.memo||'', src:'excel',
+        createdAt:Date.now(), updatedAt:Date.now(), by:{id:user.id,name:user.name} });
+      added++;
+    });
+    if(added){ var ok=await saveDay(date,{ rows:rows }); if(!ok) return { added:0, dup:dup, skip:skip, err:'저장 실패' }; }
+    return { added:added, dup:dup, skip:skip };
+  }
+  async function xlBatchRun(){
+    if(!user||(!isAccount()&&!isManager())){ denyPopup('기록 권한이 없습니다.'); return; }
+    var dates=Object.keys(__xlBatch).sort(); if(!dates.length) return;
+    var bb=$('dpXlBatch'); bb.disabled=true; bb.textContent='등록 중…';
+    var results=[], lastDate='';
+    for(var i=0;i<dates.length;i++){ var date=dates[i], files=__xlBatch[date];
+      for(var j=0;j<files.length;j++){ var f=files[j], r={ date:date, file:f.name };
+        try{
+          if(dayStatus(date)==='done') throw new Error('완료(결재)된 일자');
+          var fx=await xlReadFile(f); if(!fx.names.length) throw new Error('비어 있는 파일');
+          var parsed=xlParse(fx.sheets[fx.names[0]]); if(parsed.err) throw new Error(parsed.err);
+          var res=await xlApplyRows(date, xlResolve(parsed.rows), '');
+          if(res.err) throw new Error(res.err);
+          r.added=res.added; r.dup=res.dup; r.skip=res.skip; r.rows=parsed.rows.length; if(res.added) lastDate=date;
+        }catch(err){ r.error=String(err&&err.message||err); }
+        results.push(r);
+      }
+    }
+    __xlBatch={}; if(!lastDate) lastDate=dates[0];
+    var tot=results.reduce(function(a,r){ return a+(r.added||0); },0);
+    $('dpXlOv').querySelector('.dp-mtitle').textContent='엑셀 일괄 등록 결과 · BATCH RESULT';
+    $('dpXlBody').innerHTML='<div class="dp-stat-sum"><div class="dp-stat-chip"><div class="k">파일 · FILES</div><div class="v">'+results.length+'</div></div><div class="dp-stat-chip"><div class="k">등록 · ADDED</div><div class="v">'+tot+'</div></div>'
+      +'<div class="dp-stat-chip"><div class="k">중복 · DUP</div><div class="v">'+results.reduce(function(a,r){ return a+(r.dup||0); },0)+'</div></div><div class="dp-stat-chip"><div class="k">제외 · SKIPPED</div><div class="v">'+results.reduce(function(a,r){ return a+(r.skip||0); },0)+'</div></div></div>'
+      +'<table class="dp-stat-tbl dp-xl-res"><tr><th>날짜 DATE</th><th>파일 FILE</th><th class="num">행</th><th class="num">등록</th><th class="num">중복</th><th class="num">제외</th><th>결과</th></tr>'
+      +results.map(function(r){ return '<tr><td class="strong">'+esc(r.date)+'</td><td>'+esc(r.file)+'</td><td class="num">'+(r.rows!=null?r.rows:'—')+'</td><td class="num">'+(r.added!=null?r.added:'—')+'</td><td class="num">'+(r.dup!=null?r.dup:'—')+'</td><td class="num">'+(r.skip!=null?r.skip:'—')+'</td><td class="'+(r.error?'err':'ok')+'">'+(r.error?esc(r.error):'완료')+'</td></tr>'; }).join('')+'</table>'
+      +'<div class="dp-macts"><button class="dp-mbtn primary" id="dpXlResOk" type="button">닫기 · CLOSE</button></div>';
+    $('dpXlResOk').onclick=function(){ $('dpXlOv').classList.remove('show'); };
+    if(lastDate){ selDate=lastDate; var p=lastDate.split('-'); calY=+p[0]; calM=+p[1]; editingId=null; }
+    renderAll();
+    if(tot) toast('엑셀 일괄 등록 완료 · '+tot+'건 / '+results.length+'개 파일','success');
+    var u=unregScan(); if(tot&&(u.vendors.length||u.depts.length)) setTimeout(function(){ $('dpXlOv').classList.remove('show'); openUnregList(); }, 1200);
+  }
+
   $('dpXlFile').addEventListener('change',function(){
     var f=this.files&&this.files[0]; if(!f) return;
     toast('엑셀 읽는 중…');
