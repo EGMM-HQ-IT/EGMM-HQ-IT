@@ -7350,6 +7350,7 @@ try{
    ═══════════════════════════════════════════════════════════════════════════ */
 var __fbSyncMs=2500, __fbRetryMs=30000, FB_DELTA_MAX=3000; /* 변경분 목록 상한 — 넘으면 전체 반영 */
 var __fbLast=null;   /* path→json — 이 세션이 아는 Firebase 상태. null = 전체 전송 필요 */
+var __fbCorruptPacks=null; /* [2026-10-08] 읽기 때 손상으로 판정된 묶음 경로 — 다음 전송에서 무조건 다시 기록 */
 var __fbSyncTimer=0, __fbSyncRunning=false, __fbSyncPending=false, __fbRetryTimer=0;
 var __fbMuting=false;   /* 동기화 자신이 하는 저장(플래그·복원 적용)의 재큐잉 방지 */
 var __fbState='off';    /* off|wait|run|ok|err|conflict|names|hold */
@@ -7433,11 +7434,20 @@ function fbPackEncode(rowsJson){ /* rows JSON 문자열 → {parts:[{doc},{doc}.
   var parts=[]; for(var i=0;i<b64.length;i+=FB_PACK_CHUNK) parts.push(b64.slice(i,i+FB_PACK_CHUNK)); if(!parts.length) parts=[''];
   return parts;
 }
-function fbPackDecode(baseData,partDatas){ /* 첫 문서 + 조각 문서들 → rows 배열 */
+function fbPackDecode(baseData,partDatas){ /* 첫 문서 + 조각 문서들 → rows 배열 · 손상 시 Error('PACK_CORRUPT …') */
   if(!baseData) return null;
-  var payload=String(baseData.d||''); (partDatas||[]).forEach(function(pd){ payload+=String((pd&&pd.d)||''); });
-  var json=(baseData.fmt==='GZ')?new TextDecoder().decode(pako.ungzip(__b64ToU8(payload))):payload;
-  var o=JSON.parse(json); return Array.isArray(o)?o:(o&&Array.isArray(o.rows)?o.rows:[]);
+  var payload=String(baseData.d||''), bad='';
+  (partDatas||[]).forEach(function(pd,i){
+    if(!pd||pd.d==null){ bad='조각 '+(i+2)+' 없음'; return; }
+    if(baseData.at&&pd.at&&pd.at!==baseData.at){ bad='조각 '+(i+2)+' 기록 시각 불일치 (중단된 전송)'; return; } /* [2026-10-08] 조각이 다른 전송분과 섞임 */
+    payload+=String(pd.d||'');
+  });
+  if(bad) throw new Error('PACK_CORRUPT '+bad);
+  var json;
+  try{ json=(baseData.fmt==='GZ')?new TextDecoder().decode(pako.ungzip(__b64ToU8(payload))):payload; }
+  catch(e){ throw new Error('PACK_CORRUPT 압축 해제 실패 ('+((e&&e.message)||e)+')'); } /* incorrect data check 등 */
+  var o; try{ o=JSON.parse(json); }catch(e){ throw new Error('PACK_CORRUPT JSON 해석 실패'); }
+  return Array.isArray(o)?o:(o&&Array.isArray(o.rows)?o.rows:[]);
 }
 async function fbPackRead(M,db,bigId,subId){ /* 묶음 읽기 (조각 포함) → rows | null(없음) */
   var sn=await M.fs.getDoc(M.fs.doc(db,FB_ROOT,'_PACK',bigId,subId)); if(!sn.exists()) return null;
@@ -7562,9 +7572,11 @@ async function fbSyncRun(){
     for(var wi=0;wi<writes.length;wi++){ var rw=M.fs.doc.apply(null,[db].concat(writes[wi].split('/')));
       if(fbIsPackPath(writes[wi])){ /* 압축 묶음: gzip → 조각 문서 */
         var pj=m[writes[wi]], parts=fbPackEncode(pj), nrow=0; try{ nrow=JSON.parse(pj).length; }catch(e){}
-        var d1={ fmt:'GZ', n:nrow, parts:parts.length, d:parts[0], at:new Date().toISOString() };
+        var __at=new Date().toISOString(), __oldN0=__packParts[writes[wi]]||1;
+        if(n&&n+parts.length+Math.max(0,__oldN0-parts.length)>450) await flush(); /* [2026-10-08] 한 묶음의 조각은 같은 배치에 — 읽는 쪽이 반쪽만 보지 않도록 */
+        var d1={ fmt:'GZ', n:nrow, parts:parts.length, d:parts[0], at:__at };
         await op((function(r2,d2){ return function(b){ b.set(r2,d2); }; })(rw,d1));
-        for(var pp=2;pp<=parts.length;pp++){ var rwp=M.fs.doc.apply(null,[db].concat((writes[wi]+'__P'+pp).split('/'))); await op((function(r2,d2){ return function(b){ b.set(r2,d2); }; })(rwp,{part:pp,d:parts[pp-1]})); }
+        for(var pp=2;pp<=parts.length;pp++){ var rwp=M.fs.doc.apply(null,[db].concat((writes[wi]+'__P'+pp).split('/'))); await op((function(r2,d2){ return function(b){ b.set(r2,d2); }; })(rwp,{part:pp,d:parts[pp-1],at:__at})); }
         var oldN=__packParts[writes[wi]]||1; for(var pq=parts.length+1;pq<=Math.max(oldN,1);pq++){ var rwq=M.fs.doc.apply(null,[db].concat((writes[wi]+'__P'+pq).split('/'))); await op((function(r3){ return function(b){ b.delete(r3); }; })(rwq)); }
         __packParts[writes[wi]]=parts.length;
       } else { var dd=JSON.parse(m[writes[wi]]); await op((function(r2,d2){ return function(b){ b.set(r2,d2); }; })(rw,dd)); } }
@@ -7614,14 +7626,19 @@ async function fbReadAll(conn){
   await fbPackFlag(conn);
   if(__fbPack){ /* 압축 묶음 모드: 업체별 묶음 문서만 읽음 (행 수가 아니라 업체 수만큼 읽기) */
     var pjobs=[];
-    (meta.tree||[]).forEach(function(b){ (b.subs||[]).forEach(function(sb){ pjobs.push(fbPackRead(M,db,b.id,sb.id).then(function(rows){ return {b:b,sb:sb,rows:rows}; })); }); });
+    (meta.tree||[]).forEach(function(b){ (b.subs||[]).forEach(function(sb){ pjobs.push(fbPackRead(M,db,b.id,sb.id).then(function(rows){ return {b:b,sb:sb,rows:rows}; }).catch(function(e){ return {b:b,sb:sb,rows:null,err:String((e&&e.message)||e)}; })); }); });
     var pres=await Promise.all(pjobs);
+    var corrupt=[];
     pres.forEach(function(x){ var b=x.b, sb=x.sb, rows=x.rows||[];
       if(!st.data[b.name]) st.data[b.name]={};
+      if(x.err){ /* [2026-10-08] 손상된 묶음(중단된 전송·incorrect data check): 전체 읽기를 중단하지 않고 이 컴퓨터 사본을 쓰고, 다음 전송 때 그 묶음을 다시 기록 */
+        var loc=(S&&S.data&&S.data[b.name]&&Array.isArray(S.data[b.name][sb.name]))?S.data[b.name][sb.name]:[];
+        st.data[b.name][sb.name]=loc; got+=loc.length; corrupt.push(fbPackPath(b.id,sb.id)); mismatch.push(b.name+'/'+sb.name+' 묶음 손상 → 이 컴퓨터 사본 '+loc.length+'행 사용 ('+x.err+')'); return; }
       st.data[b.name][sb.name]=rows; got+=rows.length; __packParts[fbPackPath(b.id,sb.id)]=1;
       if(x.rows==null) mismatch.push(b.name+'/'+sb.name+' 묶음 없음');
       else if(sb.count!=null&&rows.length!==sb.count) mismatch.push(b.name+'/'+sb.name+' '+rows.length+'/'+sb.count);
     });
+    if(corrupt.length){ __fbCorruptPacks=corrupt; }
     var stSnapP=await M.fs.getDocs(M.fs.collection(db,FB_STORE));
     var stArrP=[]; stSnapP.forEach(function(d){ var dd=d.data(); if(dd&&dd.name) stArrP.push(dd); });
     if(stArrP.length){ stArrP.sort(function(a,c){ return (a.order||0)-(c.order||0); }); st.stores=stArrP.map(function(x){ return x.name; }); }
@@ -7838,6 +7855,7 @@ async function fbPullApply(conn){
   __fbMuting=false;
   renderAll();
   __fbLast=(__kept>0&&__pre)?__pre:fbDocsMap(fbBuildPlan(S));
+  if(__fbCorruptPacks&&__fbCorruptPacks.length){ __fbCorruptPacks.forEach(function(pth){ delete __fbLast[pth]; }); fbLogSync('pull',0,'손상된 묶음 '+__fbCorruptPacks.length+'개 — 이 컴퓨터 사본으로 대체, 다음 전송 때 다시 기록'); __fbCorruptPacks=null; __fbMuting=true; S.dirtySinceSync=true; S.dirtyAt=new Date().toISOString(); saveState(); __fbMuting=false; fbSyncQueue(800); }
   __fbState='ok'; renderSaveChip();
   if(__kept>0){ r.kept=__kept; r.merge=__mg; fbLogSync('merge',__kept,'이 컴퓨터 기준 반영 — 추가 '+__mg.kept+' · 더 최근 편집 '+__mg.newer+' · 삭제 '+__mg.removed+' → CLOUD 로 전송'); fbSyncQueue(500); }
   return r;
@@ -7891,7 +7909,8 @@ async function fbAutoStart(){
         if(r0){ fbLogSync('pull',r0.got+r0.del,'시작 시 CLOUD 변경분 반영 (변경 '+r0.got+' · 삭제 '+r0.del+')'); showToast('CLOUD 변경분 반영 — 변경 '+r0.got+'건'+(r0.del?' · 삭제 '+r0.del+'건':''),'success'); }
         else { r0=await fbPullApply(conn);
           fbLogSync('pull',r0.got,'시작 시 CLOUD 데이터 가져오기'+(r0.kept?' · 이 컴퓨터 추가분 '+r0.kept+'건 합침':''));
-          showToast('CLOUD 데이터 불러오기 — 상품 '+r0.got+'건'+(r0.kept?' (이 컴퓨터 추가분 '+r0.kept+'건 합침)':''),'success'); }
+          showToast('CLOUD 데이터 불러오기 — 상품 '+r0.got+'건'+(r0.kept?' (이 컴퓨터 추가분 '+r0.kept+'건 합침)':''),'success');
+          if(r0.mismatch&&r0.mismatch.length) showToast('CLOUD 묶음 확인: '+r0.mismatch.slice(0,3).join(' · ')+(r0.mismatch.length>3?' …':''),'error'); }
       }
     }
     fbWatchStart(conn); catTreeStart(conn); deptListStart(conn);
