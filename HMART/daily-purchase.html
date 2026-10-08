@@ -105,13 +105,13 @@
   /* ===== 상단 가로 전체 (타이틀 밴드) ===== */
   .dp-top { flex: 0 0 auto; display: flex; align-items: center; gap: 18px; padding: 8px 20px 7px;
     background: var(--bg-elev); border-bottom: 1px solid var(--border); box-shadow: 0 2px 14px rgba(26,26,29,.05); }
-  .dp-title-blk { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 2px 14px; min-width: 0; }   /* [2026-10-08] 제목·날짜·상태 한 줄 */
-  .dp-title { font-family: var(--serif); font-weight: 900; font-size: 17px; letter-spacing: -.01em; display: flex; align-items: baseline; gap: 10px; white-space: nowrap; }
+  .dp-title-blk { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 2px 10px; min-width: 0; }   /* [2026-10-08] 제목·날짜·상태 한 줄 · 글자 크기 동일(13px) */
+  .dp-title { font-family: var(--serif); font-weight: 900; font-size: 13px; letter-spacing: 0; display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
   .dp-title .dot { color: var(--accent-warm); }
-  .dp-title small { font-size: 10.5px; font-weight: 800; letter-spacing: .18em; color: var(--text-faint); }
-  .dp-date-line { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 800; color: var(--text-dim); white-space: nowrap; }
-  .dp-date-line b { color: var(--text); font-size: 13.5px; letter-spacing: .03em; }
-  .dp-status { font-size: 11px; font-weight: 800; letter-spacing: .06em; padding: 3px 11px; border-radius: 999px; }
+  .dp-title small { font-size: 13px; font-weight: 800; letter-spacing: .04em; color: var(--text-faint); }
+  .dp-date-line { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; color: var(--text-dim); white-space: nowrap; }
+  .dp-date-line b { color: var(--text); font-size: 13px; letter-spacing: 0; }
+  .dp-status { font-size: 13px; font-weight: 800; letter-spacing: 0; padding: 2px 9px; border-radius: 999px; }
   .dp-status.progress { background: #fff3cd; color: #8a6d00; }
   .dp-status.done { background: #fdecec; color: #b3322e; }
   .dp-status.none { background: var(--bg-elev-2); color: var(--text-faint); }
@@ -469,6 +469,23 @@
   .dp-checks-row{ display:flex; gap:8px; margin-left:8px; }
 
   #dpEditBtn:disabled, #dpClearAllBtn:disabled{ opacity:.4; cursor:not-allowed; pointer-events:none; }
+  /* [2026-10-08] 상단 우측 ACCOUNT·MANAGER·PRINT·EXPORT·EXCEL — 전부 EXCEL 버튼 크기 */
+  .dp-top-right .dp-ckbox, .dp-top-right .dp-mini-btn.sm{ box-sizing:border-box; height:32px; padding:0 10px !important; border-radius:8px !important; font-size:11.5px; letter-spacing:.06em; border-width:1.5px; }
+  .dp-top-right .dp-ckbox .ck2 em{ min-width:0; font-size:11.5px; letter-spacing:.06em; }
+  .dp-top-right .dp-ckbox{ gap:6px; }
+  /* [2026-10-08] 건수·수정·입력완료·전체지우기 → 정리(SORT) 줄 우측 */
+  .dp-strip{ flex-wrap:wrap; overflow:visible; row-gap:4px; }
+  .dp-strip-act{ margin-left:auto; display:inline-flex; align-items:center; gap:5px; white-space:nowrap; }
+  .dp-strip .dp-mini-btn{ padding:4px 10px; font-size:11.5px; border-radius:8px; }
+  /* [2026-10-08] 필드 클릭 수정: 칸 모양 그대로 · 엔터 = 저장 */
+  .dp-tbl tr.dp-inrow.quiet td{ background: var(--bg-elev) !important; padding: 8px 9px; border-bottom: 1px solid var(--border); }
+  .dp-tbl tr.dp-inrow.quiet .dp-in{ border: 0; border-radius: 0; background: transparent; padding: 0; font-size: 13.5px; font-weight: inherit; box-shadow: none; text-align: inherit; }
+  .dp-tbl tr.dp-inrow.quiet .dp-in:focus{ outline: none; box-shadow: none; }
+  .dp-tbl tr.dp-inrow.quiet select.dp-in{ background-image: none; padding-right: 0; text-align-last: center; }
+  .dp-tbl tr.dp-inrow.quiet td.c-vendor .dp-in{ font-weight: 800; }
+  .dp-tbl tr.dp-inrow.quiet td.num .dp-in{ font-weight: 800; }
+  /* [2026-10-08] 음수 금액 = 붉은색 */
+  .dp-tbl td.num.neg, .dp-sum td.n.neg{ color: var(--danger, #9C3327); }
 </style>
 <script src="../FUNCTION-FIREBASE-EGMM.js"></script>
 <script src="../FUNCTION-ACCESS-GATE.js"></script>
@@ -530,19 +547,18 @@
     <button class="dp-strip-btn dp-sort-btn on" data-sort="vendor" type="button">업체별<small>VENDOR</small></button>
     <button class="dp-strip-btn dp-sort-btn" data-sort="dept" type="button">부서별<small>DEPT</small></button>
     <button class="dp-strip-btn dp-sort-btn" data-sort="amount" type="button">금액별<small>AMOUNT</small></button>
+    <span class="dp-strip-act">
+      <span class="dp-cnt" id="dpRowCnt"></span>
+      <button class="dp-mini-btn warm" id="dpEntryDoneBtn" type="button" style="display:none">입력완료 <span style="opacity:.7">ENTRY DONE</span></button>
+      <button class="dp-mini-btn" id="dpEditBtn" type="button" style="display:none">수정 <span style="opacity:.6">EDIT</span></button>
+      <button class="dp-mini-btn" id="dpClearAllBtn" type="button" style="display:none;color:var(--danger)">전체지우기 <span style="opacity:.6">CLEAR ALL</span></button>
+    </span>
   </div>
 
   <!-- 본문 -->
   <div class="dp-body">
     <!-- 왼쪽: 리스트 -->
     <section class="dp-left">
-      <div class="dp-sort">
-        <span class="sp"></span>
-        <span class="dp-cnt" id="dpRowCnt"></span>
-        <button class="dp-mini-btn warm" id="dpEntryDoneBtn" type="button" style="display:none">입력완료 <span style="opacity:.7">ENTRY DONE</span></button>
-        <button class="dp-mini-btn" id="dpEditBtn" type="button" style="display:none">수정 <span style="opacity:.6">EDIT</span></button>
-        <button class="dp-mini-btn" id="dpClearAllBtn" type="button" style="display:none;color:var(--danger)">전체지우기 <span style="opacity:.6">CLEAR ALL</span></button>
-      </div>
       <div class="dp-list-wrap">
         <table class="dp-tbl">
           <thead>
@@ -1289,7 +1305,7 @@
     $('dpClearAllBtn').style.display=(canBaseRecord() && ent)?'':'none';
     // 어카운트 확인 또는 점장 결재 후에는 수정/전체지우기 비활성
     var recChecked=!!(d&&d.recorder);
-    var lockEdit=(st==='done') || (recChecked ? !isManager() : !isAccount());   // 어카운트 확인 전: ACCOUNT 권한 · 확인 후: MANAGER 권한 (겸임/LV-0 = 항상 가능)
+    var lockEdit=(st==='done');   // [2026-10-08] 입력완료 후 [수정] 누르면 다시 수정 가능 (결재 완료만 잠금)
     $('dpEditBtn').disabled=lockEdit;
     $('dpClearAllBtn').disabled=lockEdit;
     $('dpPrintBtn').disabled=(st!=='done'||!vis);
@@ -1330,7 +1346,7 @@
     var html='<table class="'+(cls||'dp-sum')+'">';
     if(headTop) html+='<tr><th rowspan="2">DEPARTMENT</th><th class="grp" colspan="'+cols.length+'">'+esc(headTop)+'</th></tr><tr>'+cols.map(function(c){ return '<th>'+c.label+'</th>'; }).join('')+'</tr>';
     else html+='<tr><th>DEPARTMENT</th>'+cols.map(function(c){ return '<th>'+c.label+'</th>'; }).join('')+'</tr>';
-    function cell(c,val,base){ return '<td class="n">'+fmt$(val)+(c.cmp?('<br>'+cmpHtml(val,base)):'')+'</td>'; }
+    function cell(c,val,base){ return '<td class="n'+(val<0?' neg':'')+'">'+fmt$(val)+(c.cmp?('<br>'+cmpHtml(val,base)):'')+'</td>'; }
     order.forEach(function(d){ html+='<tr><td class="lbl">'+esc(d)+'</td>'+cols.map(function(c){ var v=(c.map[d]||{total:0}).total, b=c.cmp?((c.cmp[d]||{total:0}).total):0; return cell(c,v,b); }).join('')+'</tr>'; });
     html+='<tr class="dept-tot"><td class="lbl">DEPARTMENT TOTAL</td>'+cols.map(function(c){ return cell(c,deptTotOf(c.map),c.cmp?deptTotOf(c.cmp):0); }).join('')+'</tr>';
     html+='<tr class="common"><td class="lbl">COMMON (Store Supply)</td>'+cols.map(function(c){ return cell(c,commonOf(c.map),c.cmp?commonOf(c.cmp):0); }).join('')+'</tr>';
@@ -1413,27 +1429,27 @@
     var canEdit = canRecord();
     tb.innerHTML=rows.map(function(r,i){
       if(editingId===r.id){
-        return '<tr class="dp-inrow" data-edit="'+esc(r.id)+'">'
+        return '<tr class="dp-inrow quiet '+(r.manual?'r-manual':'')+'" data-edit="'+esc(r.id)+'" data-rid="'+esc(r.id)+'">'
           +'<td class="c-no">'+(i+1)+'</td>'
-          +'<td>'+vendorSelHtml('e-vendor', r.vendor, !!r.manual)+'</td>'
-          +'<td><input class="dp-in e-invoice" maxlength="30" value="'+esc(r.invoice)+'" placeholder="인보이스번호"></td>'
-          +'<td><input class="dp-in e-amount" inputmode="decimal" value="'+esc(r.amount)+'" placeholder="0.00" style="text-align:right"></td>'
-          +'<td>'+deptSelHtml('e-dept', r.dept)+'</td>'
-          +'<td><input class="dp-in e-memo" maxlength="60" value="'+esc(r.memo||'')+'" placeholder="비고"></td>'
-          +'<td class="c-act"><button class="dp-row-btn" data-esave="'+esc(r.id)+'" type="button">저장</button> '
-          +'<button class="dp-row-btn" data-ecancel="1" type="button">취소</button></td></tr>';
+          +'<td class="c-vendor">'+vendorSelHtml('e-vendor', r.vendor, !!r.manual)+'</td>'
+          +'<td class="c-invoice"><input class="dp-in e-invoice" maxlength="30" value="'+esc(r.invoice)+'"></td>'
+          +'<td class="num"><input class="dp-in e-amount" inputmode="decimal" value="'+esc(r.amount)+'"></td>'
+          +'<td class="c-dept">'+deptSelHtml('e-dept', r.dept)+'</td>'
+          +'<td class="c-memo"><input class="dp-in e-memo" maxlength="60" value="'+esc(r.memo||'')+'"></td>'
+          +'<td class="c-act"><button class="dp-row-btn del" data-del="'+esc(r.id)+'" type="button">삭제</button></td></tr>';
       }
       return '<tr class="'+(r.manual?'r-manual':'')+(canEdit?' r-click':'')+'" data-rid="'+esc(r.id)+'">'
         +'<td class="c-no">'+(i+1)+'</td>'
         +'<td class="c-vendor">'+vendorHtml(r.vendor)+'</td>'
         +'<td class="c-invoice">'+esc(r.invoice)+'</td>'
-        +'<td class="num">'+fmt$(r.amount)+'</td>'
+        +'<td class="num'+((+r.amount||0)<0?' neg':'')+'">'+fmt$(r.amount)+'</td>'
         +'<td class="c-dept">'+deptHtml(r.dept)+'</td>'
         +'<td class="c-memo" title="'+esc(r.memo||'')+'">'+esc(r.memo||'')+'</td>'
         +'<td class="c-act">'+(canEdit?('<button class="dp-row-btn del" data-del="'+esc(r.id)+'" type="button">삭제</button>'):'')+'</td></tr>';
     }).join('');
     $('dpEmpty').style.display=rows.length?'none':'block';
     Array.prototype.forEach.call(tb.querySelectorAll('.e-vendor'),bindVendorBox);
+    var er=tb.querySelector('tr.dp-inrow'); if(er){ var hadCol=!!__editFocusCol; bindEditRow(er); if(!hadCol){ var fi=er.querySelector('.e-invoice'); if(fi) fi.focus(); } }
     renderFootTotals(false);
     renderInputRow();
   }
@@ -1517,6 +1533,28 @@
     }
   }
 
+  /* [2026-10-08] 편집 행: 엔터 = 저장 · ESC = 취소 (저장 버튼 없음) */
+  var __editFocusCol=null;
+  function bindEditRow(tr){
+    tr.addEventListener('keydown',function(e){
+      if(e.isComposing) return;
+      if(e.key==='Escape'){ editingId=null; renderList(); return; }
+      if(e.key!=='Enter') return;
+      if(e.target.classList.contains('e-vendor') && __vlist && !__vlist.hidden && __vlist.querySelectorAll('.dp-vitem').length) return;   // 업체 목록 선택 중
+      e.preventDefault(); e.stopPropagation(); saveEditRow(tr);
+    },true);
+    if(__editFocusCol){ var el=tr.querySelector('.'+__editFocusCol); if(el){ el.focus(); if(el.select) try{ el.select(); }catch(_){ } } __editFocusCol=null; }
+  }
+  function saveEditRow(tr){
+    var sid=tr.getAttribute('data-edit'); if(!sid) return;
+    var v=validateRow(readInputRow(tr,'e')); if(!v) return;
+    if(dupExists(v.vendor, v.invoice, sid)){ uiAlert('중복 인보이스','이미 등록되었습니다.','This invoice number is already registered for this vendor.'); return; }
+    var rows=dayRows(selDate).slice();
+    for(var i=0;i<rows.length;i++){ if(rows[i].id===sid){
+      rows[i]=Object.assign({}, rows[i], { vendor:v.vendor, manual:!!v.manual, invoice:v.invoice, amount:v.amount, dept:v.dept, memo:v.memo, updatedAt:Date.now() });
+    } }
+    saveDay(selDate,{rows:rows}).then(function(ok){ if(ok){ editingId=null; renderList(); toast('수정 완료 · Updated','success'); } });
+  }
   // 리스트 클릭 (수정/삭제/저장/취소)
   document.addEventListener('click', function(e){
     var t=e.target;
@@ -1524,19 +1562,10 @@
     if(eid&&t.tagName==='BUTTON'){ if(!canRecord()) return; editingId=eid; renderList(); return; }
     /* [2026-10-08] 수정 버튼 없이 — 행의 필드를 클릭하면 그 행 수정 */
     var ctd=t.closest&&t.closest('#dpTbody td'); if(ctd && !ctd.classList.contains('c-act')){ var ctr=ctd.closest('tr'); var rid=ctr&&ctr.getAttribute('data-rid');
-      if(rid && canRecord() && editingId!==rid){ editingId=rid; renderList(); return; } }
+      if(rid && canRecord() && editingId!==rid){ var m=(ctd.className||'').match(/c-(vendor|invoice|dept|memo)/); __editFocusCol=m?('e-'+m[1]):(ctd.classList.contains('num')?'e-amount':null); editingId=rid; renderList(); return; } }
     if(t.getAttribute&&t.getAttribute('data-ecancel')){ editingId=null; renderList(); return; }
     var sid=t.getAttribute&&t.getAttribute('data-esave');
-    if(sid){
-      var tr=t.closest('tr'); var v=validateRow(readInputRow(tr,'e')); if(!v) return;
-      if(dupExists(v.vendor, v.invoice, sid)){ uiAlert('중복 인보이스','이미 등록되었습니다.','This invoice number is already registered for this vendor.'); return; }
-      var rows=dayRows(selDate).slice();
-      for(var i=0;i<rows.length;i++){ if(rows[i].id===sid){
-        rows[i]=Object.assign({}, rows[i], { vendor:v.vendor, manual:!!v.manual, invoice:v.invoice, amount:v.amount, dept:v.dept, memo:v.memo, updatedAt:Date.now() });
-      } }
-      saveDay(selDate,{rows:rows}).then(function(ok){ if(ok){ editingId=null; renderList(); toast('수정 완료 · Updated','success'); } });
-      return;
-    }
+    if(sid){ saveEditRow(t.closest('tr')); return; }
     var did=t.getAttribute&&t.getAttribute('data-del');
     if(did){
       if(!canRecord()) return;
