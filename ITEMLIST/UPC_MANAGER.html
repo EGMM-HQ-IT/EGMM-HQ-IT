@@ -4806,7 +4806,7 @@ function onImportFile(file){
     var __twoColMapped=false;
     if(!__listMode && sheets.length===1){ var __mp2=buildMapping(sheets[0].headers,curLayout()).filter(function(m){ return !!m.key; }); __twoColMapped=__mp2.length>=2; }
     if(!__listMode && sheets.length===1 && !__twoColMapped && isPartialSheet(sheets[0].aoa)){ openPartialUpdate(file.name,sheets[0].aoa); return; }
-    impCtx={fname:file.name,sheets:sheets,listMode:__listMode,big:curBig(),sub:curSub(),cat:''};
+    impCtx={fname:file.name,sheets:sheets,listMode:__listMode,big:curBig(),sub:'',cat:''};
     /* [요구 2026-09] 불러오기는 현재 셋팅된 필드 그대로 데이터만 채움 —
        필드 추가/변경 없음. 매칭 안 되는 열은 무시(미리보기에 표시만) */
     renderImportModal(); $('impOv').classList.add('show');
@@ -4822,9 +4822,10 @@ function renderImportModal(){
   if(!impCtx.big) impCtx.big=curBig();
   var big=impBig(), subs=impTab().subs||[], lay=impLayout();
   /* [2026-10-08] 시트 구분 없음 — 모든 시트가 한 곳(선택한 상위/중간/하위)으로 들어감 */
-  if(subs.indexOf(impCtx.sub)<0) impCtx.sub=subs[0]||'';
-  if(impCtx.cat&&!catFind(big,impCtx.sub,impCtx.cat)) impCtx.cat='';
-  impCtx.sheets.forEach(function(s){ s.use=true; s.targetSub=impCtx.sub; s.targetCat=impCtx.cat||''; });
+  if(impCtx.sub&&subs.indexOf(impCtx.sub)<0) impCtx.sub=''; /* '' = 중간 선택 안 함 → 기존 행은 제자리, 새 행은 규칙(업체·PLU 범위·현재 화면)대로 */
+  var __catAll=function(){ var seen={}, out=[]; (impCtx.sub?[impCtx.sub]:subs).forEach(function(sb){ catSubsOf(big,sb).forEach(function(c){ var k=normKey(c.no); if(!seen[k]){ seen[k]=1; out.push(c); } }); }); return out; };
+  if(impCtx.cat&&!__catAll().some(function(c){ return normKey(c.no)===normKey(impCtx.cat); })) impCtx.cat='';
+  impCtx.sheets.forEach(function(s){ s.use=true; s.targetSub=impCtx.sub||''; s.targetCat=impCtx.cat||''; });
   var first=impCtx.sheets[0];
   var map=buildMapping(first.headers,lay);
   var __lblN={}; lay.forEach(function(f){ var k=normKey(f.label); __lblN[k]=(__lblN[k]||0)+1; }); /* 중복 필드명 → 매칭 결과에 묶음 표시 */
@@ -4835,10 +4836,10 @@ function renderImportModal(){
 
   /* ── 1. 대상 카테고리 ── */
   h+='<div class="imp-sec"><div class="imp-sec-t"><span class="imp-num">1</span>대상 카테고리 <small>선택한 한 곳으로 자료가 들어갑니다</small></div>';
-  var cats=catSubsOf(big,impCtx.sub);
+  var cats=__catAll();
   h+='<div class="imp-cat3">'
     +'<div class="imp-cat-cell"><div class="imp-cat-lbl">상위 카테고리</div><select class="icp-sel" id="impBigSel">'+S.tabs.map(function(t){ return '<option value="'+escapeHtml(t.label)+'"'+(t.label===big?' selected':'')+'>'+escapeHtml(t.label)+'</option>'; }).join('')+'</select></div>'
-    +'<div class="imp-cat-cell"><div class="imp-cat-lbl">중간 카테고리</div><select class="icp-sel" id="impSubSel">'+subs.map(function(sb){ return '<option value="'+escapeHtml(sb)+'"'+(sb===impCtx.sub?' selected':'')+'>'+escapeHtml(sb)+'</option>'; }).join('')+'</select></div>'
+    +'<div class="imp-cat-cell"><div class="imp-cat-lbl">중간 카테고리</div><select class="icp-sel" id="impSubSel"><option value="">(선택 안 함 — 기존 위치 유지)</option>'+subs.map(function(sb){ return '<option value="'+escapeHtml(sb)+'"'+(sb===impCtx.sub?' selected':'')+'>'+escapeHtml(sb)+'</option>'; }).join('')+'</select></div>'
     +'<div class="imp-cat-cell"><div class="imp-cat-lbl">하위 카테고리</div><select class="icp-sel" id="impCatSel"><option value="">(파일 값대로)</option>'+cats.map(function(c){ return '<option value="'+escapeHtml(c.no)+'"'+(normKey(c.no)===normKey(impCtx.cat||'')?' selected':'')+'>'+escapeHtml(String(c.no)+(c.kor?' · '+c.kor:'')+(c.eng?' · '+c.eng:''))+'</option>'; }).join('')+'</select></div>'
     +'</div>';
   if(APP_MODE==='UPC'){
@@ -4922,7 +4923,7 @@ function renderImportModal(){
   h+='<div class="plu-imp-foot"><button class="plu-tool-btn" id="impCancel" type="button">취소</button><button class="plu-tool-btn plu-imp-go" id="impGo" type="button">불러오기</button></div>';
 
   $('impBody').innerHTML=h;
-  $('impBigSel').onchange=function(){ impCtx.big=this.value; impCtx.sub=((impTab().subs||[])[0])||''; impCtx.cat=''; renderImportModal(); };
+  $('impBigSel').onchange=function(){ impCtx.big=this.value; impCtx.sub=''; impCtx.cat=''; renderImportModal(); };
   $('impSubSel').onchange=function(){ impCtx.sub=this.value; impCtx.cat=''; renderImportModal(); };
   $('impCatSel').onchange=function(){ impCtx.cat=this.value; impCtx.sheets.forEach(function(s){ s.targetCat=impCtx.cat; }); };
   $('impCancel').onclick=function(){ $('impOv').classList.remove('show'); };
@@ -4950,9 +4951,10 @@ function confirmImportThenRun(){
   if(!use.length){ showToast('가져올 시트를 선택하세요','error'); return; }
   var lines=[], keyF=$('impMatch')?$('impMatch').value:'', st=$('impStore')?$('impStore').value:'';
   (function(){
-    var sh=use[0], catE=impCtx.cat?catFind(big,impCtx.sub,impCtx.cat):null, nrows=0;
+    var sh=use[0], catE=null, nrows=0;
+    if(impCtx.cat){ (impCtx.sub?[impCtx.sub]:(impTab().subs||[])).forEach(function(sb){ if(!catE) catE=catFind(big,sb,impCtx.cat); }); }
     use.forEach(function(x){ nrows+=Math.max(0,x.aoa.length-(impCtx.listMode?0:x.hIdx+1)); });
-    lines.push('→ '+big+' / '+impCtx.sub+(catE?(' / '+catE.no+(catE.kor?' '+catE.kor:'')):'')+' · '+nrows.toLocaleString('en-US')+'행');
+    lines.push('→ '+big+' / '+(impCtx.sub||'(중간 선택 안 함 — 기존 행 제자리, 새 행은 규칙대로)')+(catE?(' / '+catE.no+(catE.kor?' '+catE.kor:'')):'')+' · '+nrows.toLocaleString('en-US')+'행');
     if(impCtx.listMode){ lines.push('A=UPC · B=ITEM CODE · C=상품명'); }
     else {
       var map=buildMapping(sh.headers,lay);
@@ -5004,7 +5006,7 @@ function runImport(){
   else { for(var __bg2 in (res.bigs||{})) calcAll(__bg2); }
   if(SUB_BY_VENDER){ for(var __bg3 in (res.bigs||{})) syncSubsByVender(S,__bg3); } /* 소분류 = VENDER 값 보장 */
   /* [2026-10-08] 선택한 상위/중간 카테고리 화면으로 이동 */
-  (function(){ var bi=-1; for(var i=0;i<S.tabs.length;i++){ if(S.tabs[i].label===big){ bi=i; break; } } if(bi>=0){ pluBig=bi; S.ui.big=bi; var sbs=S.tabs[bi].subs||[]; var want=opts.vender?opts.vender:(opts.sheets[0]&&opts.sheets[0].targetSub); var si=sbs.indexOf(want); pluSub=(si>=0?si:0); S.ui.sub=pluSub; } })();
+  (function(){ var bi=-1; for(var i=0;i<S.tabs.length;i++){ if(S.tabs[i].label===big){ bi=i; break; } } if(bi>=0){ pluBig=bi; S.ui.big=bi; var sbs=S.tabs[bi].subs||[]; var want=opts.vender?opts.vender:(opts.sheets[0]&&opts.sheets[0].targetSub); var si=sbs.indexOf(want); if(si>=0){ pluSub=si; } else if(bi!==S.ui.big||pluSub>=sbs.length){ pluSub=0; } S.ui.sub=pluSub; } })();
   renderBigTabs(); renderSubTabs(); /* 부서 라우팅으로 소분류가 자동 생성됐을 수 있음 */
   saveState(); $('impOv').classList.remove('show'); renderStoreBar(); renderContent();
   if(res.excl){ var __ex=[]; for(var __ek in res.excl) __ex.push(__ek+' '+res.excl[__ek]+'행'); uiAlert('규칙에 따라 제외된 행: '+__ex.join(' · ')+'\n(업데이트 '+res.upd+' · 추가 '+res.add+')','업체 리스트 파일 제외 행'); }
@@ -5232,7 +5234,8 @@ function applyImport(opts){
 
       /* 목적지 소분류: DEPARTMENT 로 청과에 온 행은 항상 PLU 범위 규칙(자동배치 체크와 무관),
          그 외 청과는 체크 시에만. 범위 소분류가 없으면 자동 생성. */
-      var dest=venderRow?venderRow:((rowBig===big)?sh.targetSub:rowSubs[0]);
+      var __noSub=!sh.targetSub; /* [2026-10-08] 중간 카테고리 선택 안 함 — 기존 행은 제자리, 새 행은 현재 화면 소분류(같은 대분류) 또는 첫 소분류 */
+      var dest=venderRow?venderRow:((rowBig===big)?(sh.targetSub||((rowBig===curBig()&&rowSubs.indexOf(curSub())>=0)?curSub():rowSubs[0])):rowSubs[0]);
       var destByRule=false;
       if(rowBig==='청과'&&pluF&&(deptMatched||opts.routeByPlu)){
         var pv=vals[pluF.key];
@@ -5274,7 +5277,7 @@ function applyImport(opts){
       }
 
       /* [2026-10-08] 팝업에서 하위 카테고리를 지정하면 모든 행의 CATEGORY NO · KOR · ENG 를 그 값으로 */
-      if(sh.targetCat){ var __tce=catFind(rowBig,sh.targetSub,sh.targetCat)||catFind(rowBig,dest,sh.targetCat); if(__tce){ vals.CATEGORY_NUMBER=String(__tce.no||''); vals.CATEGORY_KOREA=String(__tce.kor||''); vals.CATEGORY_ENGLISH=String(__tce.eng||''); } }
+      if(sh.targetCat){ var __tce=catFind(rowBig,sh.targetSub,sh.targetCat)||catFind(rowBig,dest,sh.targetCat); if(!__tce){ for(var __ci=0;__ci<rowSubs.length&&!__tce;__ci++) __tce=catFind(rowBig,rowSubs[__ci],sh.targetCat); } if(__tce){ vals.CATEGORY_NUMBER=String(__tce.no||''); vals.CATEGORY_KOREA=String(__tce.kor||''); vals.CATEGORY_ENGLISH=String(__tce.eng||''); } }
       /* [2026-10-02] 하위 카테고리 번호(CATEGORY_NO)가 있으면 공유 트리에서 KOR · ENG 자동 채움 (파일에 없을 때) */
       if(vals.CATEGORY_NUMBER!=null&&String(vals.CATEGORY_NUMBER).trim()!==''){ var __cte=catFind(rowBig,dest,vals.CATEGORY_NUMBER); if(__cte){ if(vals.CATEGORY_KOREA==null||String(vals.CATEGORY_KOREA).trim()==='') vals.CATEGORY_KOREA=String(__cte.kor||''); if(vals.CATEGORY_ENGLISH==null||String(vals.CATEGORY_ENGLISH).trim()==='') vals.CATEGORY_ENGLISH=String(__cte.eng||''); } }
       /* [TRASH · 2026-10] 삭제 보관함에 UPC+ITEM CODE 가 모두 있는 행은 무조건 무시 (쓰레기 재등록 방지) */
@@ -5285,6 +5288,7 @@ function applyImport(opts){
         if(__targets.length>1) stats.upcMulti=(stats.upcMulti||0)+(__targets.length-1);
         __targets.forEach(function(ht){
         var r0=ht.row;
+        var dest0=dest; if(__noSub&&!venderRow&&!destByRule&&!__deptSub&&!(SUB_BY_VENDER&&__fileVend)) dest=ht.sub; /* 중간 선택 안 함 → 기존 행 제자리 */
         for(var k in vals){
           var f=fieldByKey(rowBig,k); if(!f) continue;
           var __vv=vals[k]; var __sf=selSrcSelect(f); if(__sf) __vv=optResolve(__sf,__vv); /* [영구 규칙] 목록 값 정규화 */
@@ -5298,6 +5302,7 @@ function applyImport(opts){
           if(ix>=0){ arr.splice(ix,1); rowsFor(rowBig,dest).push(r0); ht.sub=dest; stats.moved++; }
         }
         stats.upd++; (__histIds[rowBig+'\u0000'+dest]=__histIds[rowBig+'\u0000'+dest]||[]).push(r0.id);
+        dest=dest0;
         });
       }else{
         var nr={id:newId(),v:{},sv:{},m:rowStamp()};
