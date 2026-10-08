@@ -82,7 +82,7 @@
   .dp-wk-grid { display: grid; grid-template-columns: auto auto; justify-content: center; column-gap: 0; row-gap: 8px; align-items: start; }
   .dp-wk-cell, .dp-wk-head { padding: 0 10px; }
   .dp-wk-cell.cur, .dp-wk-head.cur { border-left: 2px dotted var(--border-bright); }   /* 전달 | 이번달 가운데 점선 */
-  .dp-wk-head { font-size: 11px; font-weight: 800; letter-spacing: .18em; color: var(--text-faint); padding: 2px 4px 6px; border-bottom: 1.5px solid var(--border-bright); }
+  .dp-wk-head { font-size: 11px; font-weight: 800; letter-spacing: .18em; color: var(--text-faint); padding: 2px 10px 6px; border-bottom: 1.5px solid var(--border-bright); text-align: center; }
   .dp-wk-head.cur { color: var(--accent-warm); }
   .dp-wk-cell { min-width: 0; }
   .dp-sum.compact { font-size: 12px; }
@@ -91,7 +91,7 @@
   .dp-sum.compact tr.grand td { font-size: 12.5px; } .dp-sum.compact tr.grand td.n { font-size: 13px; }
   .dp-sum.compact td.n small { display: block; font-size: 10px; font-weight: 800; line-height: 1.2; color: var(--text-faint); }
   .dp-sum.wk { table-layout: fixed; width: auto; min-width: 0; }
-  .dp-sum.wk col.c-dept { width: 25ch; } .dp-sum.wk col.c-amt { width: 15ch; } .dp-sum.wk col.c-inc { width: 30ch; }
+  .dp-sum.wk col.c-dept { width: 28ch; } .dp-sum.wk col.c-amt { width: 18ch; } .dp-sum.wk col.c-inc { width: 33ch; }
   .dp-sum.wk td, .dp-sum.wk th { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .dp-wk-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
   .dp-wk-tab { border: 1px solid var(--border); background: var(--bg-elev); color: var(--text-dim); border-radius: 999px; padding: 6px 13px; font-size: 12px; font-weight: 800; cursor: pointer; }
