@@ -2132,7 +2132,8 @@ function calcRow(big,row,store){
   function FFXPOS(){ /* [MODULE 23] 대분류별 POS DESC 구성 — 앞 문구 + (필드 N자(왼쪽/오른쪽) + 문구) × 5 = 18자 */
     return ffxPosBuild(ffxOf(big).pos, F);
   }
-  for(var pass=0;pass<2;pass++){ /* 미러 체인(수식→수식 참조) 해결용 2회 통과 */
+  for(var pass=0;pass<6;pass++){ /* [2026-10-08] 쉐어·수식 체인(쉐어→쉐어→수식 …)은 값이 더 안 바뀔 때까지 통과 (최대 6회) */
+    var __changed=false;
     for(var i=0;i<lay.length;i++){
       var f=lay[i];
       var isShare=!f.formula && f.share && f.share!==f.key; /* 쉐어: 다른 필드 값 공유 */
@@ -2156,15 +2157,19 @@ function calcRow(big,row,store){
       /* [버그 수정 2026-10-08] 목록 필드가 쉐어·수식으로 값을 받으면 번호 기준으로 이 필드의 목록 항목에 맞춤
          (예: item_type ← PLU TYPE "0. (LB)WEIGHT" → "0. Normal Item" — 이전에는 원본 목록의 이름이 그대로 들어가 표시·내보내기가 어긋남) */
       if(f.options&&f.options.length&&out!==''){ var __on=optNum(out), __oo=optByNum(f,__on); if(__oo!==__on) out=__oo; }
-      if(st){ if(!row.sv) row.sv={}; if(!row.sv[st]) row.sv[st]={}; row.sv[st][f.key]=out; if(!row.v) row.v={}; if(row.v[f.key]==null||row.v[f.key]==='') row.v[f.key]=out; }
-      else { if(!row.v) row.v={}; row.v[f.key]=out; }
+      if(st){ if(!row.sv) row.sv={}; if(!row.sv[st]) row.sv[st]={}; if(String(row.sv[st][f.key]==null?'\u0000':row.sv[st][f.key])!==out) __changed=true; row.sv[st][f.key]=out; if(!row.v) row.v={}; if(row.v[f.key]==null||row.v[f.key]==='') row.v[f.key]=out; }
+      else { if(!row.v) row.v={}; if(String(row.v[f.key]==null?'\u0000':row.v[f.key])!==out) __changed=true; row.v[f.key]=out; }
     }
+    if(!__changed) break;
   }
+  /* [버그 수정 2026-10-08] 매장 컨텍스트에서 계산한 쉐어·수식 값이 기본(마스터) 값과 같으면 매장별 사본을 두지 않음 —
+     사본이 남아 있으면 기본 화면에서 원본을 고쳐도 매장 화면의 쉐어 값이 옛 값으로 남았음 */
+  if(st&&row.sv&&row.sv[st]){ for(var ci=0;ci<lay.length;ci++){ var cf=lay[ci]; if(!(cf.formula||(cf.share&&cf.share!==cf.key))) continue;
+    if(row.sv[st][cf.key]!=null&&row.v&&String(row.sv[st][cf.key])===String(row.v[cf.key]==null?'':row.v[cf.key])) delete row.sv[st][cf.key]; } }
 }
-function calcAll(big){ var d=S.data[big]||{}; for(var sb in d){ (d[sb]||[]).forEach(function(r){
-  calcRow(big,r,'');
-  if(r.sv){ for(var st in r.sv){ calcRow(big,r,st); } }
-}); } }
+/* [2026-10-08] 행의 모든 컨텍스트(기본 + 값이 있는 모든 매장) 재계산 — 셀 편집·채우기·불러오기 뒤 매장 화면의 쉐어·수식 값이 어긋나지 않도록 */
+function calcRowAll(big,r){ calcRow(big,r,''); if(r&&r.sv){ for(var st in r.sv){ if(r.sv[st]) calcRow(big,r,st); } } }
+function calcAll(big){ var d=S.data[big]||{}; for(var sb in d){ (d[sb]||[]).forEach(function(r){ calcRowAll(big,r); }); } }
 /* [요구 3] 쉐어 원본 값이 비어 있는 행 검사 → [{field,src}] */
 function checkShareEmpty(big,row,store){
   var lay=S.layouts[big]||[], out=[];
@@ -3153,8 +3158,7 @@ function bindContent(el,fs,shown){
 /* 편집 후 같은 행의 수식 셀 값 갱신 */
 function refreshCalcCells(td,r,fs){
   var __rb=rowBigOfRow(r); /* [전역 검색] 행이 속한 대분류 기준으로 계산(POS 접두어 등) */
-  calcRow(__rb,r,S.curStore); /* 매장 선택 중이면 그 매장 값으로 계산·저장 */
-  if(S.curStore) calcRow(__rb,r,''); /* 기본(마스터) 수식도 최신 유지 */
+  calcRowAll(__rb,r); /* [2026-10-08] 기본 + 모든 매장 값 재계산 (매장 화면의 쉐어·수식 값 불일치 방지) */
   var tr=td.closest('tr');
   if(tr){
     tr.querySelectorAll('td.plu-c-calc').forEach(function(ct){
@@ -3220,7 +3224,7 @@ function startCellEdit(td,id,fs){
       /* [MODULE 05] 청과: PLU 직접 입력 확정 → 번호 범위 소분류로 자동 이동 */
       if(isPluField(f)&&!gsActive()){
         var mvSub=routeRowByPluInput(curBig(),r,nv); /* 청과 PLU 범위 → 소분류 이동 규칙은 유지 (자동 정렬만 없음) */
-        if(mvSub){ if(AUTO_SORT) sortRowsByPlu(curBig(),mvSub); calcRow(curBig(),r); saveState(); renderContent(); showToast('PLU '+nv+' → "'+mvSub+'" 소분류로 이동됨','success'); return true; }
+        if(mvSub){ if(AUTO_SORT) sortRowsByPlu(curBig(),mvSub); calcRowAll(curBig(),r); saveState(); renderContent(); showToast('PLU '+nv+' → "'+mvSub+'" 소분류로 이동됨','success'); return true; }
         if(AUTO_SORT){ var __arr=curRows(), __b=__arr.indexOf(r); sortRowsByPlu(curBig(),curSub()); if(__arr.indexOf(r)!==__b){ saveState(); renderContent(); return true; } }
       }
     }
@@ -3289,7 +3293,7 @@ function addRow(){
     r.v[__lf.key]=__val;
   }
   applyRowDefaults(curBig(),r); /* [UPC 기본값] LOCATION 99 · USE 1 등 */
-  calcRow(curBig(),r,'');
+  calcRowAll(curBig(),r);
   undoMark('상품 추가',[curBig()]); r.m=rowStamp(); curRows().unshift(r); histLog('add',curBig(),curSub(),[r.id]); saveState(); renderContent();
   var el=$('pluContent'); var tr=el.querySelector('tr[data-id="'+r.id+'"]');
   if(tr){ var td=tr.querySelector('td.editable'); if(td) td.click(); }
@@ -3358,7 +3362,7 @@ function trashRestore(entries){ /* TRASH 항목(행 내용 있는 것) → 원�
     var have={}; for(var sb in S.data[big]){ (S.data[big][sb]||[]).forEach(function(r){ if(r&&r.id) have[r.id]=1; }); }
     var ids=[];
     byCat[k].forEach(function(t){ var r={ id:(t.row.id&&!have[t.row.id])?t.row.id:newId(), v:JSON.parse(JSON.stringify(t.row.v||{})), sv:JSON.parse(JSON.stringify(t.row.sv||{})), m:stamp }; have[r.id]=1;
-      try{ calcRow(big,r,''); }catch(e){} S.data[big][sub].unshift(r); ids.push(r.id); ridSet[t.rid]=1; done++; });
+      try{ calcRowAll(big,r); }catch(e){} S.data[big][sub].unshift(r); ids.push(r.id); ridSet[t.rid]=1; done++; });
     histLog('add',big,sub,ids,[],'TRASH 복원');
   }
   S.trash=(S.trash||[]).filter(function(t){ return !(t.rid&&ridSet[t.rid]); });
@@ -3598,7 +3602,7 @@ function undoRun(){
   if(!snap){ showToast('되돌릴 작업이 없습니다','error'); return; }
   var n=0, stamp=rowStamp();
   if(snap.kind==='rows'){
-    JSON.parse(snap.rows).forEach(function(o){ var r=__undoFindRow(snap.big,o.id); if(!r) return; if(JSON.stringify({v:r.v||{},sv:r.sv||{}})===JSON.stringify({v:o.v,sv:o.sv})) return; r.v=o.v; r.sv=o.sv; r.m=stamp; calcRow(snap.big,r,''); n++; });
+    JSON.parse(snap.rows).forEach(function(o){ var r=__undoFindRow(snap.big,o.id); if(!r) return; if(JSON.stringify({v:r.v||{},sv:r.sv||{}})===JSON.stringify({v:o.v,sv:o.sv})) return; r.v=o.v; r.sv=o.sv; r.m=stamp; calcRowAll(snap.big,r); n++; });
   } else {
     for(var b in snap.bigs){
       var old=JSON.parse(snap.bigs[b]), cur={}, d=S.data[b]||{};
@@ -3653,7 +3657,7 @@ function openFieldMenu(f,x,y){
 function __fmApply(f,rows,fn,note,type){
   var big0=curBig(), ids=[], n=0, stCtx=S.curStore;
   { var __ub={}; rows.forEach(function(r){ __ub[rowBigOfRow(r)]=1; }); undoMark(note||'필드 편집',Object.keys(__ub)); }
-  rows.forEach(function(r){ var cur=String(getCell(r,f,stCtx)==null?'':getCell(r,f,stCtx)); var nv=fn(cur,r); if(nv==null||nv===cur) return; setCell(r,f,nv,stCtx); var bg=rowBigOfRow(r); calcRow(bg,r,stCtx); if(stCtx) calcRow(bg,r,''); ids.push(r.id); n++; });
+  rows.forEach(function(r){ var cur=String(getCell(r,f,stCtx)==null?'':getCell(r,f,stCtx)); var nv=fn(cur,r); if(nv==null||nv===cur) return; setCell(r,f,nv,stCtx); var bg=rowBigOfRow(r); calcRowAll(bg,r); ids.push(r.id); n++; });
   if(n){ histLog(type||'fill',big0,gsActive()?'(검색)':curSub(),ids,[],note); saveState(); renderContent(); }
   return n;
 }
@@ -4159,7 +4163,17 @@ function renderFeRows(focusKey){
     tr.querySelector('.fe-fmt').onchange=function(){ f.fmt=this.value; fePreview(); };
     tr.querySelector('.fe-align').onchange=function(){ f.align=this.value; fePreview(); };
     var shSel=tr.querySelector('.fe-share'); /* 수식 필드는 쉐어 select 없음 */
-    if(shSel) shSel.onchange=function(){ if(this.value) f.share=this.value; else delete f.share; fePreview(true); };
+    if(shSel) shSel.onchange=function(){
+      if(this.value){
+        /* [2026-10-08] 순환 쉐어 차단: 가져올 필드가 (쉐어·수식을 거쳐) 다시 이 필드를 참조하면 불가 */
+        var seen={}, cur=this.value, loop=false;
+        for(var d=0;d<20&&cur;d++){ if(cur===f.key){ loop=true; break; } if(seen[cur]) break; seen[cur]=1; var sf=null; feWork.forEach(function(x){ if(x.key===cur) sf=x; }); if(!sf) break;
+          if(sf.share&&sf.share!==sf.key) cur=sf.share; else if(sf.formula){ var ms=String(sf.formula).match(/F\('([^']+)'\)/g)||[]; var ks={}; ms.forEach(function(t){ ks[t.slice(3,-2)]=1; }); if(ks[f.key]){ loop=true; break; } cur=Object.keys(ks)[0]||''; } else cur=''; }
+        if(loop){ showToast('"'+f.label+'" 은(는) 그 필드를 가져올 수 없습니다 — 서로 참조(순환)','error'); this.value=f.share||''; return; }
+        f.share=this.value;
+      } else delete f.share;
+      renderFeRows(f.key); fePreview(true);
+    };
     var fillBtn=tr.querySelector('.fe-fill');
     if(fillBtn) fillBtn.onclick=function(){ openFillModal(f); };
     var fxDel=tr.querySelector('.fe-fx-del'); /* [요구 2] 수식 삭제 */
@@ -4322,8 +4336,7 @@ function openFillModal(f){
     histLog('fill',big,(scope==='big')?'(전체)':curSub(),rows.map(function(r){ return r.id; }),[],fillField.label+' = '+disp);
     rows.forEach(function(r){
       setCell(r,fillField,val,stCtx);
-      calcRow(big,r,stCtx);
-      if(stCtx) calcRow(big,r,'');
+      calcRowAll(big,r);
     });
     saveState();
     $('fillOv').classList.remove('show');
@@ -4626,8 +4639,7 @@ function openPartialUpdate(fname,aoa){
       if(!hit){ miss.push(p.plu); return; }
       var __pv=p.val; var __psf=selSrcSelect(tf); if(__psf) __pv=optResolve(__psf,__pv); /* [영구 규칙] 목록 값 정규화 */
       setCell(hit.row,tf,__pv,stCtx);
-      calcRow(big,hit.row,stCtx);
-      if(stCtx) calcRow(big,hit.row,'');
+      calcRowAll(big,hit.row);
       okN++;
     });
     saveState();
@@ -6475,7 +6487,7 @@ function qeSaveAll(){
       add++;
     }
     for(var k in it.vals){ var f=fieldByKey(big,k); if(!f||f.formula) continue; setCell(row,f,it.vals[k],stCtx); }
-    calcRow(big,row,stCtx); if(stCtx) calcRow(big,row,'');
+    calcRowAll(big,row);
   });
   if(SUB_BY_VENDER) syncSubsByVender(S,big); /* [UPC] 소분류 = VENDER 값 */
   sortAllByPlu(big); /* [MODULE 20] PLU 번호 순차 정렬 */
@@ -6495,7 +6507,7 @@ function qeExportGroup(gname,fname){
   items.forEach(function(it){
     var tmp={id:'tmp',v:{},sv:{}}; /* 임시 행: 값 셋팅 후 수식 계산 → 묶음 열 추출 */
     for(var k in it.vals){ var f=fieldByKey(big,k); if(!f||f.formula) continue; setCell(tmp,f,it.vals[k],stCtx); }
-    calcRow(big,tmp,stCtx); if(stCtx) calcRow(big,tmp,'');
+    calcRowAll(big,tmp);
     aoa.push(gfs.map(function(f){ var vv=getCell(tmp,f,stCtx); vv=String(vv==null?'':vv); if(selSrcSelect(f)) vv=optNum(vv); return vv; })); /* 목록 값은 번호만 (엑셀 내보내기 규칙 동일) */
   });
   var ws=XLSX.utils.aoa_to_sheet(aoa);
