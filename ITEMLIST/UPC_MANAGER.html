@@ -7609,6 +7609,8 @@ async function fbReadAll(conn){
     fmt=cs.data().fmt||'JS'; chunks.push(cs.data().d||'');
   }
   var st=fbConfigJoin(chunks,fmt), got=0, mismatch=[];
+  if(!st||typeof st!=='object') throw new Error('CONFIG 해석 실패 — CLOUD 설정 문서가 손상됨');
+  if(!st.data||typeof st.data!=='object') st.data={}; /* [2026-10-08] CONFIG 에 data 틀이 없어도 읽기 중단 없음 */
   await fbPackFlag(conn);
   if(__fbPack){ /* 압축 묶음 모드: 업체별 묶음 문서만 읽음 (행 수가 아니라 업체 수만큼 읽기) */
     var pjobs=[];
