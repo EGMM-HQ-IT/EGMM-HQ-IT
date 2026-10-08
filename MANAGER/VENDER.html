@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <!--
   VENDER.html — 업체(벤더) 관리 · EGMM > SYSTEM
-  Firestore(egmm-hq-it / DB egmm) VENDER/{축약어} = { code, name(업체명), nameKo, items(영업 품목 종류 · 쉼표 구분), aliases[](유사 이름), order, createdAt, updatedAt }
+  Firestore(egmm-hq-it / DB egmm) VENDER/{축약어} = { code, name(업체명), nameKo, items(영업 품목 종류 · 쉼표 구분), aliases[](유사 이름), dept(부서 코드 · 카테고리), order, createdAt, updatedAt }
+  [2026-10-07] 카테고리 = DEPARTMENT 관리의 부서 — 목록을 부서별로 묶어 부서 순서대로 표시 (2열 · 화면 전체 사용)
   축약어 = UPC MANAGER 의 VENDER 필드 값 · 불러오기에서 업체 지정 시 대분류(카테고리) 이름
   [2026-10-07] 유사 이름(aliases): 같은 업체를 파트(MEAT·GROCERY·FISH…)별로 따로 등록할 수 있으므로 업체명 중복 허용.
     대표 업체 옆에 비슷한 이름(예: EGP(GR), EGP(ASIAN), EGP GRO))을 등록하면 다른 앱에서 그 이름이 대표 업체로 인식된다
@@ -24,7 +25,9 @@
   }
   *{ box-sizing:border-box; margin:0; padding:0; }
   html,body{ background:var(--bg); color:var(--text); font-family:var(--mono); min-height:100vh; }
-  .wrap{ max-width:900px; margin:0 auto; padding:20px 20px 60px; }
+  .wrap{ max-width:none; margin:0; padding:16px 20px 16px; height:100vh; display:flex; flex-direction:column; }   /* 화면 가로·세로 전체 사용 */
+  .panel.list{ flex:1; min-height:0; display:flex; flex-direction:column; margin-bottom:0; }
+  .panel.list .dlist{ flex:1; min-height:0; overflow-y:auto; padding-right:4px; }
   .page-topbar{ display:flex; align-items:center; gap:12px; padding-bottom:14px; border-bottom:1px solid var(--border); margin-bottom:16px; }
   .page-topbar h1{ font-size:22px; font-weight:800; }
   .page-topbar h1 small{ display:block; font-size:11px; font-weight:800; letter-spacing:.16em; color:var(--text-faint); margin-top:3px; text-transform:uppercase; }
@@ -38,10 +41,12 @@
   .panel h2 .ico{ width:28px; height:28px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:15px; background:#d9f5ec; }
   .panel h2 .cnt{ margin-left:auto; font-size:11px; font-weight:800; color:var(--text-faint); }
 
-  .addgrid{ display:grid; grid-template-columns:1.2fr 1fr .9fr 1.4fr auto; gap:8px; align-items:end; }
+  .addgrid{ display:grid; grid-template-columns:1.2fr 1fr .9fr 1.4fr 1fr auto; gap:8px; align-items:end; }
   .field label{ display:block; font-size:12px; font-weight:800; color:var(--text-dim); margin-bottom:5px; }
   .field input{ width:100%; border:1.5px solid var(--border); border-radius:10px; padding:11px 13px; font:inherit; font-size:14px; font-weight:700; background:var(--bg); }
   .field input:focus{ outline:none; border-color:var(--accent-warm); background:#fff; }
+  .field select{ width:100%; border:1.5px solid var(--border); border-radius:10px; padding:11px 13px; font:inherit; font-size:14px; font-weight:700; background:var(--bg); }
+  .field select:focus{ outline:none; border-color:var(--accent-warm); background:#fff; }
   #dCode{ text-transform:uppercase; }
   .hint{ font-size:11px; color:var(--text-faint); font-weight:600; margin-top:8px; line-height:1.5; }
 
@@ -60,15 +65,24 @@
   .drow .mv{ display:flex; flex-direction:column; gap:2px; }
   .drow .mv button{ border:1px solid var(--border); background:var(--bg-elev); border-radius:6px; font:inherit; font-size:10px; font-weight:800; padding:1px 7px; cursor:pointer; color:var(--text-dim); }
   .drow .mv button:disabled{ opacity:.3; cursor:default; }
-  .dlist{ display:flex; flex-direction:column; gap:7px; }
-  .drow{ display:grid; grid-template-columns:130px 1fr 1fr 1.3fr auto; gap:10px; align-items:center;
-    border:1.5px solid var(--border); border-radius:12px; padding:11px 14px; background:var(--bg); }
-  .drow.manual{ grid-template-columns:auto 130px 1fr 1fr 1.3fr auto; }
+  .dlist{ display:grid; grid-template-columns:1fr 1fr; gap:7px 12px; align-content:start; }   /* 2열 */
+  .dgroup{ grid-column:1/-1; display:flex; align-items:center; gap:10px; margin-top:8px; padding:6px 2px 5px; border-bottom:1.5px solid var(--border-bright); font-size:13px; font-weight:900; letter-spacing:.06em; color:var(--text); }
+  .dgroup:first-child{ margin-top:0; }
+  .dgroup .gnum{ min-width:24px; height:24px; border-radius:7px; background:var(--accent-warm); color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:12px; font-weight:900; padding:0 7px; }
+  .dgroup .gcnt{ margin-left:auto; font-size:11px; font-weight:800; color:var(--text-faint); }
+  .dgroup.none{ color:var(--text-faint); } .dgroup.none .gnum{ background:var(--border-bright); color:var(--text-dim); }
+  .drow{ display:grid; grid-template-columns:1fr auto; gap:6px 10px; align-items:center; min-width:0;
+    border:1.5px solid var(--border); border-radius:12px; padding:9px 12px; background:var(--bg); }
+  .drow.manual{ grid-template-columns:auto 1fr auto; }
+  .drow .l1{ display:flex; align-items:baseline; gap:8px; min-width:0; flex-wrap:wrap; }
+  .drow .l2{ display:flex; align-items:baseline; gap:8px; min-width:0; flex-wrap:wrap; }
+  .drow .main{ min-width:0; display:flex; flex-direction:column; gap:2px; }
   .drow.edit{ border-color:var(--accent-warm); background:var(--accent-soft); }
-  .drow .dc{ font-size:14px; font-weight:800; color:var(--accent-warm); letter-spacing:.02em; word-break:break-all; }
-  .drow .dn{ font-size:15px; font-weight:800; }
-  .drow .dk{ font-size:13px; font-weight:700; color:var(--text-dim); }
-  .drow .di{ font-size:12.5px; font-weight:700; color:var(--accent-warm); word-break:keep-all; }
+  .drow .dc{ font-size:13px; font-weight:800; color:var(--accent-warm); letter-spacing:.02em; word-break:break-all; }
+  .drow .dn{ font-size:14.5px; font-weight:800; }
+  .drow .dk{ font-size:12.5px; font-weight:700; color:var(--text-dim); }
+  .drow .di{ font-size:12px; font-weight:700; color:var(--text-dim); word-break:keep-all; }
+  .drow .dal{ display:inline; margin:0; }
   .drow .acts{ display:flex; gap:6px; }
   .empty{ text-align:center; color:var(--text-faint); font-size:13px; font-weight:700; padding:26px 6px; border:2px dashed var(--border); border-radius:12px; }
 
@@ -100,8 +114,7 @@
   @media (max-width:760px){
     .addgrid{ grid-template-columns:1fr 1fr; }
     .addgrid .btn{ grid-column:1/-1; }
-    .drow{ grid-template-columns:1fr auto; }
-    .drow .dk, .drow .di{ grid-column:1/-1; }
+    .dlist{ grid-template-columns:1fr; }
   }
 </style>
 </head>
@@ -123,6 +136,8 @@
       <div class="field"><label>한글명 (선택)</label><input type="text" id="dKo" placeholder="예: 서울트레이딩" autocomplete="off"></div>
       <div class="field"><label>축약어 (VENDER 코드)</label><input type="text" id="dCode" placeholder="예: STI-WA" autocomplete="off"></div>
       <div class="field"><label>영업 품목 종류</label><input type="text" id="dItems" placeholder="예: 라면, 과자, 음료, 냉동식품" autocomplete="off"></div>
+      <div class="field"><label>부서 (카테고리)</label><select id="dDept"><option value="">— 미지정 —</option></select>
+        <div class="hint" style="margin-top:4px">DEPARTMENT 관리의 부서 — 목록이 이 부서별로 묶여 표시됩니다</div></div>
       <div class="field" style="grid-column:1/-1"><label>유사 이름 (이 업체로 인식할 다른 표기 · 여러 개 등록 가능)</label>
         <div class="alias-box"><span id="aliasChips" style="display:contents"></span><input type="text" id="dAliases" placeholder="예: EGP(GR) 입력 후 Enter 또는 ＋ (쉼표로 여러 개 한 번에)" autocomplete="off"><button class="alias-add" id="aliasAddBtn" type="button">＋ 추가</button></div></div>
       <button class="btn" id="dSaveBtn" type="button">＋ 추가</button>
@@ -137,7 +152,7 @@
     </div>
   </div>
 
-  <div class="panel">
+  <div class="panel list">
     <h2><span class="ico">🏢</span> 업체 목록 <span class="cnt" id="dCnt"></span></h2>
     <div class="sortbar" id="sortBar">정렬:
       <button class="sb" data-sort="code" type="button">축약어</button>
@@ -184,7 +199,12 @@
   $('mCancel').onclick=function(){ $('modalBg').classList.remove('show'); modalCb=null; };
   $('modalBg').addEventListener('click',function(e){ if(e.target===$('modalBg')){ $('modalBg').classList.remove('show'); modalCb=null; } });
 
-  var fb=null, depts={}, editingCode=null; /* depts = 업체(VENDER) 문서: {code,name,nameKo,items,aliases,order} */
+  var fb=null, depts={}, editingCode=null; /* depts = 업체(VENDER) 문서: {code,name,nameKo,items,aliases,dept,order} */
+  var deptList=[];   /* DEPARTMENT 문서 [{code,name,nameKo,num,order}] — 번호(num)/order 순 · 카테고리 */
+  function deptName(code){ for(var i=0;i<deptList.length;i++){ if(deptList[i].code===code) return deptList[i].name||code; } return code||''; }
+  function fillDeptSelect(){ var sel=$('dDept'); if(!sel) return; var keep=sel.value;
+    sel.innerHTML='<option value="">— 미지정 —</option>'+deptList.map(function(d){ return '<option value="'+esc(d.code)+'">'+(d.num!=null?esc(d.num)+'. ':'')+esc(d.name||d.code)+(d.nameKo?' · '+esc(d.nameKo):'')+'</option>'; }).join('');
+    sel.value=keep; if(editingCode&&depts[editingCode]) sel.value=depts[editingCode].dept||''; }
   /* 유사 이름 비교 키 — 대소문자·공백·기호 무시 (EgmmFB.venderKey 와 동일) */
   function akey(s){ return String(s==null?'':s).toUpperCase().replace(/[^A-Z0-9\uAC00-\uD7A3\u3131-\u318E]/g,''); }
   function aliasesOf(d){ return Array.isArray(d&&d.aliases)?d.aliases.map(function(x){ return String(x||'').trim(); }).filter(Boolean):[]; }
@@ -204,6 +224,12 @@
       depts={}; snap.forEach(function(ds){ if(ds.id.charAt(0)==='_') return; depts[ds.id]=ds.data()||{}; });
       renderList();
     }, function(e){ console.error(e); fbFail('VENDER 실시간 연결 오류'); });
+    /* 카테고리 = DEPARTMENT 관리 부서 (번호 순) */
+    fb.onSnapshot(fb.collection(fb.db,'DEPARTMENT'), function(snap){
+      var arr=[]; snap.forEach(function(ds){ if(ds.id.charAt(0)==='_') return; var d=ds.data()||{}; arr.push({ code:ds.id, name:d.name||ds.id, nameKo:d.nameKo||'', num:(d.num!=null&&d.num!=='')?+d.num:null, order:(typeof d.order==='number')?d.order:999 }); });
+      arr.sort(function(x,y){ var a=(x.num!=null?x.num:1e6), b=(y.num!=null?y.num:1e6); return (a-b)||(x.order-y.order)||String(x.name).localeCompare(String(y.name)); });
+      deptList=arr; fillDeptSelect(); renderList();
+    }, function(e){ console.warn('[VENDER] DEPARTMENT 읽기 실패', e); });
   }).catch(function(){ fbFail('Firebase 설정이 비어 있습니다'); });
   });
 
@@ -248,19 +274,27 @@
   function renderList(){
     renderSortBar();
     var codes=sortedCodes();
+    /* 부서(카테고리)별 묶기 — DEPARTMENT 순서 · 지정 안 된 업체는 맨 아래 「미지정」 */
+    var groups=deptList.map(function(d){ return { code:d.code, name:d.name, num:d.num, nameKo:d.nameKo, codes:[] }; });
+    var byCode={}; groups.forEach(function(g){ byCode[g.code]=g; });
+    var none={ code:'', name:'미지정 · NO DEPARTMENT', num:null, nameKo:'', codes:[] };
+    codes.forEach(function(c){ var g=byCode[depts[c].dept||'']; (g||none).codes.push(c); });
     var html='';
-    codes.forEach(function(c,i){
-      var d=depts[c];
-      html+='<div class="drow'+(c===editingCode?' edit':'')+(sortKey==='manual'?' manual':'')+'">'
-        +(sortKey==='manual'?('<span class="mv"><button type="button" data-up="'+esc(c)+'"'+(i===0?' disabled':'')+'>▲</button><button type="button" data-down="'+esc(c)+'"'+(i===codes.length-1?' disabled':'')+'>▼</button></span>'):'')
-        +'<span class="dc">'+esc(c)+'</span>'
-        +'<span class="dn">'+esc(d.name||'')+'</span>'
-        +'<span class="dk">'+esc(d.nameKo||'')+'</span>'
-        +'<span class="di">'+esc(d.items||'')+(aliasesOf(d).length?'<span class="dal">≈ '+esc(aliasText(d))+'</span>':'')+'</span>'
-        +'<span class="acts">'
-        +'<button class="btn ghost sm" data-edit="'+esc(c)+'" type="button">수정</button>'
-        +'<button class="btn danger sm" data-del="'+esc(c)+'" type="button">삭제</button>'
-        +'</span></div>';
+    groups.concat([none]).forEach(function(g){
+      if(!g.codes.length) return;
+      html+='<div class="dgroup'+(g.code?'':' none')+'"><span class="gnum">'+(g.num!=null?esc(g.num):'·')+'</span>'+esc(g.name)+(g.nameKo?' <span class="dk">'+esc(g.nameKo)+'</span>':'')+'<span class="gcnt">'+g.codes.length+'개</span></div>';
+      g.codes.forEach(function(c){
+        var d=depts[c], i=codes.indexOf(c);
+        html+='<div class="drow'+(c===editingCode?' edit':'')+(sortKey==='manual'?' manual':'')+'">'
+          +(sortKey==='manual'?('<span class="mv"><button type="button" data-up="'+esc(c)+'"'+(i===0?' disabled':'')+'>▲</button><button type="button" data-down="'+esc(c)+'"'+(i===codes.length-1?' disabled':'')+'>▼</button></span>'):'')
+          +'<span class="main"><span class="l1"><span class="dc">'+esc(c)+'</span><span class="dn">'+esc(d.name||'')+'</span>'+(d.nameKo?'<span class="dk">'+esc(d.nameKo)+'</span>':'')+'</span>'
+          +((d.items||aliasesOf(d).length)?('<span class="l2">'+(d.items?'<span class="di">'+esc(d.items)+'</span>':'')+(aliasesOf(d).length?'<span class="dal">≈ '+esc(aliasText(d))+'</span>':'')+'</span>'):'')
+          +'</span>'
+          +'<span class="acts">'
+          +'<button class="btn ghost sm" data-edit="'+esc(c)+'" type="button">수정</button>'
+          +'<button class="btn danger sm" data-del="'+esc(c)+'" type="button">삭제</button>'
+          +'</span></div>';
+      });
     });
     $('dList').innerHTML = html || '<div class="empty">업체가 없습니다. 위에서 추가하세요.</div>';
     $('dCnt').textContent = codes.length? (codes.length+'개') : '';
@@ -296,7 +330,7 @@
     editingCode=null;
     $('addTitle').textContent='업체 추가';
     $('dSaveBtn').textContent='＋ 추가';
-    $('dName').value=''; $('dKo').value=''; $('dCode').value=''; $('dItems').value=''; aliasSet([]);
+    $('dName').value=''; $('dKo').value=''; $('dCode').value=''; $('dItems').value=''; $('dDept').value=''; aliasSet([]);
     delete $('dCode').dataset.touched;
     $('editActs').style.display='none';
     renderList();
@@ -306,7 +340,7 @@
     editingCode=code;
     $('addTitle').textContent='업체 수정: '+code;
     $('dSaveBtn').textContent='💾 저장';
-    $('dName').value=d.name||''; $('dKo').value=d.nameKo||''; $('dItems').value=d.items||''; aliasSet(aliasesOf(d));
+    $('dName').value=d.name||''; $('dKo').value=d.nameKo||''; $('dItems').value=d.items||''; $('dDept').value=d.dept||''; aliasSet(aliasesOf(d));
     $('dCode').value=code; $('dCode').dataset.touched='1';
     $('editActs').style.display='';
     renderList();
@@ -338,7 +372,7 @@
     }
 
     var base = editingCode ? (depts[editingCode]||{}) : {};
-    var data={ code:code, name:name, nameKo:ko, items:items, aliases:aliases, order:(base.order!=null?base.order:Object.keys(depts).length),
+    var data={ code:code, name:name, nameKo:ko, items:items, aliases:aliases, dept:($('dDept').value||''), order:(base.order!=null?base.order:Object.keys(depts).length),
       createdAt: base.createdAt||Date.now(), updatedAt: Date.now() };
 
     function write(){
