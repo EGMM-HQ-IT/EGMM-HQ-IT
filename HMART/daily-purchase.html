@@ -29,7 +29,32 @@
   button { font-family: var(--mono); }
   input, select { font-family: var(--mono); }
 
-  .dp-app { height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+  .dp-app { height: 100vh; height: 100dvh; display: grid; grid-template-columns: 1fr 400px; overflow: hidden; }
+  .dp-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; border-right: 1px solid var(--border); }
+  #dpUserPill { display: none !important; }   /* 접속 계정 박스 표시 안 함 */
+  .dp-mini-btn.sm { padding: 7px 10px; font-size: 11.5px; letter-spacing: .06em; border-radius: 8px; }
+  .dp-ckbox .ck2 em { min-width: 76px; text-align: center; letter-spacing: .08em; }   /* ACCOUNT / MANAGER 같은 폭 */
+  .dp-card-btn { display: block; width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .1s; }
+  .dp-card-btn:hover { border-color: var(--accent-warm); box-shadow: 0 10px 30px rgba(26,26,29,.1); }
+  .dp-card-btn:active { transform: scale(.995); }
+  .dp-card-go { margin-left: auto; font-size: 18px; font-weight: 900; color: var(--text-faint); line-height: 1; }
+  /* 하단 고정 집계표 — 업로드한 양식 (DEPARTMENT · ACCUMULATING DAILY/WEEKLY/MONTHLY) */
+  .dp-sumwrap { flex: 0 0 auto; padding: 10px 16px 12px; border-top: 1.5px solid var(--border-bright); background: var(--bg-elev); }
+  .dp-sum { width: 100%; border-collapse: collapse; font-size: 12.5px; font-weight: 800; border: 2px solid #8b8b96; background: #fff; }
+  .dp-sum th, .dp-sum td { border: 1px dotted #a9a9b4; padding: 5px 10px; text-align: center; white-space: nowrap; }
+  .dp-sum th { background: #ececf2; color: #1e1e22; letter-spacing: .04em; }
+  .dp-sum td.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .dp-sum tr.dept-tot td { background: #ececf2; border-top: 2px solid #8b8b96; }
+  .dp-sum tr.common td { background: #f3f3f7; border-top: 2px solid #8b8b96; }
+  .dp-sum tr.grand td { background: #ececf2; border-top: 2px solid #8b8b96; border-bottom: 2px solid #8b8b96; font-size: 13px; }
+  .dp-sum td.lbl { text-align: center; }
+  /* 누계 팝업 */
+  .dp-wk-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .dp-wk-tab { border: 1px solid var(--border); background: var(--bg-elev); color: var(--text-dim); border-radius: 999px; padding: 6px 13px; font-size: 12px; font-weight: 800; cursor: pointer; }
+  .dp-wk-tab.on { background: var(--text); border-color: var(--text); color: #fff; }
+  .dp-wk-tab small { font-weight: 700; opacity: .75; margin-left: 4px; }
+  .dp-cmp-pos { color: #1e7a46; font-weight: 800; } .dp-cmp-neg { color: var(--danger); font-weight: 800; } .dp-cmp-zero { color: var(--text-faint); }
+  .dp-stat-tbl th.sub { font-size: 10px; }
 
   /* ===== 상단 가로 전체 (타이틀 밴드) ===== */
   .dp-top { flex: 0 0 auto; display: flex; align-items: center; gap: 18px; padding: 12px 20px 10px;
@@ -101,7 +126,8 @@
   .dp-strip-btn:hover { border-color: var(--accent-warm); box-shadow: 0 4px 12px rgba(26,26,29,.06); }
 
   /* ===== 본문 2분할: 왼쪽 넓게 / 오른쪽 짧게 ===== */
-  .dp-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 400px; gap: 0; }
+  .dp-body { flex: 1; min-height: 0; display: flex; }
+  .dp-body > .dp-left { flex: 1; min-width: 0; border-right: 0; }
 
   /* ── 왼쪽: 리스트 ── */
   .dp-left { min-height: 0; display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--bg); }
@@ -337,7 +363,7 @@
   }
 
   @media (max-width: 1100px) {
-    .dp-body { grid-template-columns: 1fr 340px; }
+    .dp-app { grid-template-columns: 1fr 340px; }
   }
 
   /* === 재배치/확대 스타일 (요청 6·7·8·11·12) === */
@@ -409,7 +435,9 @@
 <body>
 
 <div class="dp-app" id="dpApp" style="visibility:hidden">
-  <!-- 상단 가로 전체 -->
+ <!-- [2026-10-07] 왼쪽 열(제목·보기·리스트·하단 집계표) / 오른쪽 열(달력·누계 카드) — 달력이 맨 위부터 시작 -->
+ <div class="dp-main">
+  <!-- 상단 (왼쪽 열 폭) -->
   <header class="dp-top">
     <div class="dp-title-blk">
       <div class="dp-title"><span id="dpStoreName">—</span>&nbsp;매입일지<span class="dot">.</span><small>DAILY PURCHASE</small></div>
@@ -422,14 +450,14 @@
       <select class="dp-store-sel" id="dpStoreSel" style="display:none"></select>
       <div class="dp-checks-row">
         <label class="dp-ckbox" id="dpRecorderBox"><input type="checkbox" id="dpRecorderCk">
-          <span class="ck2"><em>어카운트</em><small>ACCOUNT</small></span></label>
+          <span class="ck2"><em>ACCOUNT</em></span></label>
         <label class="dp-ckbox" id="dpManagerBox"><input type="checkbox" id="dpManagerCk">
-          <span class="ck2"><em>점장</em><small>GENERAL MANAGER</small></span></label>
+          <span class="ck2"><em>MANAGER</em></span></label>
       </div>
-      <span class="dp-user-pill" id="dpUserPill" style="display:none">👤 <b id="dpUserName"></b> <span class="role" id="dpUserRole"></span></span>
-      <button class="dp-mini-btn" id="dpPrintBtn" type="button" disabled>🖨 프린트 <span style="opacity:.6">PRINT</span></button>
-      <button class="dp-mini-btn" id="dpExportBtn" type="button" disabled>⇩ 내보내기 <span style="opacity:.6">EXPORT</span></button>
-      <button class="dp-mini-btn" id="dpXlBtn" type="button" style="display:none" title="엑셀 파일의 매입 내역을 날짜를 지정해 등록">⇧ 엑셀 업로드 <span style="opacity:.6">EXCEL</span></button>
+      <span class="dp-user-pill" id="dpUserPill" hidden><b id="dpUserName"></b><span class="role" id="dpUserRole"></span></span>
+      <button class="dp-mini-btn sm" id="dpPrintBtn" type="button" disabled>PRINT</button>
+      <button class="dp-mini-btn sm" id="dpExportBtn" type="button" disabled>EXPORT</button>
+      <button class="dp-mini-btn sm" id="dpXlBtn" type="button" style="display:none" title="엑셀 파일의 매입 내역을 날짜를 지정해 등록">EXCEL</button>
       <input type="file" id="dpXlFile" accept=".xlsx,.xls,.csv" style="display:none">
     </div>
   </header>
@@ -440,12 +468,9 @@
     <button class="dp-strip-btn" id="stAllBtn" type="button">전체 통계<small>ALL STATS</small></button>
     <button class="dp-strip-btn" id="stMonBtn" type="button">월별 통계<small>MONTHLY STATS</small></button>
     <button class="dp-strip-btn" id="stVenBtn" type="button">총 벤더리스트<small>ALL VENDORS</small></button>
-    <button class="dp-strip-btn" id="stVenEtcBtn" type="button">기타 벤더리스트<small>MANUAL VENDORS</small></button>
     <button class="dp-strip-btn" id="stDeptBtn" type="button">총 부서리스트<small>ALL DEPTS</small></button>
-    <button class="dp-strip-btn" id="stDeptEtcBtn" type="button">기타 부서리스트<small>ETC DEPTS</small></button>
     <span class="dp-strip-lbl lbl2" style="margin-left:18px"><em>정리</em><small>SORT</small></span>
-    <button class="dp-strip-btn dp-sort-btn on" data-sort="time" type="button">시간별<small>TIME</small></button>
-    <button class="dp-strip-btn dp-sort-btn" data-sort="vendor" type="button">업체별<small>VENDOR</small></button>
+    <button class="dp-strip-btn dp-sort-btn on" data-sort="vendor" type="button">업체별<small>VENDOR</small></button>
     <button class="dp-strip-btn dp-sort-btn" data-sort="dept" type="button">부서별<small>DEPT</small></button>
     <button class="dp-strip-btn dp-sort-btn" data-sort="amount" type="button">금액별<small>AMOUNT</small></button>
   </div>
@@ -479,11 +504,11 @@
         </table>
         <div class="dp-empty" id="dpEmpty" style="display:none">등록된 매입 내역이 없습니다</div>
       </div>
-      <div class="dp-left-foot dp-foot2">
-        <div class="dp-foot-line"><span class="fl-lbl">벤더별<small>BY VENDOR</small></span><div class="fl-scroll" id="dpVenTotals"></div></div>
-        <div class="dp-foot-line"><span class="fl-lbl">부서별<small>BY DEPT</small></span><div class="fl-scroll" id="dpDeptTotals"></div></div>
-      </div>
+      <!-- 하단 고정: 부서별 누계표 (DAILY / WEEKLY / MONTHLY · 선택 일자 기준) -->
+      <div class="dp-sumwrap" id="dpSumWrap"></div>
     </section>
+  </div><!-- /.dp-body -->
+ </div><!-- /.dp-main -->
 
     <!-- 오른쪽: 달력 + 누계 -->
     <aside class="dp-right">
@@ -499,20 +524,25 @@
         <div class="dp-cal-grid" id="dpCalGrid"></div>
       </div>
 
-      <div class="dp-card">
-        <div class="dp-card-h"><span class="dp-card-tick"></span><span class="dp-card-t">금일 매입 누계<small>DAY TOTAL</small></span></div>
+      <button class="dp-card dp-card-btn" id="dpDayCard" type="button" title="클릭: 당일 부서별 누계">
+        <div class="dp-card-h"><span class="dp-card-tick"></span><span class="dp-card-t">금일 매입 누계<small>DAILY</small></span><span class="dp-card-go">›</span></div>
         <div class="dp-big-amt" id="dpDayTotal2">$0.00</div>
         <div class="dp-sub-note" id="dpDayNote">—</div>
-      </div>
+      </button>
 
-      <div class="dp-card">
-        <div class="dp-card-h"><span class="dp-card-tick"></span><span class="dp-card-t">월 매입 총액<small>MONTHLY TOTAL</small></span></div>
+      <button class="dp-card dp-card-btn" id="dpWeekCard" type="button" title="클릭: 주차별 부서별 누계 · 전주 누계 · 지난달 비교">
+        <div class="dp-card-h"><span class="dp-card-tick"></span><span class="dp-card-t">주간 매입 누계<small>WEEKLY</small></span><span class="dp-card-go">›</span></div>
+        <div class="dp-big-amt" id="dpWeekTotal">$0.00</div>
+        <div class="dp-sub-note" id="dpWeekNote">—</div>
+      </button>
+
+      <button class="dp-card dp-card-btn" id="dpMonCard" type="button" title="클릭: 월 부서별 누계 · 지난달 비교">
+        <div class="dp-card-h"><span class="dp-card-tick"></span><span class="dp-card-t">월 매입 누계<small>MONTHLY</small></span><span class="dp-card-go">›</span></div>
         <div class="dp-big-amt" id="dpMonTotal">$0.00</div>
         <div class="dp-sub-note" id="dpMonNote">—</div>
         <div class="dp-mon-prev" id="dpMonPrev"></div>
-      </div>
+      </button>
     </aside>
-  </div>
 </div>
 
 <!-- 권한 없음 팝업 -->
@@ -593,7 +623,7 @@
   var unsubDays=null;
   var selDate=ymdOf(new Date());
   var calY, calM;                     // 달력 표시 년/월
-  var sortMode='time';
+  var sortMode='vendor';   /* [2026-10-07] 시간별 정렬 버튼 제거 → 기본 업체별 */
   var editingId=null;                 // 인라인 수정 중인 row id
   var editMode=false;                 // 입력완료 후 [수정] 눌러 편집 중 (선택 일자 기준, 로컬)
 
@@ -1072,20 +1102,58 @@
     var ub=$('dpXlBtn'); if(ub) ub.style.display=(user&&(isAccount()||isManager()))?'':'none';   /* [2026-10-07] 엑셀 업로드 — 기록 권한 계정만 */
   }
 
-  function renderFootTotals(hidden){
-    var v=$('dpVenTotals'), d=$('dpDeptTotals');
-    if(!v||!d) return;
-    if(hidden){ v.innerHTML='<span class="fl-none">담당자 확인 전</span>'; d.innerHTML='<span class="fl-none">담당자 확인 전</span>'; return; }
-    var rows=dayRows(selDate);
-    function agg(keyFn){ var m={}; rows.forEach(function(r){ var k=keyFn(r); if(!k) k='(없음)'; m[k]=(m[k]||0)+(+r.amount||0); }); return m; }
-    function chips(map){
-      var ks=Object.keys(map).sort(function(a,b){ return map[b]-map[a]; });
-      if(!ks.length) return '<span class="fl-none">내역 없음</span>';
-      return ks.map(function(k){ return '<span class="fl-chip"><em>'+esc(k)+'</em><b>'+fmt$(map[k])+'</b></span>'; }).join('');
-    }
-    v.innerHTML=chips(agg(function(r){ return r.vendor==='__manual__'?(r.vendorName||r.manualName||'(직접입력)'):vName(r.vendor||''); }));
-    d.innerHTML=chips(agg(function(r){ return r.dept||''; }));
+  // ===== [2026-10-07] 부서별 누계 공통 =====
+  function isCommonDept(name){ var k=String(name||'').toUpperCase(); return /COMMON|SUPPLY|공용|소모품/.test(k); }
+  /* 월 주차: 1일~첫 토요일 = 1주 · 이후 일~토 (1일이 토요일이면 2일이 2주차 · 31일이 월요일이면 6주차까지) */
+  function weekOf(ymd){ var p=ymd.split('-'); var y=+p[0], m=+p[1], d=+p[2]; var startDow=new Date(y,m-1,1).getDay(); return Math.floor((d+startDow-1)/7)+1; }
+  function weeksInMonth(y,m){ var startDow=new Date(y,m-1,1).getDay(), days=new Date(y,m,0).getDate(); return Math.floor((days+startDow-1)/7)+1; }
+  function weekRange(y,m,w){ var startDow=new Date(y,m-1,1).getDay(), days=new Date(y,m,0).getDate();
+    var s=(w===1)?1:(7*(w-1)-startDow+1), e=Math.min(days, 7*w-startDow); return { s:Math.max(1,s), e:e }; }
+  function pad2(n){ return ('0'+n).slice(-2); }
+  function ymd(y,m,d){ return y+'-'+pad2(m)+'-'+pad2(d); }
+  /* 날짜 범위의 부서별 합계 { dept: {total,count} } */
+  function deptSum(fromYmd, toYmd){
+    var m={}; Object.keys(allDocs).forEach(function(k){ if(k<fromYmd||k>toYmd) return; dayRows(k).forEach(function(r){ var d=String(r.dept||'').trim()||'(부서없음)'; if(!m[d]) m[d]={total:0,count:0}; m[d].total+=(+r.amount||0); m[d].count++; }); });
+    return m;
   }
+  function monthRange(y,m){ return { s:ymd(y,m,1), e:ymd(y,m,new Date(y,m,0).getDate()) }; }
+  function prevMonth(y,m){ return m===1?{y:y-1,m:12}:{y:y,m:m-1}; }
+  /* 표시 순서: DEPARTMENT 등록 순 + 데이터에만 있는 부서 (COMMON 계열은 별도 행) */
+  function deptOrder(maps){
+    var seen={}, out=[]; depts.forEach(function(d){ if(!isCommonDept(d)&&!seen[d]){ seen[d]=1; out.push(d); } });
+    maps.forEach(function(mp){ Object.keys(mp||{}).forEach(function(d){ if(!isCommonDept(d)&&!seen[d]){ seen[d]=1; out.push(d); } }); });
+    return out;
+  }
+  function sumOf(mp,fn){ var t=0; Object.keys(mp||{}).forEach(function(d){ if(fn(d)) t+=mp[d].total; }); return t; }
+  function commonOf(mp){ return sumOf(mp,isCommonDept); }
+  function deptTotOf(mp){ return sumOf(mp,function(d){ return !isCommonDept(d); }); }
+  function cmpHtml(cur,base){ var diff=cur-base; if(Math.abs(diff)<0.005) return '<span class="dp-cmp-zero">—</span>';
+    var pct=base?(' ('+(diff>=0?'+':'')+(diff/Math.abs(base)*100).toFixed(1)+'%)'):''; return '<span class="'+(diff>=0?'dp-cmp-pos':'dp-cmp-neg')+'">'+(diff>=0?'▲ +':'▼ −')+fmt$(Math.abs(diff))+pct+'</span>'; }
+  /* 업로드 양식 표: 부서 행 + DEPARTMENT TOTAL + COMMON (Store Supply) + GRAND TOTAL. cols=[{label, map, cmp?:baseMap}] */
+  function deptMatrix(cols, cls, headTop){
+    var order=deptOrder(cols.map(function(c){ return c.map; }));
+    var html='<table class="'+(cls||'dp-sum')+'">';
+    if(headTop) html+='<tr><th rowspan="2">DEPARTMENT</th><th colspan="'+cols.length+'">'+esc(headTop)+'</th></tr><tr>'+cols.map(function(c){ return '<th>'+c.label+'</th>'; }).join('')+'</tr>';
+    else html+='<tr><th>DEPARTMENT</th>'+cols.map(function(c){ return '<th>'+c.label+'</th>'; }).join('')+'</tr>';
+    function cell(c,val,base){ return '<td class="n">'+fmt$(val)+(c.cmp?('<br>'+cmpHtml(val,base)):'')+'</td>'; }
+    order.forEach(function(d){ html+='<tr><td class="lbl">'+esc(d)+'</td>'+cols.map(function(c){ var v=(c.map[d]||{total:0}).total, b=c.cmp?((c.cmp[d]||{total:0}).total):0; return cell(c,v,b); }).join('')+'</tr>'; });
+    html+='<tr class="dept-tot"><td class="lbl">DEPARTMENT TOTAL</td>'+cols.map(function(c){ return cell(c,deptTotOf(c.map),c.cmp?deptTotOf(c.cmp):0); }).join('')+'</tr>';
+    html+='<tr class="common"><td class="lbl">COMMON (Store Supply)</td>'+cols.map(function(c){ return cell(c,commonOf(c.map),c.cmp?commonOf(c.cmp):0); }).join('')+'</tr>';
+    html+='<tr class="grand"><td class="lbl">GRAND TOTAL</td>'+cols.map(function(c){ return cell(c,deptTotOf(c.map)+commonOf(c.map),c.cmp?(deptTotOf(c.cmp)+commonOf(c.cmp)):0); }).join('')+'</tr>';
+    return html+'</table>';
+  }
+  /* 하단 고정 집계표: 선택 일자 기준 DAILY / WEEKLY(그 주) / MONTHLY(그 달) */
+  function renderSummary(){
+    var w=$('dpSumWrap'); if(!w) return;
+    if(!visibleForUser(selDate)){ w.innerHTML='<div class="dp-lock-note">담당자 확인 전</div>'; return; }
+    var p=selDate.split('-'), y=+p[0], m=+p[1], wk=weekOf(selDate), wr=weekRange(y,m,wk), mr=monthRange(y,m);
+    w.innerHTML=deptMatrix([
+      { label:'DAILY', map:deptSum(selDate,selDate) },
+      { label:'WEEKLY', map:deptSum(ymd(y,m,wr.s),ymd(y,m,wr.e)) },
+      { label:'MONTHLY', map:deptSum(mr.s,mr.e) }
+    ],'dp-sum','ACCUMULATING');
+  }
+  function renderFootTotals(){ renderSummary(); }
   function sortedRows(){
     var rows=dayRows(selDate).slice();
     if(sortMode==='vendor') rows.sort(function(a,b){ var x=String(a.vendor||'').localeCompare(String(b.vendor||'')); return x!==0?x:((a.createdAt||0)-(b.createdAt||0)); });
@@ -1299,22 +1367,57 @@
     $('dpMonPrev').innerHTML='전달 '+py+'년 '+pm+'월 <b>'+fmt$(prev)+'</b>'
       +' <span class="'+(up?'up':'down')+'">'+(up?'▲ +':'▼ −')+fmt$(Math.abs(diff)).replace('$','$')+'</span>';
   }
+  function weekLabel(y,m,wk){ var r=weekRange(y,m,wk); return wk+'주차 · '+m+'/'+r.s+'–'+m+'/'+r.e; }
   function renderRight(){
+    var p=selDate.split('-'), y=+p[0], m=+p[1], wk=weekOf(selDate), wr=weekRange(y,m,wk);
     if(!visibleForUser(selDate)){
       $('dpDayTotal2').textContent='—'; $('dpDayNote').textContent='담당자 확인 전';
-      var pp=selDate.split('-');
-      $('dpMonTotal').textContent=fmt$(visMonthTotal(+pp[0], +pp[1]));
-      $('dpMonNote').textContent=pp[0]+'년 '+(+pp[1])+'월 · '+(STORE||'');
-      renderMonPrev(+pp[0], +pp[1]);
+      $('dpWeekTotal').textContent='—'; $('dpWeekNote').textContent=weekLabel(y,m,wk);
+      $('dpMonTotal').textContent=fmt$(visMonthTotal(y,m));
+      $('dpMonNote').textContent=y+'년 '+m+'월 · '+(STORE||'');
+      renderMonPrev(y,m);
       return;
     }
     var t=dayTotal(selDate);
     $('dpDayTotal2').textContent=fmt$(t);
     $('dpDayNote').textContent=fmtDateKo(selDate)+' · '+dayRows(selDate).length+'건';
-    var p=selDate.split('-');
-    $('dpMonTotal').textContent=fmt$(visMonthTotal(+p[0], +p[1]));
-    $('dpMonNote').textContent=p[0]+'년 '+(+p[1])+'월 · '+(STORE||'');
-    renderMonPrev(+p[0], +p[1]);
+    var wm=deptSum(ymd(y,m,wr.s),ymd(y,m,wr.e));
+    $('dpWeekTotal').textContent=fmt$(deptTotOf(wm)+commonOf(wm));
+    $('dpWeekNote').textContent=weekLabel(y,m,wk)+' · '+weeksInMonth(y,m)+'주';
+    $('dpMonTotal').textContent=fmt$(visMonthTotal(y,m));
+    $('dpMonNote').textContent=y+'년 '+m+'월 · '+(STORE||'');
+    renderMonPrev(y,m);
+  }
+  /* ── 누계 팝업: 금일(당일) / 주간(주차별 · 전주 누계 대비 · 지난달 같은 주) / 월(지난달 대비) ── */
+  $('dpDayCard').onclick=function(){
+    if(!visibleForUser(selDate)) return;
+    openStat('DAILY', fmtDateKo(selDate)+' · 금일 부서별 누계', deptMatrix([{ label:'DAILY', map:deptSum(selDate,selDate) }],'dp-sum'));
+  };
+  $('dpMonCard').onclick=function(){
+    var p=selDate.split('-'), y=+p[0], m=+p[1], pm=prevMonth(y,m), mr=monthRange(y,m), pr=monthRange(pm.y,pm.m);
+    var cur=deptSum(mr.s,mr.e), prev=deptSum(pr.s,pr.e);
+    openStat('MONTHLY', y+'년 '+m+'월 · 월 부서별 누계 (지난달 대비)',
+      deptMatrix([{ label:'LAST MONTH<br><span class="sub">'+pm.y+'.'+pad2(pm.m)+'</span>', map:prev }, { label:'THIS MONTH<br><span class="sub">'+y+'.'+pad2(m)+'</span>', map:cur, cmp:prev }],'dp-sum'));
+  };
+  $('dpWeekCard').onclick=function(){ openWeekStat(weekOf(selDate)); };
+  function openWeekStat(wk){
+    var p=selDate.split('-'), y=+p[0], m=+p[1], n=weeksInMonth(y,m), pm=prevMonth(y,m), pn=weeksInMonth(pm.y,pm.m);
+    if(wk<1) wk=1; if(wk>n) wk=n;
+    var wr=weekRange(y,m,wk);
+    var thisWk=deptSum(ymd(y,m,wr.s),ymd(y,m,wr.e));
+    var cum=deptSum(ymd(y,m,1),ymd(y,m,wr.e));                                   /* 1주 ~ 이번 주 누계 */
+    var prevCum=wk>1?deptSum(ymd(y,m,1),ymd(y,m,weekRange(y,m,wk-1).e)):null;     /* 지난주까지 누계 */
+    var lastWk=null; if(wk<=pn){ var lr=weekRange(pm.y,pm.m,wk); lastWk=deptSum(ymd(pm.y,pm.m,lr.s),ymd(pm.y,pm.m,lr.e)); }
+    var tabs='<div class="dp-wk-tabs">'; for(var i=1;i<=n;i++){ var r=weekRange(y,m,i); tabs+='<button class="dp-wk-tab'+(i===wk?' on':'')+'" data-wk="'+i+'" type="button">'+i+'주차<small>'+m+'/'+r.s+'–'+m+'/'+r.e+'</small></button>'; } tabs+='</div>';
+    var cols=[{ label:'WEEK '+wk+'<br><span class="sub">'+m+'/'+wr.s+'–'+m+'/'+wr.e+'</span>', map:thisWk }];
+    if(prevCum) cols.push({ label:'ACCUMULATED<br><span class="sub">1~'+wk+'주 · 전주 누계 대비</span>', map:cum, cmp:prevCum });
+    else cols.push({ label:'ACCUMULATED<br><span class="sub">1주</span>', map:cum });
+    if(lastWk) cols.push({ label:'LAST MONTH WEEK '+wk+'<br><span class="sub">'+pm.y+'.'+pad2(pm.m)+' · 이번 주 대비</span>', map:lastWk });
+    var html=tabs+deptMatrix(cols,'dp-sum');
+    if(lastWk){ html+='<div class="dp-stat-sec">지난달 같은 주와 비교 · VS LAST MONTH WEEK '+wk+'</div>'+deptMatrix([{ label:'LAST MONTH W'+wk, map:lastWk },{ label:'THIS MONTH W'+wk, map:thisWk, cmp:lastWk }],'dp-sum'); }
+    else html+='<div class="dp-stat-empty">지난달에는 '+wk+'주차가 없습니다 · No week '+wk+' last month</div>';
+    openStat('WEEKLY', y+'년 '+m+'월 '+wk+'주차 · 주간 부서별 누계', html);
+    Array.prototype.forEach.call($('dpStatBody').querySelectorAll('.dp-wk-tab'),function(b){ b.onclick=function(){ openWeekStat(+b.getAttribute('data-wk')); }; });
   }
 
   // ===== 달력 =====
@@ -1442,11 +1545,6 @@
         : '<div class="dp-stat-empty">HOMEPAGE MANAGER에 등록된 벤더가 없습니다 · No registered vendors</div>');
     openStat('ALL VENDORS','총 벤더리스트', html);
   };
-  $('stVenEtcBtn').onclick=function(){
-    var rows=aggRows(null).filter(function(r){ return r.manual; });
-    openStat('MANUAL VENDORS','기타 벤더리스트 (직접 입력)',
-      '<div class="dp-stat-sec">직접 입력 업체 · MANUAL VENDORS</div>'+tbl2('업체','VENDOR',sumBy(rows,function(r){return vName(r.vendor);}),true));
-  };
   $('stDeptBtn').onclick=function(){
     var rows=aggRows(null);
     var used=sumBy(rows,function(r){return r.dept;});
@@ -1456,11 +1554,6 @@
           return '<tr><td class="strong">'+esc(d)+'</td><td class="num">'+u.count+'</td><td class="num">'+fmt$(u.total)+'</td></tr>'; }).join('')+'</table>'
         : '<div class="dp-stat-empty">EGMM 매입일지 화면에서 부서를 등록하세요 · No registered departments</div>');
     openStat('ALL DEPTS','총 부서리스트', html);
-  };
-  $('stDeptEtcBtn').onclick=function(){
-    var rows=aggRows(null).filter(function(r){ return r.dept && depts.indexOf(r.dept)<0; });
-    openStat('ETC DEPTS','기타 부서리스트 (미등록)',
-      '<div class="dp-stat-sec">미등록 부서 · UNREGISTERED DEPARTMENTS</div>'+tbl2('부서','DEPT',sumBy(rows,function(r){return r.dept;}),true));
   };
 
   // ===== 프린트 (Letter · 완료 리스트) =====
