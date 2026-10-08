@@ -4882,10 +4882,11 @@ function renderImportModal(){
   /* [확정 2026-10-08] 완전 덮어쓰기: 파일에 있는 열은 빈 셀까지 그대로 저장 (기본 ON) */
   h+='<div class="icp-opt"><label style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;"><input type="checkbox" id="impWipe"'+(impCtx.wipeEmpty===false?'':' checked')+'> 빈 셀도 덮어쓰기 <span style="color:#9a9aa0;font-weight:600;">(파일 값으로 완전 덮어쓰기)</span></label></div>';
   { /* [2026-10-02] PLU 도 동일(중복 PLU) */
-    /* [요구 2026-10-01] 중복 허용 체크 — 켜면 이미 있는 UPC / ITEM CODE 라도 새 행으로 저장, 끄면 이미 있는 값의 새 행은 건너뜀 (기존 행 업데이트는 그대로) */
-    var __dU=(impCtx.allowDupUpc!==false), __dC=(impCtx.allowDupCode!==false);
-    h+='<div class="icp-opt" style="gap:14px;"><label style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;"><input type="checkbox" id="impDupUpc"'+(__dU?' checked':'')+'> 중복 '+(APP_MODE==='UPC'?'UPC':'PLU')+' 허용</label>'
-      +(APP_MODE==='UPC'?'<label style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;"><input type="checkbox" id="impDupCode"'+(__dC?' checked':'')+'> 중복 ITEM CODE 허용</label>':'')+'</div>';
+    /* [확정 2026-10-08] 중복 허용 체크 — 켜면 기존에 같은 UPC/ITEM CODE 가 있어도 파일 행을 전부 새 행으로 추가(중복 생김),
+       끄면 같은 UPC(또는 ITEM CODE) 인 기존 행을 파일 값으로 완전히 덮어씀. 기본 = 끔(덮어쓰기) */
+    var __dU=(impCtx.allowDupUpc===true), __dC=(impCtx.allowDupCode===true);
+    h+='<div class="icp-opt" style="gap:14px;"><label style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;"><input type="checkbox" id="impDupUpc"'+(__dU?' checked':'')+'> 중복 '+(APP_MODE==='UPC'?'UPC':'PLU')+' 허용 <span style="color:#9a9aa0;font-weight:600;">(끄면 같은 '+(APP_MODE==='UPC'?'UPC':'PLU')+' 기존 행 덮어쓰기)</span></label>'
+      +(APP_MODE==='UPC'?'<label style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;"><input type="checkbox" id="impDupCode"'+(__dC?' checked':'')+'> 중복 ITEM CODE 허용 <span style="color:#9a9aa0;font-weight:600;">(끄면 같은 ITEM CODE 기존 행 덮어쓰기)</span></label>':'')+'</div>';
   }
 
   h+='<div class="plu-imp-foot"><button class="plu-tool-btn" id="impCancel" type="button">취소</button><button class="plu-tool-btn plu-imp-go" id="impGo" type="button">불러오기</button></div>';
@@ -4929,7 +4930,12 @@ function confirmImportThenRun(){
   });
   lines.push('');
   var __noCode=(APP_MODE==='UPC')&&use.every(function(sh){ if(impCtx.listMode) return false; return !buildMapping(sh.headers,lay).some(function(m){ return m.key&&normKey(m.key)==='VENDER_ITEM_CODE'; }); });
-  lines.push(APP_MODE==='UPC'?('같은 업체에서 UPC 가 같은 기존 행 전부 파일 값으로 덮어씀 (업체 미지정이면 전체에서), 없으면 새 행 · UPC 6자리 이하 제외'+(($('impDupUpc')&&!$('impDupUpc').checked)?' · 중복 UPC 건너뜀':'')+(($('impDupCode')&&!$('impDupCode').checked)?' · 중복 ITEM CODE 건너뜀':'')):('"'+((fieldByKey(big,keyF)||{}).label||'PLU')+'" 가 같은 기존 행 전부 파일 값으로 덮어씀, 없으면 새 행'));
+  (function(){
+    var dU=!!($('impDupUpc')&&$('impDupUpc').checked), dC=!!($('impDupCode')&&$('impDupCode').checked), kl=(APP_MODE==='UPC')?'UPC':((fieldByKey(big,keyF)||{}).label||'PLU');
+    var keys=[]; if(!dU) keys.push(kl); if(APP_MODE==='UPC'&&!dC) keys.push('ITEM CODE');
+    if(!keys.length) lines.push('중복 허용: 기존 행을 찾지 않고 파일의 모든 행을 새 행으로 추가');
+    else lines.push(keys.join(' 또는 ')+' 가 같은 기존 행 전부 파일 값으로 덮어씀'+(APP_MODE==='UPC'?' (업체가 있으면 그 업체 안에서)':'')+', 없으면 새 행'+(APP_MODE==='UPC'?' · UPC 6자리 이하 제외':''));
+  })();
   if($('impWipe')&&$('impWipe').checked) lines.push('빈 셀도 덮어쓰기: 파일에 있는 열은 빈 칸까지 그대로 저장');
   if(APP_MODE==='UPC'){
     var __vc=$('impVender')?$('impVender').value:'';
@@ -4954,8 +4960,8 @@ function runImport(){
     routeByPlu:($('impRoute')?$('impRoute').checked:false),
     vender:(APP_MODE==='UPC'&&$('impVender'))?String($('impVender').value||'').toUpperCase():'',
     listMode:!!impCtx.listMode,
-    allowDupUpc:($('impDupUpc')?$('impDupUpc').checked:true),
-    allowDupCode:($('impDupCode')?$('impDupCode').checked:true)
+    allowDupUpc:($('impDupUpc')?$('impDupUpc').checked:false),
+    allowDupCode:($('impDupCode')?$('impDupCode').checked:false)
   };
   if(!opts.sheets.length){ showToast('가져올 시트를 선택하세요','error'); return; }
   if(opts.store&&S.stores.indexOf(opts.store)<0) S.stores.push(opts.store); /* 감지된 새 매장 등록 */
@@ -5056,6 +5062,7 @@ function applyImport(opts){
         var mv=matchNorm(r.v?r.v[mF.key]:'');
         if(mv&&!index[mv]) index[mv]={sub:sb,row:r};
         if(mv){ (index['*'+mv]=index['*'+mv]||[]).push({sub:sb,row:r}); } /* [2026-10-08] 같은 UPC/PLU 행 전부 (겹치는 항목 모두 덮어쓰기) */
+        if(__icF0){ var __cc=normKey(getCell(r,__icF0,'')); if(__cc){ (index['#'+__cc]=index['#'+__cc]||[]).push({sub:sb,row:r}); (index['#'+__cc+'@'+sb]=index['#'+__cc+'@'+sb]||[]).push({sub:sb,row:r}); } } /* [2026-10-08] ITEM CODE 키 */
         if(mv&&SUB_BY_VENDER&&!index[mv+'@'+sb]) index[mv+'@'+sb]={sub:sb,row:r}; /* [UPC] 업체별 매칭 키 */
         if(mv&&SUB_BY_VENDER){ (index['*'+mv+'@'+sb]=index['*'+mv+'@'+sb]||[]).push({sub:sb,row:r}); } /* [UPC 기준만 업데이트] 업체+UPC 가 같은 행 전부 */
         if(mv&&SUB_BY_VENDER&&__icF0){ var __ck0=mv+'@'+sb+'#'+normKey(getCell(r,__icF0,'')); if(!index[__ck0]) index[__ck0]={sub:sb,row:r}; } /* [UPC] 업체 + UPC + ITEM CODE 키 */
@@ -5067,8 +5074,8 @@ function applyImport(opts){
   stats.bigs[big]=1;
   var __trashIxByBig={}; function __trashIxOf(bg){ if(!__trashIxByBig[bg]) __trashIxByBig[bg]=trashIndex(bg); return __trashIxByBig[bg]; } /* [TRASH] 상위·중간 카테고리별 UPC+ITEM CODE 일치 행 무시 */
   /* [중복 허용 2026-10-01] 체크 해제 시 이미 있는 UPC / ITEM CODE 의 새 행은 건너뜀 (대분류 전체 기준) */
-  var __chkDup=(opts.allowDupUpc===false||opts.allowDupCode===false), __upcSet={}, __codeSet={};
-  if(__chkDup&&mF){ subs.forEach(function(sb){ rowsFor(big,sb).forEach(function(r){ var u=matchNorm(r.v?r.v[mF.key]:''); if(u) __upcSet[u]=1; if(__icF0){ var c=normKey(getCell(r,__icF0,'')); if(c) __codeSet[c]=1; } }); }); }
+  /* [확정 2026-10-08] 중복 허용 = 기존 행을 찾지 않고 전부 새 행 · 허용 안 함 = 같은 UPC/PLU(또는 ITEM CODE) 기존 행 전부 덮어쓰기 */
+  var __matchUpc=(opts.allowDupUpc!==true), __matchCode=(APP_MODE==='UPC'&&!!__icF0&&opts.allowDupCode!==true);
   /* [MODULE 22 · DEPT] DEPARTMENT 열 라우팅 — 번호→대분류(설정 메뉴), 청과는 PLU 범위→소분류 */
   function tabOf(bg){ for(var i=0;i<S.tabs.length;i++){ if(S.tabs[i].label===bg) return S.tabs[i]; } return null; }
   function deptBigOf(n){ for(var i=0;i<S.tabs.length;i++){ var L=S.tabs[i].label; if(S.deptMap&&S.deptMap[L]!=null&&parseInt(S.deptMap[L],10)===n) return L; } return null; }
@@ -5083,7 +5090,7 @@ function applyImport(opts){
     if(bg===big) return index;
     if(idxByBig[bg]) return idxByBig[bg];
     var ix={}; var tt=tabOf(bg);
-    if(mF&&tt){ (tt.subs||[]).forEach(function(sb){ rowsFor(bg,sb).forEach(function(r){ var mv=matchNorm(r.v?r.v[mF.key]:''); if(mv&&!ix[mv]) ix[mv]={sub:sb,row:r}; if(mv){ (ix['*'+mv]=ix['*'+mv]||[]).push({sub:sb,row:r}); } if(mv&&SUB_BY_VENDER&&!ix[mv+'@'+sb]) ix[mv+'@'+sb]={sub:sb,row:r}; if(mv&&SUB_BY_VENDER){ (ix['*'+mv+'@'+sb]=ix['*'+mv+'@'+sb]||[]).push({sub:sb,row:r}); } if(mv&&SUB_BY_VENDER&&__icF0){ var __ck1=mv+'@'+sb+'#'+normKey(getCell(r,__icF0,'')); if(!ix[__ck1]) ix[__ck1]={sub:sb,row:r}; } }); }); }
+    if(mF&&tt){ (tt.subs||[]).forEach(function(sb){ rowsFor(bg,sb).forEach(function(r){ var mv=matchNorm(r.v?r.v[mF.key]:''); if(mv&&!ix[mv]) ix[mv]={sub:sb,row:r}; if(mv){ (ix['*'+mv]=ix['*'+mv]||[]).push({sub:sb,row:r}); } if(__icF0){ var __cc1=normKey(getCell(r,__icF0,'')); if(__cc1){ (ix['#'+__cc1]=ix['#'+__cc1]||[]).push({sub:sb,row:r}); (ix['#'+__cc1+'@'+sb]=ix['#'+__cc1+'@'+sb]||[]).push({sub:sb,row:r}); } } if(mv&&SUB_BY_VENDER&&!ix[mv+'@'+sb]) ix[mv+'@'+sb]={sub:sb,row:r}; if(mv&&SUB_BY_VENDER){ (ix['*'+mv+'@'+sb]=ix['*'+mv+'@'+sb]||[]).push({sub:sb,row:r}); } if(mv&&SUB_BY_VENDER&&__icF0){ var __ck1=mv+'@'+sb+'#'+normKey(getCell(r,__icF0,'')); if(!ix[__ck1]) ix[__ck1]={sub:sb,row:r}; } }); }); }
     idxByBig[bg]=ix; return ix;
   }
 
@@ -5215,9 +5222,11 @@ function applyImport(opts){
       if(mF&&vals[mF.key]!=null){
         /* [확정 2026-10-08] UPC/PLU 가 같은 기존 행은 전부 파일 값으로 덮어씀 (ITEM CODE 가 달라도 업데이트 · 겹치는 행이 여러 개면 모두).
            UPC 모드에서 업체(VENDER)가 있으면 그 업체(중간 카테고리) 안에서, 없으면 대분류 전체에서 찾음 */
-        var __mv=matchNorm(vals[mF.key]);
-        if(SUB_BY_VENDER&&__vendScope) __hitAll=rIdx['*'+__mv+'@'+__vendScope]||[];
-        else __hitAll=rIdx['*'+__mv]||[];
+        var __mv=matchNorm(vals[mF.key]), __cd=normKey(vals.VENDER_ITEM_CODE==null?'':vals.VENDER_ITEM_CODE), __seenH={};
+        __hitAll=[];
+        var __addHits=function(list){ (list||[]).forEach(function(h){ if(h&&h.row&&!__seenH[h.row.id]){ __seenH[h.row.id]=1; __hitAll.push(h); } }); };
+        if(__matchUpc){ __addHits((SUB_BY_VENDER&&__vendScope)?rIdx['*'+__mv+'@'+__vendScope]:rIdx['*'+__mv]); }
+        if(__matchCode&&__cd){ __addHits((SUB_BY_VENDER&&__vendScope)?rIdx['#'+__cd+'@'+__vendScope]:rIdx['#'+__cd]); }
         hit=__hitAll[0]||null;
       }
       /* [확정 2026-09-30 · UPC] 중간 카테고리 = VENDER 값 — 파일 VENDER → 기존 행 VENDER → 대분류 기본(STI-WA) 순.
@@ -5254,12 +5263,6 @@ function applyImport(opts){
         stats.upd++; (__histIds[rowBig+'\u0000'+dest]=__histIds[rowBig+'\u0000'+dest]||[]).push(r0.id);
         });
       }else{
-        if(__chkDup&&mF){
-          var __nu=matchNorm(vals[mF.key]), __nc=normKey(vals.VENDER_ITEM_CODE==null?'':vals.VENDER_ITEM_CODE);
-          if(opts.allowDupUpc===false&&__nu&&__upcSet[__nu]){ stats.dupUpc=(stats.dupUpc||0)+1; continue; }
-          if(opts.allowDupCode===false&&__nc&&__codeSet[__nc]){ stats.dupCode=(stats.dupCode||0)+1; continue; }
-          if(__nu) __upcSet[__nu]=1; if(__nc) __codeSet[__nc]=1;
-        }
         var nr={id:newId(),v:{},sv:{},m:rowStamp()};
         for(var k2 in vals){
           var f2=fieldByKey(rowBig,k2); if(!f2) continue;
@@ -5269,7 +5272,7 @@ function applyImport(opts){
         if(venderRow){ var __vf2=fieldByKey(rowBig,'VENDER_VENDER'); if(__vf2) setCell(nr,__vf2,venderRow,''); }
         applyRowDefaults(rowBig,nr); /* [UPC 기본값] LOCATION 99 · USE 1 */
         rowsFor(rowBig,dest).push(nr);
-        if(mF&&vals[mF.key]!=null&&rIdx){ var mv2=matchNorm(vals[mF.key]); if(mv2&&!rIdx[mv2]) rIdx[mv2]={sub:dest,row:nr}; if(mv2){ (rIdx['*'+mv2]=rIdx['*'+mv2]||[]).push({sub:dest,row:nr}); } if(mv2&&SUB_BY_VENDER&&!rIdx[mv2+'@'+dest]) rIdx[mv2+'@'+dest]={sub:dest,row:nr}; if(mv2&&SUB_BY_VENDER){ (rIdx['*'+mv2+'@'+dest]=rIdx['*'+mv2+'@'+dest]||[]).push({sub:dest,row:nr}); } if(mv2&&SUB_BY_VENDER&&__icF0){ var __ck2=mv2+'@'+dest+'#'+normKey(vals.VENDER_ITEM_CODE==null?'':vals.VENDER_ITEM_CODE); if(!rIdx[__ck2]) rIdx[__ck2]={sub:dest,row:nr}; } }
+        if(mF&&vals[mF.key]!=null&&rIdx){ var mv2=matchNorm(vals[mF.key]); if(mv2&&!rIdx[mv2]) rIdx[mv2]={sub:dest,row:nr}; if(mv2){ (rIdx['*'+mv2]=rIdx['*'+mv2]||[]).push({sub:dest,row:nr}); } if(__icF0){ var __nc2=normKey(vals.VENDER_ITEM_CODE==null?'':vals.VENDER_ITEM_CODE); if(__nc2){ (rIdx['#'+__nc2]=rIdx['#'+__nc2]||[]).push({sub:dest,row:nr}); (rIdx['#'+__nc2+'@'+dest]=rIdx['#'+__nc2+'@'+dest]||[]).push({sub:dest,row:nr}); } } if(mv2&&SUB_BY_VENDER&&!rIdx[mv2+'@'+dest]) rIdx[mv2+'@'+dest]={sub:dest,row:nr}; if(mv2&&SUB_BY_VENDER){ (rIdx['*'+mv2+'@'+dest]=rIdx['*'+mv2+'@'+dest]||[]).push({sub:dest,row:nr}); } if(mv2&&SUB_BY_VENDER&&__icF0){ var __ck2=mv2+'@'+dest+'#'+normKey(vals.VENDER_ITEM_CODE==null?'':vals.VENDER_ITEM_CODE); if(!rIdx[__ck2]) rIdx[__ck2]={sub:dest,row:nr}; } }
         stats.add++; (__histIds[rowBig+'\u0000'+dest]=__histIds[rowBig+'\u0000'+dest]||[]).push(nr.id);
       }
     }
