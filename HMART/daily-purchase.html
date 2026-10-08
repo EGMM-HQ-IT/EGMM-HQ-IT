@@ -492,7 +492,7 @@
       <span class="dp-user-pill" id="dpUserPill" hidden><b id="dpUserName"></b><span class="role" id="dpUserRole"></span></span>
       <button class="dp-mini-btn sm" id="dpPrintBtn" type="button" disabled>PRINT</button>
       <button class="dp-mini-btn sm" id="dpExportBtn" type="button" disabled>EXPORT</button>
-      <button class="dp-mini-btn sm" id="dpXlBtn" type="button" style="display:none" title="엑셀 파일의 매입 내역을 날짜를 지정해 등록">EXCEL</button>
+      <button class="dp-mini-btn sm" id="dpXlBtn" type="button" style="display:none">EXCEL</button>
       <input type="file" id="dpXlFile" accept=".xlsx,.xls,.csv" style="display:none">
       <input type="file" id="dpXlFiles" accept=".xlsx,.xls,.csv" multiple style="display:none">
     </div>
@@ -561,19 +561,19 @@
         <div class="dp-cal-grid" id="dpCalGrid"></div>
       </div>
 
-      <button class="dp-card dp-card-btn" id="dpDayCard" type="button" title="클릭: 당일 부서별 누계">
+      <button class="dp-card dp-card-btn" id="dpDayCard" type="button">
         <div class="dp-card-h"><span class="dp-card-tick"></span><span class="dp-card-t">금일 매입 누계<small>DAILY</small></span><span class="dp-card-go">›</span></div>
         <div class="dp-big-amt" id="dpDayTotal2">$0.00</div>
         <div class="dp-sub-note" id="dpDayNote">—</div>
       </button>
 
-      <button class="dp-card dp-card-btn" id="dpWeekCard" type="button" title="클릭: 주차별 부서별 누계 · 전주 누계 · 지난달 비교">
+      <button class="dp-card dp-card-btn" id="dpWeekCard" type="button">
         <div class="dp-card-h"><span class="dp-card-tick"></span><span class="dp-card-t">주간 매입 누계<small>WEEKLY</small></span><span class="dp-card-go">›</span></div>
         <div class="dp-big-amt" id="dpWeekTotal">$0.00</div>
         <div class="dp-sub-note" id="dpWeekNote">—</div>
       </button>
 
-      <button class="dp-card dp-card-btn" id="dpMonCard" type="button" title="클릭: 월 부서별 누계 · 지난달 비교">
+      <button class="dp-card dp-card-btn" id="dpMonCard" type="button">
         <div class="dp-card-h"><span class="dp-card-tick"></span><span class="dp-card-t">월 매입 누계<small>MONTHLY</small></span><span class="dp-card-go">›</span></div>
         <div class="dp-big-amt" id="dpMonTotal">$0.00</div>
         <div class="dp-sub-note" id="dpMonNote">—</div>
@@ -770,10 +770,10 @@
   function vDocOf(v){ v=String(v==null?'':v).trim(); if(!v) return null; return vDocByLabel(v) || ((window.EgmmFB&&window.EgmmFB.venderMatch)?window.EgmmFB.venderMatch(vendorDocs, v):null); }
   function vName(v){ v=String(v==null?'':v); var d=vDocOf(v); return d?String(d.name||v).trim():v; }
   /* 리스트 표시: 등록 업체 = 검은색 · 미등록(직접 입력) = 붉은색 */
-  function vendorHtml(v){ var d=vDocOf(v); return '<span class="vn'+(d?'':' un')+'" title="'+(d?'':'VENDER 에 등록되지 않은 업체')+'">'+esc(vName(v))+'</span>'; }
+  function vendorHtml(v){ var d=vDocOf(v); return '<span class="vn'+(d?'':' un')+'">'+esc(vName(v))+'</span>'; }
   /* 부서 표시: DEPARTMENT 에 없는 부서는 붉은색 */
   function dDocOf(name){ name=String(name==null?'':name).trim(); if(!name) return null; for(var i=0;i<deptDocs.length;i++){ if(String(deptDocs[i].name||'').trim()===name) return deptDocs[i]; } return (window.EgmmFB&&window.EgmmFB.deptMatch)?window.EgmmFB.deptMatch(deptDocs, name):null; }
-  function deptHtml(d){ var ok=!!dDocOf(d); return '<span class="'+(ok?'':'un')+'" title="'+(ok?'':'DEPARTMENT 에 등록되지 않은 부서')+'">'+esc(d)+'</span>'; }
+  function deptHtml(d){ var ok=!!dDocOf(d); return '<span class="'+(ok?'':'un')+'">'+esc(d)+'</span>'; }
   function vDocByLabel(t){ t=String(t||'').trim(); if(!t) return null; for(var i=0;i<vendorDocs.length;i++){ if(vLabel(vendorDocs[i])===t) return vendorDocs[i]; } return null; }
   /* 검색: 1글자 = 축약어/업체명이 그 글자로 시작 · 2글자 이상 = 축약어/업체명/유사 이름에 포함 (대소문자 무시) */
   function vSearch(q){
@@ -1007,15 +1007,14 @@
     __xlDate=selDate;
     $('dpXlOv').querySelector('.dp-mtitle').textContent='엑셀 업로드 · 날짜 지정 등록'; $('dpXlOv').querySelector('.dp-meyebrow').textContent='EXCEL UPLOAD';
     __xlBatch={};
-    $('dpXlBody').innerHTML='<div class="dp-confirm-text">엑셀의 매입 내역을 등록할 날짜를 지정하세요<small>Select the date · or drop files onto the day boxes below for batch upload</small></div>'
-      +'<div class="dp-mrow" style="margin-top:14px"><label>등록 날짜 · DATE</label><input type="date" id="dpXlDate0" value="'+esc(selDate)+'" style="width:100%;border:1.5px solid var(--border);border-radius:9px;padding:10px 12px;font:inherit;font-size:15px;font-weight:800;background:var(--bg-elev);color:var(--text)"></div>'
-      +'<div class="dp-mrow"><label>날짜별 박스 — 파일을 끌어다 놓으면 그 날짜로 등록 (여러 파일 · 여러 날짜 한 번에) · 클릭하면 파일 선택</label><div id="dpXlDays"></div>'
-      +'<div class="dp-xl-dropall" id="dpXlDropAll">여기에 떨어뜨리면 위 「등록 날짜」로 들어갑니다 · DROP HERE = SELECTED DATE</div></div>'
+    $('dpXlBody').innerHTML='<div class="dp-mrow"><label>등록 날짜 · DATE</label><input type="date" id="dpXlDate0" value="'+esc(selDate)+'" style="width:100%;border:1.5px solid var(--border);border-radius:9px;padding:10px 12px;font:inherit;font-size:15px;font-weight:800;background:var(--bg-elev);color:var(--text)"></div>'
+      +'<div class="dp-mrow"><div id="dpXlDays"></div>'
+      +'<div class="dp-xl-dropall" id="dpXlDropAll">DROP · '+esc(selDate)+'</div></div>'
       +'<div class="dp-merr" id="dpXlErr0"></div>'
-      +'<div class="dp-macts"><button class="dp-mbtn ghost" id="dpXlCancel0" type="button">취소 · CANCEL</button><button class="dp-mbtn ghost" id="dpXlPick" type="button">📄 파일 1개 선택 (미리보기) · ONE FILE</button><button class="dp-mbtn primary" id="dpXlBatch" type="button" disabled>일괄 등록 · BATCH (0)</button></div>';
+      +'<div class="dp-macts"><button class="dp-mbtn ghost" id="dpXlCancel0" type="button">취소 · CANCEL</button><button class="dp-mbtn ghost" id="dpXlPick" type="button">파일 선택 · ONE FILE</button><button class="dp-mbtn primary" id="dpXlBatch" type="button" disabled>일괄 등록 · BATCH (0)</button></div>';
     $('dpXlOv').classList.add('show');
     $('dpXlCancel0').onclick=function(){ $('dpXlOv').classList.remove('show'); };
-    $('dpXlDate0').addEventListener('change', xlDaysRender);
+    $('dpXlDate0').addEventListener('change', function(){ xlDaysRender(); $('dpXlDropAll').textContent='DROP · '+this.value; });
     xlDaysRender();
     var da=$('dpXlDropAll');
     da.addEventListener('dragover',function(e){ e.preventDefault(); da.classList.add('over'); }); da.addEventListener('dragleave',function(){ da.classList.remove('over'); });
@@ -1154,7 +1153,7 @@
     var html='<div class="dp-xl-top">'
       +'<div class="dp-mrow"><label>등록 날짜 · DATE</label><input type="date" id="dpXlDate" value="'+esc(x.date)+'"></div>'
       +(x.names.length>1?('<div class="dp-mrow"><label>시트 · SHEET</label><select id="dpXlSheet">'+x.names.map(function(n){ return '<option value="'+esc(n)+'"'+(n===x.sheet?' selected':'')+'>'+esc(n)+'</option>'; }).join('')+'</select></div>'):'')
-      +'<div class="dp-mrow"><label>기본 부서 (부서 열이 없거나 인식 안 될 때) · DEFAULT DEPT</label><select id="dpXlDept"><option value="">— 없음 —</option>'+depts.map(function(d){ return '<option value="'+esc(d)+'">'+esc(d)+'</option>'; }).join('')+'</select></div>'
+      +'<div class="dp-mrow"><label>기본 부서 · DEFAULT DEPT</label><select id="dpXlDept"><option value="">— 없음 —</option>'+depts.map(function(d){ return '<option value="'+esc(d)+'">'+esc(d)+'</option>'; }).join('')+'</select></div>'
       +'<div class="dp-xl-file">📄 '+esc(x.file)+'</div></div>';
     if(p.err){ html+='<div class="dp-stat-empty">'+esc(p.err)+'</div>'; b.innerHTML=html+'<div class="dp-macts"><button class="dp-mbtn ghost" id="dpXlCancel" type="button">닫기 · CLOSE</button></div>'; xlBind(); return; }
     html+='<div class="dp-xl-map">'+['vendor','invoice','amount','dept','memo'].map(function(f){ var lab={vendor:'업체',invoice:'인보이스',amount:'금액',dept:'부서',memo:'비고'}[f]; var c=p.map[f];
@@ -1235,7 +1234,7 @@
     openStat('UNREGISTERED','미등록 업체 · 부서 (VENDER / DEPARTMENT 관리에 없음)',
       '<div class="dp-stat-sec">미등록 업체 · UNREGISTERED VENDORS ('+u.vendors.length+')</div>'+tbl(u.vendors,'v')
       +'<div class="dp-stat-sec">미등록 부서 · UNREGISTERED DEPARTMENTS ('+u.depts.length+')</div>'+tbl(u.depts,'d')
-      +'<div class="dp-stat-empty" style="padding:10px 0 0">등록하면 이 이름(및 유사 이름)으로 기록된 매입 내역이 자동으로 그 업체·부서로 인식됩니다</div>');
+      );
     Array.prototype.forEach.call($('dpStatBody').querySelectorAll('button[data-reg]'),function(b){ b.onclick=function(){ if(!canRegister()){ denyPopup('기록 권한이 있는 계정으로 ID 로그인 후 등록할 수 있습니다.'); return; } if(b.getAttribute('data-reg')==='v') openVendorReg(b.getAttribute('data-name')); else openDeptReg(b.getAttribute('data-name')); }; });
   }
   $('stUnregBtn').onclick=openUnregList;
@@ -1255,8 +1254,7 @@
       +'<div class="dp-mrow"><label>축약어 (VENDER 코드) · 필수</label><input id="rgCode" maxlength="30" style="text-transform:uppercase" placeholder="예: STI-WA"></div>'
       +'<div class="dp-mrow"><label>부서 (카테고리)</label><select id="rgDept">'+deptOpts+'</select></div>'
       +'<div class="dp-mrow"><label>영업 품목 종류 (쉼표 구분)</label><input id="rgItems" maxlength="100"></div>'
-      +'<div class="dp-mrow"><label>유사 이름 (쉼표 구분)</label><input id="rgAliases" maxlength="200" value="'+esc(name)+'"></div></div>'
-      +'<div class="dp-stat-empty" style="padding:4px 0 0;text-align:left">기록된 이름 「'+esc(name)+'」 은 유사 이름에 자동으로 들어가 있어, 등록 후 기존 매입 내역이 이 업체로 인식됩니다</div>');
+      +'<div class="dp-mrow"><label>유사 이름 (쉼표 구분)</label><input id="rgAliases" maxlength="200" value="'+esc(name)+'"></div></div>');
     $('rgName').addEventListener('input',function(){ if(!$('rgCode').dataset.t) $('rgCode').value=sanitizeCode($('rgName').value); });
     $('rgCode').addEventListener('input',function(){ $('rgCode').dataset.t='1'; });
     $('rgCode').value=sanitizeCode(name);
