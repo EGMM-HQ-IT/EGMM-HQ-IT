@@ -126,6 +126,9 @@
   #hmGateOv .egg-field input, #hmGateOv .egg-field select{ width: 100%; box-sizing: border-box; border: 1.5px solid #E4DFD4; border-radius: 10px; padding: 12px 14px; font: inherit; font-size: 15px; font-weight: 700; color: #1E1B16; background: #FFFDFA; }
   #hmGateOv .egg-field input:focus, #hmGateOv .egg-field select:focus{ outline: none; border-color: #2F5D46; }
   #hmGateOv #hmgPin{ letter-spacing: .25em; text-align: center; }
+  #hmGateOv .egg-tabs{ display:flex; gap:6px; margin:2px 0 12px; }
+  #hmGateOv .egg-tab{ flex:1; border:1.5px solid #E4DFD4; background:#FFFDFA; color:#8C8578; border-radius:10px; padding:9px 0; font:inherit; font-size:12px; font-weight:800; letter-spacing:.08em; cursor:pointer; }
+  #hmGateOv .egg-tab.on{ background:#1E1B16; border-color:#1E1B16; color:#fff; }
   #hmGateOv .egg-err{ min-height: 18px; font-size: 12px; font-weight: 800; color: #9C3327; letter-spacing: .04em; margin: 2px 0 10px; text-align: center; }
   #hmGateOv .egg-btns{ display: flex; gap: 10px; }
   #hmGateOv .egg-btn{ flex: 1.4; border: none; border-radius: 10px; padding: 13px 0; font: inherit; font-size: 14px; font-weight: 800; letter-spacing: .08em; cursor: pointer; background: #2F5D46; color: #fff; }
@@ -156,24 +159,59 @@
         ov.innerHTML='<div class="egg-card">'
           +'<h1 class="egg-title">H-MART</h1>'
           +'<div class="egg-field"><label>STORE</label><select id="hmgStore"><option value="">매장 목록 읽는 중…</option></select></div>'
-          +'<div class="egg-field"><label>PIN</label><input type="password" id="hmgPin" inputmode="numeric" placeholder="••••••" autocomplete="off"></div>'
+          +'<div class="egg-tabs"><button type="button" class="egg-tab on" data-mode="pin">STORE PIN</button><button type="button" class="egg-tab" data-mode="id">ID · PASSWORD</button></div>'
+          +'<div id="hmgPinBox"><div class="egg-field"><label>PIN</label><input type="password" id="hmgPin" inputmode="numeric" placeholder="••••••" autocomplete="off"></div></div>'
+          +'<div id="hmgIdBox" style="display:none"><div class="egg-field"><label>ID</label><input type="text" id="hmgId" placeholder="ID" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase"></div>'
+          +'<div class="egg-field"><label>PASSWORD</label><input type="password" id="hmgPw" placeholder="••••••" autocomplete="off"></div></div>'
           +'<div class="egg-err" id="hmgErr"></div>'
           +'<div class="egg-btns"><button class="egg-btn" id="hmgEnter" type="button">ENTER</button>'
           +'<button class="egg-btn egg-cancel" id="hmgCancel" type="button">CANCEL</button></div>'
         +'</div>';
         (document.body||document.documentElement).appendChild(ov);
         var sel=document.getElementById('hmgStore'), pin=document.getElementById('hmgPin'), er=document.getElementById('hmgErr');
+        var idIn=document.getElementById('hmgId'), pwIn=document.getElementById('hmgPw'), mode='pin';
         pin.addEventListener('input',function(){ var v=pin.value.replace(/[^0-9]/g,''); if(pin.value!==v) pin.value=v; });
+        idIn.addEventListener('input',function(){ var f=idIn.value.toUpperCase().replace(/[^A-Z0-9-]/g,''); if(idIn.value!==f) idIn.value=f; });
+        /* 입장 방식: 매장 PIN 또는 EGMM 과 같은 아이디·비밀번호 (ACCESS 계정 · 선택한 매장에 허용된 계정만) */
+        Array.prototype.forEach.call(ov.querySelectorAll('.egg-tab'),function(b){ b.onclick=function(){ mode=b.getAttribute('data-mode'); er.textContent='';
+          Array.prototype.forEach.call(ov.querySelectorAll('.egg-tab'),function(x){ x.classList.toggle('on',x===b); });
+          document.getElementById('hmgPinBox').style.display=mode==='pin'?'':'none'; document.getElementById('hmgIdBox').style.display=mode==='id'?'':'none';
+          setTimeout(function(){ (mode==='pin'?pin:idIn).focus(); },50); }; });
         document.getElementById('hmgCancel').onclick=function(){ location.replace('../index.html'); };
         var stores={}, busy=false;
         function fill(){ var keep=sel.value; var codes=Object.keys(stores).sort(function(a,b){ return ((stores[a].order!=null?stores[a].order:999)-(stores[b].order!=null?stores[b].order:999))||a.localeCompare(b); });
           sel.innerHTML='<option value="">— 매장 선택 —</option>'+codes.map(function(c){ var d=stores[c]; return '<option value="'+c.replace(/"/g,'')+'">'+String(d.name||c).replace(/</g,'&lt;')+(d.nameKo?' · '+String(d.nameKo).replace(/</g,'&lt;'):'')+'</option>'; }).join('');
           var last=''; try{ last=localStorage.getItem('hmartLastStore')||''; }catch(e){}
           sel.value=(keep&&stores[keep])?keep:((last&&stores[last])?last:''); }
+        function acctAllowed(u, acctStores, code, d){
+          if(typeof u.level==='number'&&u.level===0) return true;
+          var p=Array.isArray(acctStores)?acctStores.map(function(x){ return String(x||'').trim().toUpperCase(); }).filter(Boolean):[];
+          if(!p.length||p.indexOf('*')>=0) return true;
+          return p.indexOf(String(code).toUpperCase())>=0 || p.indexOf(String(d.name||'').toUpperCase())>=0;
+        }
+        function submitId(code,d){
+          var idv=(idIn.value||'').trim().toUpperCase(), pwv=(pwIn.value||'').trim();
+          if(!idv){ er.textContent='ENTER ID'; idIn.focus(); return; }
+          if(!pwv){ er.textContent='ENTER PASSWORD'; pwIn.focus(); return; }
+          busy=true; er.textContent='CHECKING…';
+          window.EgmmFB.ready.then(function(fb){ return fb.getDoc(fb.doc(fb.db,'ACCESS',idv)); }).then(function(snap){
+            if(!snap||!snap.exists||!snap.exists()) throw new Error('ID NOT FOUND');
+            var u=snap.data()||{}; if(u.blocked===true) throw new Error('BLOCKED ID · ASK MANAGER');
+            return window.EgmmFB.verifyPw(u.pw, pwv).then(function(ok){ if(!ok) throw new Error('WRONG PASSWORD');
+              var user={ id:idv, fullName:u.fullName||'', rank:u.rank||'', level:(typeof u.level==='number'?u.level:null), perms:Array.isArray(u.perms)?u.perms:[] };
+              if(!acctAllowed(user,u.stores,code,d)) throw new Error('NO ACCESS TO '+(d.name||code));
+              try{ sessionStorage.setItem('egmmAccessAuth', JSON.stringify(user)); }catch(e){}
+              var st={ code:code, name:d.name||code, nameKo:d.nameKo||'', at:Date.now(), by:'id' };
+              try{ sessionStorage.setItem(SS, JSON.stringify(st)); }catch(e){}
+              busy=false; unlock(st); });
+          }).catch(function(e){ busy=false; er.textContent=String(e&&e.message||'CONNECTION ERROR — TRY AGAIN'); pwIn.value=''; pwIn.focus(); });
+        }
         function submit(){
           if(busy) return; er.textContent='';
           var code=sel.value, v=(pin.value||'').trim();
           if(!code){ er.textContent='SELECT STORE'; sel.focus(); return; }
+          var dd=stores[code]||{};
+          if(mode==='id'){ submitId(code,dd); return; }
           if(!v){ er.textContent='ENTER PIN'; pin.focus(); return; }
           var d=stores[code]||{};
           if(!d.pin){ er.textContent='PIN NOT SET · ASK IT-MANAGER'; return; }
@@ -188,7 +226,9 @@
         }
         document.getElementById('hmgEnter').onclick=submit;
         pin.addEventListener('keydown',function(e){ if(e.key==='Enter') submit(); });
-        sel.addEventListener('change',function(){ pin.focus(); });
+        pwIn.addEventListener('keydown',function(e){ if(e.key==='Enter') submit(); });
+        idIn.addEventListener('keydown',function(e){ if(e.key==='Enter') pwIn.focus(); });
+        sel.addEventListener('change',function(){ (mode==='pin'?pin:idIn).focus(); });
         if(!window.EgmmFB){ er.textContent='FUNCTION-FIREBASE-EGMM.js 로드 필요'; return; }
         window.EgmmFB.ready.then(function(fb){
           return fb.getDocs(fb.collection(fb.db,'STORE')).then(function(snap){ snap.forEach(function(ds){ if(ds.id.charAt(0)!=='_') stores[ds.id]=ds.data()||{}; }); fill();
