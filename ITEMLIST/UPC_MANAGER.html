@@ -398,6 +398,43 @@ try{ document.documentElement.setAttribute('data-theme', localStorage.getItem('p
   .plu-fe-add, .plu-fe-save, .plu-fe-cancel { border-radius:9px; font-size:11px; padding:7px 13px; }
   .plu-modal-choice { border-radius:9px; }
   .plu-imp-go { border-radius:9px; }
+  /* [2026-10-08] 엑셀 불러오기 팝업 레이아웃 */
+  #impOv .plu-imp-modal { max-width:820px; }
+  #impOv .plu-imp-body { padding:14px 20px 16px; }
+  .imp-file { display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid #e5e5e0; border-radius:10px; background:#fafaf7; margin-bottom:12px; }
+  .imp-file-ic { font-size:10px; font-weight:900; letter-spacing:.08em; color:#1e7a46; background:#e6f4ec; border-radius:6px; padding:3px 7px; }
+  .imp-file b { font-size:13.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+  .imp-file-n { margin-left:auto; font-size:12px; font-weight:700; color:#8c8578; white-space:nowrap; }
+  .imp-sec { border:1px solid #e5e5e0; border-radius:12px; padding:12px 14px; margin-bottom:10px; background:#fff; }
+  .imp-sec-t { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:800; color:#1a1a1d; margin-bottom:10px; }
+  .imp-sec-t small { font-weight:700; color:#8c8578; font-size:11.5px; }
+  .imp-num { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:50%; background:#1a1a1d; color:#fff; font-size:11px; font-weight:900; }
+  .imp-cat-row { display:grid; grid-template-columns:140px 1fr; gap:10px; align-items:center; margin-bottom:8px; }
+  .imp-cat-lbl { font-size:11px; font-weight:800; letter-spacing:.04em; color:#6b6b72; }
+  .imp-cat-lbl small { display:block; font-weight:600; color:#9a9aa0; letter-spacing:0; }
+  .imp-sheets { display:flex; flex-direction:column; gap:6px; }
+  .imp-sheet { display:grid; grid-template-columns:200px 1fr 1fr; gap:10px; align-items:end; padding:8px 10px; border:1px solid #e5e5e0; border-radius:10px; background:#fafaf7; }
+  .imp-sheet.off { opacity:.5; }
+  .imp-sheet-nm { display:flex; align-items:center; gap:7px; font-size:13px; font-weight:800; padding-bottom:9px; min-width:0; }
+  .imp-sheet-nm span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .imp-sheet-nm em { font-style:normal; font-size:11px; font-weight:700; color:#8c8578; white-space:nowrap; }
+  .imp-cat-cell .icp-sel { margin-top:3px; }
+  #impOv .icp-sel { font-size:13px; padding:7px 10px; border-radius:8px; }
+  .imp-radio { display:flex; gap:16px; margin-top:8px; font-size:12.5px; font-weight:700; }
+  .imp-radio label { display:inline-flex; align-items:center; gap:6px; }
+  .imp-opts { display:grid; grid-template-columns:220px 1fr; gap:14px; align-items:start; }
+  .imp-checks { display:flex; flex-direction:column; gap:6px; font-size:12.5px; font-weight:700; padding-top:2px; }
+  .imp-checks label { display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+  .imp-checks small { font-weight:600; color:#9a9aa0; }
+  .imp-warn { color:#b91c1c; }
+  .imp-good { color:#1e7a46; font-weight:800; }
+  .imp-dim { color:#9a9aa0; font-weight:600; }
+  #impOv .plu-imp-map2 { margin-bottom:0; max-height:220px; overflow:auto; border:1px solid #efefea; border-radius:8px; padding:0 8px; }
+  #impOv .plu-imp-foot { margin-top:6px; }
+  html[data-theme=night] .imp-file, html[data-theme=night] .imp-sheet { background:#141a24; border-color:#333c4e; }
+  html[data-theme=night] .imp-sec { background:var(--bg-elev); border-color:#2a3140; }
+  html[data-theme=night] .imp-sec-t { color:var(--text); }
+  html[data-theme=night] .imp-num { background:#6ea8ff; color:#0b0f16; }
 
   /* [MODULE 06 · CATEGORY] 드래그 순서이동 표시 */
   .plu-drag-over { outline:2px dashed var(--accent-warm); outline-offset:2px; }
@@ -4768,7 +4805,7 @@ function onImportFile(file){
     var __twoColMapped=false;
     if(!__listMode && sheets.length===1){ var __mp2=buildMapping(sheets[0].headers,curLayout()).filter(function(m){ return !!m.key; }); __twoColMapped=__mp2.length>=2; }
     if(!__listMode && sheets.length===1 && !__twoColMapped && isPartialSheet(sheets[0].aoa)){ openPartialUpdate(file.name,sheets[0].aoa); return; }
-    impCtx={fname:file.name,sheets:sheets,listMode:__listMode};
+    impCtx={fname:file.name,sheets:sheets,listMode:__listMode,big:curBig()};
     /* [요구 2026-09] 불러오기는 현재 셋팅된 필드 그대로 데이터만 채움 —
        필드 추가/변경 없음. 매칭 안 되는 열은 무시(미리보기에 표시만) */
     renderImportModal(); $('impOv').classList.add('show');
@@ -4776,65 +4813,76 @@ function onImportFile(file){
   fr.readAsArrayBuffer(file);
 }
 
+/* ── [2026-10-08] 불러오기 대상: 팝업에서 상위(대분류) · 중간(소분류) · 하위(공유 트리) 카테고리를 직접 선택 ── */
+function impBig(){ return (impCtx&&impCtx.big&&S.layouts[impCtx.big])?impCtx.big:curBig(); }
+function impTab(){ var b=impBig(); for(var i=0;i<S.tabs.length;i++){ if(S.tabs[i].label===b) return S.tabs[i]; } return curTab(); }
+function impLayout(){ return S.layouts[impBig()]||[]; }
 function renderImportModal(){
-  var big=curBig(), subs=curTab().subs||[], lay=curLayout();
+  if(!impCtx.big) impCtx.big=curBig();
+  var big=impBig(), subs=impTab().subs||[], lay=impLayout();
+  impCtx.sheets.forEach(function(s){ if(subs.indexOf(s.targetSub)<0) s.targetSub=subs[0]||''; if(s.targetCat&&!catFind(big,s.targetSub,s.targetCat)) s.targetCat=''; });
   var first=null;
   impCtx.sheets.forEach(function(s){ if(!first&&s.use) first=s; });
   if(!first) first=impCtx.sheets[0];
   var map=buildMapping(first.headers,lay);
   var __lblN={}; lay.forEach(function(f){ var k=normKey(f.label); __lblN[k]=(__lblN[k]||0)+1; }); /* 중복 필드명 → 매칭 결과에 묶음 표시 */
+  var totalRows=0; impCtx.sheets.forEach(function(s){ if(s.use) totalRows+=Math.max(0,s.aoa.length-(impCtx.listMode?0:s.hIdx+1)); });
   var h='';
-  h+='<div class="plu-imp-hint"><b>'+escapeHtml(impCtx.fname)+'</b></div>';
+  /* ── 파일 ── */
+  h+='<div class="imp-file"><span class="imp-file-ic">XLSX</span><b>'+escapeHtml(impCtx.fname)+'</b><span class="imp-file-n">'+impCtx.sheets.length+'시트 · '+totalRows.toLocaleString('en-US')+'행</span></div>';
 
-  if(APP_MODE==='UPC'){
-    /* [요구 2026-09] 업체 지정 — 선택하면 축약어 이름의 대분류로 저장 + VENDER 필드 = 축약어 (아래 소분류 선택은 무시) */
-    /* [버그 수정 2026-10-01] 업체 기본값은 항상 '미지정' — 대분류 이름(예: EGP)이 업체 코드와 같으면 자동 선택되어 파일의 VENDER 값을 전부 EGP 로 덮어쓰던 문제 */
-    var __vsel=(impCtx.vender!=null)?impCtx.vender:'';
-    h+='<div class="icp-lbl">업체</div>';
-    h+='<select class="icp-sel" id="impVender">'+(__venderList?venderOptionsHtml(__vsel):'<option value="">업체 목록 불러오는 중…</option>')+'</select>';
-  }
-  h+='<div class="icp-lbl">시트 · 카테고리</div>';
+  /* ── 1. 대상 카테고리 ── */
+  h+='<div class="imp-sec"><div class="imp-sec-t"><span class="imp-num">1</span>대상 카테고리 <small>상위 · 중간 · 하위를 골라 그 위치의 자료를 업데이트</small></div>';
+  h+='<div class="imp-cat-row imp-cat-head"><div class="imp-cat-lbl">상위 카테고리</div><select class="icp-sel" id="impBigSel">'+S.tabs.map(function(t){ return '<option value="'+escapeHtml(t.label)+'"'+(t.label===big?' selected':'')+'>'+escapeHtml(t.label)+'</option>'; }).join('')+'</select></div>';
+  h+='<div class="imp-sheets">';
   impCtx.sheets.forEach(function(s,i){
-    h+='<div class="icp-opt icp-opt-sub" style="gap:10px;">';
-    h+='<label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;"><input type="checkbox" class="imp-sheet-use" data-i="'+i+'"'+(s.use?' checked':'')+'> '+escapeHtml(s.name)+' <span style="color:#9a9aa0;font-weight:600;">('+Math.max(0,s.aoa.length-s.hIdx-1)+'행)</span></label>';
-    h+='<select class="icp-sel imp-sheet-sub" data-i="'+i+'" style="flex:0 1 180px;width:auto;">';
-    subs.forEach(function(sb){ h+='<option value="'+escapeHtml(sb)+'"'+(sb===s.targetSub?' selected':'')+'>'+escapeHtml(sb)+'</option>'; });
-    h+='</select></div>';
+    var cats=catSubsOf(big,s.targetSub);
+    h+='<div class="imp-sheet'+(s.use?'':' off')+'" data-i="'+i+'">'
+      +'<label class="imp-sheet-nm"><input type="checkbox" class="imp-sheet-use" data-i="'+i+'"'+(s.use?' checked':'')+'><span>'+escapeHtml(s.name)+'</span><em>'+Math.max(0,s.aoa.length-(impCtx.listMode?0:s.hIdx+1)).toLocaleString('en-US')+'행</em></label>'
+      +'<div class="imp-cat-cell"><div class="imp-cat-lbl">중간 카테고리</div><select class="icp-sel imp-sheet-sub" data-i="'+i+'">'+subs.map(function(sb){ return '<option value="'+escapeHtml(sb)+'"'+(sb===s.targetSub?' selected':'')+'>'+escapeHtml(sb)+'</option>'; }).join('')+'</select></div>'
+      +'<div class="imp-cat-cell"><div class="imp-cat-lbl">하위 카테고리</div><select class="icp-sel imp-sheet-cat" data-i="'+i+'"><option value="">(파일 값대로)</option>'+cats.map(function(c){ return '<option value="'+escapeHtml(c.no)+'"'+(normKey(c.no)===normKey(s.targetCat||'')?' selected':'')+'>'+escapeHtml(String(c.no)+(c.kor?' · '+c.kor:'')+(c.eng?' · '+c.eng:''))+'</option>'; }).join('')+'</select></div>'
+      +'</div>';
   });
-
+  h+='</div>';
   if(APP_MODE==='UPC'){
-    h+='<div class="icp-opt" style="gap:14px;"><label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;"><input type="radio" name="impMode" value="fields"'+(impCtx.listMode?'':' checked')+'> 1행 = 필드명</label>'
-      +'<label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;"><input type="radio" name="impMode" value="list"'+(impCtx.listMode?' checked':'')+'> 업체 리스트 (A=UPC · B=ITEM CODE · C=상품명)</label></div>';
+    var __vsel=(impCtx.vender!=null)?impCtx.vender:'';
+    h+='<div class="imp-cat-row"><div class="imp-cat-lbl">업체 <small>지정하면 중간 카테고리 = 업체 · VENDER 필드 = 업체</small></div><select class="icp-sel" id="impVender">'+(__venderList?venderOptionsHtml(__vsel):'<option value="">업체 목록 불러오는 중…</option>')+'</select></div>';
+    h+='<div class="imp-radio"><label><input type="radio" name="impMode" value="fields"'+(impCtx.listMode?'':' checked')+'> 1행 = 필드명</label><label><input type="radio" name="impMode" value="list"'+(impCtx.listMode?' checked':'')+'> 업체 리스트 (A=UPC · B=ITEM CODE · C=상품명)</label></div>';
   }
+  h+='</div>';
+
+  /* ── 2. 열 → 필드 ── */
+  var __miss=impCtx.listMode?[]:map.filter(function(m){ return !m.key&&String(m.header||'').trim()!==''; }).map(function(m){ return m.header; });
+  var __okN=impCtx.listMode?3:map.filter(function(m){ return !!m.key; }).length;
+  h+='<div class="imp-sec"><div class="imp-sec-t"><span class="imp-num">2</span>열 → 필드 <small>연결 '+__okN+'개'+(__miss.length?' · <span class="imp-warn">무시 '+__miss.length+'개</span>':'')+'</small></div>';
   if(impCtx.listMode){
     var __pkL=(fieldByKey(big,'ITEM_PLU')||{}).label||'UPC';
-    h+='<div class="icp-lbl" style="margin-top:12px;">열 → 필드</div>';
     h+='<div class="plu-imp-map2"><table class="plu-imp-map"><thead><tr><th>엑셀 열</th><th>들어갈 필드</th></tr></thead><tbody>'
-      +'<tr><td>A열</td><td class="imp-ok">'+escapeHtml(__pkL)+' <span style="color:#9a9aa0;font-weight:600">(6자리 이하 제외)</span></td></tr>'
+      +'<tr><td>A열</td><td class="imp-ok">'+escapeHtml(__pkL)+' <span class="imp-dim">(6자리 이하 제외)</span></td></tr>'
       +'<tr><td>B열</td><td class="imp-ok">ITEM CODE</td></tr>'
-      +'<tr><td>C열</td><td class="imp-ok">상품명 <span style="color:#9a9aa0;font-weight:600">(영문/한글 · 용량 자동 분리)</span></td></tr>'
+      +'<tr><td>C열</td><td class="imp-ok">상품명 <span class="imp-dim">(영문/한글 · 용량 자동 분리)</span></td></tr>'
       +'</tbody></table></div>';
     map=[];
+  } else {
+    var __rows=[];
+    map.forEach(function(m){
+      if(m.header===''){ return; }
+      if(m.key){
+        var f=fieldByKey(big,m.key);
+        var __fl=f?((f.group&&__lblN[normKey(f.label)]>1)?(f.group+' · '+f.label):f.label):m.key;
+        if(m.split){ __fl='상품명 (영문/한글 · 용량 자동 분리)'; }
+        var __auto=!!(f&&(f.formula||(f.share&&f.share!==f.key))); /* 수식·쉐어 필드 = 파일 값 무시, 자동 계산 */
+        __rows.push('<tr><td>'+escapeHtml(m.header)+'</td><td class="imp-ok">'+escapeHtml(__fl)+(__auto?' <span class="imp-dim">· 자동 계산 (파일 값 무시)</span>':'')+'</td></tr>');
+      }else{
+        __rows.push('<tr><td>'+escapeHtml(m.header)+'</td><td><span class="imp-miss">무시</span></td></tr>');
+      }
+    });
+    var __half=Math.ceil(__rows.length/2), __tb=function(rs){ return '<table class="plu-imp-map"><thead><tr><th>엑셀 열</th><th>들어갈 필드</th></tr></thead><tbody>'+rs.join('')+'</tbody></table>'; };
+    h+='<div class="plu-imp-map2">'+__tb(__rows.slice(0,__half))+(__rows.length>1?__tb(__rows.slice(__half)):'')+'</div>';
   }
-  if(!impCtx.listMode){
-  h+='<div class="icp-lbl" style="margin-top:12px;">열 → 필드</div>';
-  var __rows=[];
-  map.forEach(function(m){
-    if(m.header===''){ return; }
-    if(m.key){
-      var f=fieldByKey(big,m.key);
-      var __fl=f?((f.group&&__lblN[normKey(f.label)]>1)?(f.group+' · '+f.label):f.label):m.key;
-      if(m.split){ __fl='상품명 (영문/한글 · 용량 자동 분리)'; }
-      var __auto=!!(f&&(f.formula||(f.share&&f.share!==f.key))); /* [2026-10-08] 수식·쉐어 필드 = 파일 값 무시, 자동 계산 */
-      __rows.push('<tr><td>'+escapeHtml(m.header)+'</td><td class="imp-ok">'+escapeHtml(__fl)+(__auto?' <span style="color:#9a9aa0;font-weight:600;">· 자동 계산 (파일 값 무시)</span>':'')+'</td></tr>');
-    }else{
-      __rows.push('<tr><td>'+escapeHtml(m.header)+'</td><td><span class="imp-miss">무시</span></td></tr>');
-    }
-  });
-  var __half=Math.ceil(__rows.length/2), __tb=function(rs){ return '<table class="plu-imp-map"><thead><tr><th>엑셀 열</th><th>들어갈 필드</th></tr></thead><tbody>'+rs.join('')+'</tbody></table>'; };
-  h+='<div class="plu-imp-map2">'+__tb(__rows.slice(0,__half))+(__rows.length>1?__tb(__rows.slice(__half)):'')+'</div>';
-  }
+  h+='</div>';
 
+  /* ── 3. 옵션 ── */
   /* [요구 5] STORE/LOCATION 열 값에서 매장 자동 감지 → 리스트 기본 선택 */
   var detStores=[], det99=false;
   (function(){
@@ -4848,57 +4896,46 @@ function renderImportModal(){
         cols.forEach(function(ci){
           var raw=cellStr(rr[ci]);
           if(String(raw).trim()!==''&&isMasterLoc(raw)){ det99=true; return; } /* [LOCATION 99] 기본(전체) 표시 */
-          if(isDefaultLoc(raw)) return; /* [2026-10-08] 기본 번호(99)는 매장 감지에서 제외 — 모달 기본 = 현재 보는 매장 */
+          if(isDefaultLoc(raw)) return; /* 기본 번호(99)는 매장 감지에서 제외 — 모달 기본 = 현재 보는 매장 */
           var nm=storeNameFromVal(raw); if(nm&&!seenS[nm]){ seenS[nm]=1; detStores.push(nm); }
         });
       }
     }
   })();
-  /* 전체·ALL 감지 시 기본(마스터) 선택 — 99 는 EGMM 매장으로 감지됨 · 행별 LOCATION 값이 최종 우선 */
-  var defStore=(detStores.length===1)?detStores[0]:(detStores[0]||(det99?'':S.curStore));
-  h+='<div class="icp-lbl">매장'
-    +(det99?' <span style="color:#1e7a46;font-weight:800;">— 파일에 전체 매장 표시</span>':'')
-    +(detStores.length?' <span style="color:#1e7a46;font-weight:800;">— 파일에서 찾음: '+escapeHtml(detStores.join(', '))+'</span>':'')+'</div>';
+  var defStore=(impCtx.store!=null)?impCtx.store:((detStores.length===1)?detStores[0]:(detStores[0]||(det99?'':S.curStore)));
+  h+='<div class="imp-sec"><div class="imp-sec-t"><span class="imp-num">3</span>옵션</div>';
+  h+='<div class="imp-opts">';
+  h+='<div class="imp-cat-cell"><div class="imp-cat-lbl">매장'+(det99?' <small class="imp-good">파일에 전체 매장 표시</small>':'')+(detStores.length?' <small class="imp-good">파일에서 찾음: '+escapeHtml(detStores.join(', '))+'</small>':'')+'</div>';
   h+='<select class="icp-sel" id="impStore"><option value=""'+(defStore?'':' selected')+'>전체 매장</option>';
   var optStores=S.stores.slice();
   detStores.forEach(function(nm){ if(optStores.indexOf(nm)<0) optStores.push(nm); }); /* 아직 없는 매장도 선택 가능(실행 시 자동 등록) */
   optStores.forEach(function(st){ h+='<option value="'+escapeHtml(st)+'"'+(st===defStore?' selected':'')+'>'+escapeHtml(st)+'</option>'; });
-  h+='</select>';
-
-  var mappedKeys=[]; map.forEach(function(m){ if(m.key&&mappedKeys.indexOf(m.key)<0) mappedKeys.push(m.key); });
-  /* [디버깅 지원] 매칭 안 된 열은 반영되지 않음 — 상단에 빨간 경고로 명시 */
-  var __miss=impCtx.listMode?[]:map.filter(function(m){ return !m.key&&String(m.header||'').trim()!==''; }).map(function(m){ return m.header; });
-  if(__miss.length){
-    h='<div class="plu-imp-hint" style="color:#b91c1c;font-weight:800;margin-bottom:8px;">무시되는 열 '+__miss.length+'개: '+escapeHtml(__miss.slice(0,10).join(', '))+(__miss.length>10?' …':'')+'</div>'+h;
-  }
-  /* [요구 2026-09 ①] 매칭 기준은 PLU/UPC 고정 — 값이 같은 행 업데이트, 없으면 새 행 추가, PLU/UPC 빈 행은 건너뜀 */
+  h+='</select></div>';
+  /* [요구 2026-09 ①] 매칭 기준은 PLU/UPC 고정 */
   var __pkF=fieldByKey(big,'ITEM_PLU')||fieldByKey(big,'PLU');
   h+='<select class="icp-sel" id="impMatch" style="display:none;"><option value="'+escapeHtml(__pkF?__pkF.key:'ITEM_PLU')+'" selected>'+escapeHtml(__pkF?__pkF.label:'PLU')+'</option></select>';
-
-  if(big==='청과'){
-    h+='<div class="icp-opt"><label style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;"><input type="checkbox" id="impRoute"> PLU 번호로 소분류 자동 배치</label></div>';
-  }
-  /* [요구 2026-09] 무조건 덮어쓰기: 파일의 빈 셀까지 기존 값을 지우고 덮어씀 (기본 OFF = 빈 셀은 기존 값 유지) */
-  /* [확정 2026-10-08] 완전 덮어쓰기: 파일에 있는 열은 빈 셀까지 그대로 저장 (기본 ON) */
-  h+='<div class="icp-opt"><label style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;"><input type="checkbox" id="impWipe"'+(impCtx.wipeEmpty===false?'':' checked')+'> 빈 셀도 덮어쓰기 <span style="color:#9a9aa0;font-weight:600;">(파일 값으로 완전 덮어쓰기)</span></label></div>';
-  { /* [2026-10-02] PLU 도 동일(중복 PLU) */
-    /* [확정 2026-10-08] 중복 허용 체크 — 켜면 기존에 같은 UPC/ITEM CODE 가 있어도 파일 행을 전부 새 행으로 추가(중복 생김),
-       끄면 같은 UPC(또는 ITEM CODE) 인 기존 행을 파일 값으로 완전히 덮어씀. 기본 = 끔(덮어쓰기) */
-    var __dU=(impCtx.allowDupUpc===true), __dC=(impCtx.allowDupCode===true);
-    h+='<div class="icp-opt" style="gap:14px;"><label style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;"><input type="checkbox" id="impDupUpc"'+(__dU?' checked':'')+'> 중복 '+(APP_MODE==='UPC'?'UPC':'PLU')+' 허용 <span style="color:#9a9aa0;font-weight:600;">(끄면 같은 '+(APP_MODE==='UPC'?'UPC':'PLU')+' 기존 행 덮어쓰기)</span></label>'
-      +(APP_MODE==='UPC'?'<label style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;"><input type="checkbox" id="impDupCode"'+(__dC?' checked':'')+'> 중복 ITEM CODE 허용 <span style="color:#9a9aa0;font-weight:600;">(끄면 같은 ITEM CODE 기존 행 덮어쓰기)</span></label>':'')+'</div>';
-  }
+  var __dU=(impCtx.allowDupUpc===true), __dC=(impCtx.allowDupCode===true);
+  h+='<div class="imp-checks">';
+  h+='<label><input type="checkbox" id="impWipe"'+(impCtx.wipeEmpty===false?'':' checked')+'> 빈 셀도 덮어쓰기 <small>파일에 있는 열은 빈 칸까지 그대로</small></label>';
+  h+='<label><input type="checkbox" id="impDupUpc"'+(__dU?' checked':'')+'> 중복 '+(APP_MODE==='UPC'?'UPC':'PLU')+' 허용 <small>끄면 같은 '+(APP_MODE==='UPC'?'UPC':'PLU')+' 기존 행 덮어쓰기</small></label>';
+  if(APP_MODE==='UPC') h+='<label><input type="checkbox" id="impDupCode"'+(__dC?' checked':'')+'> 중복 ITEM CODE 허용 <small>끄면 같은 ITEM CODE 기존 행 덮어쓰기</small></label>';
+  if(big==='청과') h+='<label><input type="checkbox" id="impRoute"'+(impCtx.routeByPlu?' checked':'')+'> PLU 번호로 중간 카테고리 자동 배치</label>';
+  h+='</div></div></div>';
 
   h+='<div class="plu-imp-foot"><button class="plu-tool-btn" id="impCancel" type="button">취소</button><button class="plu-tool-btn plu-imp-go" id="impGo" type="button">불러오기</button></div>';
 
   $('impBody').innerHTML=h;
+  $('impBigSel').onchange=function(){ impCtx.big=this.value; var sb0=((impTab().subs||[])[0])||''; impCtx.sheets.forEach(function(s){ s.targetSub=sb0; s.targetCat=''; }); renderImportModal(); };
   $('impBody').querySelectorAll('.imp-sheet-use').forEach(function(cb){ cb.onchange=function(){ impCtx.sheets[parseInt(cb.getAttribute('data-i'),10)].use=cb.checked; renderImportModal(); }; });
-  $('impBody').querySelectorAll('.imp-sheet-sub').forEach(function(sl){ sl.onchange=function(){ impCtx.sheets[parseInt(sl.getAttribute('data-i'),10)].targetSub=sl.value; }; });
+  $('impBody').querySelectorAll('.imp-sheet-sub').forEach(function(sl){ sl.onchange=function(){ var sh=impCtx.sheets[parseInt(sl.getAttribute('data-i'),10)]; sh.targetSub=sl.value; sh.targetCat=''; renderImportModal(); }; });
+  $('impBody').querySelectorAll('.imp-sheet-cat').forEach(function(sl){ sl.onchange=function(){ impCtx.sheets[parseInt(sl.getAttribute('data-i'),10)].targetCat=sl.value; }; });
   $('impCancel').onclick=function(){ $('impOv').classList.remove('show'); };
   Array.prototype.forEach.call($('impBody').querySelectorAll('input[name="impMode"]'),function(r){ r.onchange=function(){ impCtx.listMode=(r.value==='list'); renderImportModal(); }; });
+  if($('impStore')) $('impStore').onchange=function(){ impCtx.store=$('impStore').value; };
   if($('impDupUpc')) $('impDupUpc').onchange=function(){ impCtx.allowDupUpc=$('impDupUpc').checked; };
   if($('impWipe')) $('impWipe').onchange=function(){ impCtx.wipeEmpty=$('impWipe').checked; };
   if($('impDupCode')) $('impDupCode').onchange=function(){ impCtx.allowDupCode=$('impDupCode').checked; };
+  if($('impRoute')) $('impRoute').onchange=function(){ impCtx.routeByPlu=$('impRoute').checked; };
   if(APP_MODE==='UPC'){
     var __vs=$('impVender');
     if(__vs){
@@ -4908,28 +4945,30 @@ function renderImportModal(){
       else impCtx.vender=__vs.value;
     }
   }
-  /* [요구 2026-09 ③] 실행 전 확인 팝업 — "이 엑셀 열을 이 리스트 필드에 업데이트합니다" 를 열별로 보여주고 확정 */
+  /* [요구 2026-09 ③] 실행 전 확인 팝업 */
   $('impGo').onclick=function(){ confirmImportThenRun(); };
 }
 function confirmImportThenRun(){
-  var big=curBig(), lay=curLayout();
+  var big=impBig(), lay=impLayout();
   var use=impCtx.sheets.filter(function(s){ return s.use; });
   if(!use.length){ showToast('가져올 시트를 선택하세요','error'); return; }
   var lines=[], keyF=$('impMatch')?$('impMatch').value:'', st=$('impStore')?$('impStore').value:'';
   use.forEach(function(sh){
+    var catE=sh.targetCat?catFind(big,sh.targetSub,sh.targetCat):null;
+    var where=big+' / '+sh.targetSub+(catE?(' / '+catE.no+(catE.kor?' '+catE.kor:'')):'');
     if(impCtx.listMode){
-      lines.push('시트 "'+sh.name+'" → '+big+' / '+sh.targetSub+' · '+Math.max(0,sh.aoa.length-1).toLocaleString('en-US')+'행');
+      lines.push('시트 "'+sh.name+'" → '+where+' · '+Math.max(0,sh.aoa.length-1).toLocaleString('en-US')+'행');
       lines.push('A=UPC · B=ITEM CODE · C=상품명');
       return;
     }
     var map=buildMapping(sh.headers,lay);
     var ok=map.filter(function(m){ return !!m.key; }), miss=map.filter(function(m){ return !m.key&&String(m.header||'').trim()!==''; });
-    lines.push('시트 "'+sh.name+'" → '+big+' / '+sh.targetSub+' · '+Math.max(0,sh.aoa.length-sh.hIdx-1).toLocaleString('en-US')+'행');
+    lines.push('시트 "'+sh.name+'" → '+where+' · '+Math.max(0,sh.aoa.length-sh.hIdx-1).toLocaleString('en-US')+'행');
     lines.push(ok.map(function(m){ var f=fieldByKey(big,m.key); return m.header+' → '+(m.split?'상품명':(f?f.label:m.key)); }).join(' · '));
     if(miss.length) lines.push('무시: '+miss.map(function(m){ return m.header; }).join(', '));
+    if(catE) lines.push('하위 카테고리: 모든 행의 CATEGORY NO · KOR · ENG = '+catE.no+' / '+(catE.kor||'')+' / '+(catE.eng||''));
   });
   lines.push('');
-  var __noCode=(APP_MODE==='UPC')&&use.every(function(sh){ if(impCtx.listMode) return false; return !buildMapping(sh.headers,lay).some(function(m){ return m.key&&normKey(m.key)==='VENDER_ITEM_CODE'; }); });
   (function(){
     var dU=!!($('impDupUpc')&&$('impDupUpc').checked), dC=!!($('impDupCode')&&$('impDupCode').checked), kl=(APP_MODE==='UPC')?'UPC':((fieldByKey(big,keyF)||{}).label||'PLU');
     var keys=[]; if(!dU) keys.push(kl); if(APP_MODE==='UPC'&&!dC) keys.push('ITEM CODE');
@@ -4950,10 +4989,10 @@ function confirmImportThenRun(){
 }
 
 function runImport(){
-  var big=curBig();
+  var big=impBig();
   var opts={
     big:big, fname:impCtx.fname||'',
-    sheets:impCtx.sheets.filter(function(s){return s.use;}).map(function(s){ return {name:s.name,aoa:s.aoa,hIdx:s.hIdx,headers:s.headers,targetSub:s.targetSub,fml:s.fml||null,baseCol:s.baseCol||0}; }),
+    sheets:impCtx.sheets.filter(function(s){return s.use;}).map(function(s){ return {name:s.name,aoa:s.aoa,hIdx:s.hIdx,headers:s.headers,targetSub:s.targetSub,targetCat:s.targetCat||'',fml:s.fml||null,baseCol:s.baseCol||0}; }),
     store:($('impStore')?$('impStore').value:''),
     matchKey:($('impMatch')?$('impMatch').value:''),
     wipeEmpty:($('impWipe')?$('impWipe').checked:false),
@@ -4970,17 +5009,19 @@ function runImport(){
   if(res.fml){ S.tabs.forEach(function(t){ calcAll(t.label); }); }
   else { for(var __bg2 in (res.bigs||{})) calcAll(__bg2); }
   if(SUB_BY_VENDER){ for(var __bg3 in (res.bigs||{})) syncSubsByVender(S,__bg3); } /* 소분류 = VENDER 값 보장 */
-  if(opts.vender){ var __sbs=(curTab().subs||[]), __si=__sbs.indexOf(opts.vender); if(__si>=0){ pluSub=__si; S.ui.sub=__si; } } /* 업체 지정 → 그 소분류 화면으로 */
+  /* [2026-10-08] 선택한 상위/중간 카테고리 화면으로 이동 */
+  (function(){ var bi=-1; for(var i=0;i<S.tabs.length;i++){ if(S.tabs[i].label===big){ bi=i; break; } } if(bi>=0){ pluBig=bi; S.ui.big=bi; var sbs=S.tabs[bi].subs||[]; var want=opts.vender?opts.vender:(opts.sheets[0]&&opts.sheets[0].targetSub); var si=sbs.indexOf(want); pluSub=(si>=0?si:0); S.ui.sub=pluSub; } })();
   renderBigTabs(); renderSubTabs(); /* 부서 라우팅으로 소분류가 자동 생성됐을 수 있음 */
   saveState(); $('impOv').classList.remove('show'); renderStoreBar(); renderContent();
   if(res.excl){ var __ex=[]; for(var __ek in res.excl) __ex.push(__ek+' '+res.excl[__ek]+'행'); uiAlert('규칙에 따라 제외된 행: '+__ex.join(' · ')+'\n(업데이트 '+res.upd+' · 추가 '+res.add+')','업체 리스트 파일 제외 행'); }
-  showToast('불러오기 완료 — 업데이트 '+res.upd+(res.upcMulti?' (UPC 기준 중복 행 포함)':'')+' · 추가 '+res.add+(res.shortUpc?' · UPC 6자리 이하 제외 '+res.shortUpc:'')+(res.dupUpc?' · 중복 UPC 건너뜀 '+res.dupUpc:'')+(res.dupCode?' · 중복 ITEM CODE 건너뜀 '+res.dupCode:'')+(res.trashed?' · TRASH 일치 무시 '+res.trashed:'')+(res.skipped?' · 기준값 없음 건너뜀 '+res.skipped:'')+(res.moved?' · 소분류 이동 '+res.moved:'')+(res.dept?' · DEPARTMENT 라우팅 '+res.dept:'')+(res.unhid?' · 숨김 해제 '+res.unhid+'필드':'')+(res.fml?' · 엑셀 함수 적용 '+res.fml:'')+(res.storesAdded?' · 매장 추가 '+res.storesAdded:''),'success');
+  showToast('불러오기 완료 — 업데이트 '+res.upd+(res.upcMulti?' (UPC 기준 중복 행 포함)':'')+' · 추가 '+res.add+(res.shortUpc?' · UPC 6자리 이하 제외 '+res.shortUpc:'')+(res.trashed?' · TRASH 일치 무시 '+res.trashed:'')+(res.skipped?' · 기준값 없음 건너뜀 '+res.skipped:'')+(res.moved?' · 소분류 이동 '+res.moved:'')+(res.dept?' · DEPARTMENT 라우팅 '+res.dept:'')+(res.unhid?' · 숨김 해제 '+res.unhid+'필드':'')+(res.fml?' · 엑셀 함수 적용 '+res.fml:'')+(res.storesAdded?' · 매장 추가 '+res.storesAdded:''),'success');
   if(res.fmlFail&&res.fmlFail.length) uiAlert('엑셀 함수를 적용하지 못한 열 '+res.fmlFail.length+'건 (기존 수식 유지):\n'+res.fmlFail.slice(0,20).join('\n')+(res.fmlFail.length>20?'\n…':''),'수식 변환 결과');
   /* [디버깅 지원] 매칭 기준을 지정했는데 기존 행 업데이트가 0건 = PLU 값이 하나도 일치하지 않음 */
-  if(opts.matchKey&&res.upd===0&&res.add>0){
+  if(opts.matchKey&&res.upd===0&&res.add>0&&opts.allowDupUpc!==true){
     uiAlert('기존 행과 매칭된 데이터가 0건입니다 — 전부 새 행으로 추가되었습니다.\n파일의 매칭 기준('+opts.matchKey+') 값이 기존 리스트의 값과 일치하는지 확인하세요.\n(예: PLU 번호가 다른 대분류에 있거나, 열이 잘못 매칭된 경우)','매칭 결과 확인');
   }
 }
+
 
 /* [요구 2026-09] 엑셀에 있는 함수를 그대로 적용 — 엑셀 수식 → 엔진 수식 변환기
    - 같은 행 셀 참조(E2 등)를 F('필드KEY')로 치환 (열 → 매칭된 필드 기준)
@@ -5238,6 +5279,8 @@ function applyImport(opts){
         if(__vv){ ensureSub(rowBig,__vv); dest=__vv; rowSubs=(tabOf(rowBig).subs)||rowSubs; }
       }
 
+      /* [2026-10-08] 팝업에서 하위 카테고리를 지정하면 모든 행의 CATEGORY NO · KOR · ENG 를 그 값으로 */
+      if(sh.targetCat){ var __tce=catFind(rowBig,sh.targetSub,sh.targetCat)||catFind(rowBig,dest,sh.targetCat); if(__tce){ vals.CATEGORY_NUMBER=String(__tce.no||''); vals.CATEGORY_KOREA=String(__tce.kor||''); vals.CATEGORY_ENGLISH=String(__tce.eng||''); } }
       /* [2026-10-02] 하위 카테고리 번호(CATEGORY_NO)가 있으면 공유 트리에서 KOR · ENG 자동 채움 (파일에 없을 때) */
       if(vals.CATEGORY_NUMBER!=null&&String(vals.CATEGORY_NUMBER).trim()!==''){ var __cte=catFind(rowBig,dest,vals.CATEGORY_NUMBER); if(__cte){ if(vals.CATEGORY_KOREA==null||String(vals.CATEGORY_KOREA).trim()==='') vals.CATEGORY_KOREA=String(__cte.kor||''); if(vals.CATEGORY_ENGLISH==null||String(vals.CATEGORY_ENGLISH).trim()==='') vals.CATEGORY_ENGLISH=String(__cte.eng||''); } }
       /* [TRASH · 2026-10] 삭제 보관함에 UPC+ITEM CODE 가 모두 있는 행은 무조건 무시 (쓰레기 재등록 방지) */
