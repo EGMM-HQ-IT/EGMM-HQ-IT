@@ -83,7 +83,20 @@
   .drow .dk{ font-size:12.5px; font-weight:700; color:var(--text-dim); }
   .drow .di{ font-size:12px; font-weight:700; color:var(--text-dim); word-break:keep-all; }
   .drow .dal{ display:inline; margin:0; }
-  .drow .acts{ display:flex; gap:6px; }
+  .drow .acts{ display:flex; gap:6px; position:relative; }
+  .dpop{ position:fixed; z-index:600; background:var(--bg-elev); border:1.5px solid var(--border-bright); border-radius:12px; box-shadow:0 18px 44px rgba(30,27,22,.2); padding:6px; display:none; min-width:200px; max-height:60vh; overflow-y:auto; }
+  .dpop.show{ display:block; }
+  .dpop button{ display:flex; align-items:center; gap:8px; width:100%; text-align:left; border:none; background:transparent; border-radius:8px; padding:8px 10px; font:inherit; font-size:13px; font-weight:800; color:var(--text); cursor:pointer; }
+  .dpop button:hover{ background:var(--accent-soft); }
+  .dpop button.on{ background:var(--accent-warm); color:#fff; }
+  .dpop button .n{ min-width:22px; height:20px; border-radius:6px; background:var(--bg); color:var(--text-dim); display:inline-flex; align-items:center; justify-content:center; font-size:11px; }
+  .dpop button.on .n{ background:rgba(255,255,255,.25); color:#fff; }
+  .dpop .none{ color:var(--text-faint); }
+  /* 매입일지에서 발견된 미등록 업체 */
+  .dgroup.unreg{ color:var(--danger); } .dgroup.unreg .gnum{ background:var(--danger); }
+  .drow.unreg{ border-style:dashed; }
+  .drow.unreg .dn{ color:var(--danger); }
+  .drow.unreg .dk{ font-size:11.5px; }
   .empty{ text-align:center; color:var(--text-faint); font-size:13px; font-weight:700; padding:26px 6px; border:2px dashed var(--border); border-radius:12px; }
 
   .toast{ position:fixed; top:26px; left:50%; transform:translateX(-50%) translateY(-16px); background:var(--text); color:#fff;
@@ -120,40 +133,34 @@
 </head>
 <body>
 <div class="toast" id="toast"></div>
-<div class="gate-note" id="gateNote"><div class="gc">🔒 EGMM 포털을 통해 접속하세요<br><span style="font-size:12px;color:var(--text-faint)">EGMM.html 로그인 후 SYSTEM &gt; VENDER 메뉴</span></div></div>
+<div class="gate-note" id="gateNote"><div class="gc">EGMM 포털을 통해 접속하세요</div></div>
 
 <div class="wrap">
   <div class="page-topbar">
-    <h1>🏢 VENDER<small>업체명 · 축약어 관리 (UPC MANAGER VENDER 필드 · 불러오기 업체 지정)</small></h1>
+    <h1>VENDER<small>업체 관리</small></h1>
     <span class="live">● LIVE</span>
   </div>
   <div class="banner" id="fbBanner"></div>
 
   <div class="panel">
-    <h2><span class="ico">＋</span> <span id="addTitle">업체 추가</span></h2>
+    <h2><span id="addTitle">업체 추가</span></h2>
     <div class="addgrid">
-      <div class="field"><label>업체명</label><input type="text" id="dName" placeholder="예: SEOUL TRADING (WA)" autocomplete="off"></div>
-      <div class="field"><label>한글명 (선택)</label><input type="text" id="dKo" placeholder="예: 서울트레이딩" autocomplete="off"></div>
-      <div class="field"><label>축약어 (VENDER 코드)</label><input type="text" id="dCode" placeholder="예: STI-WA" autocomplete="off"></div>
-      <div class="field"><label>영업 품목 종류</label><input type="text" id="dItems" placeholder="예: 라면, 과자, 음료, 냉동식품" autocomplete="off"></div>
+      <div class="field"><label>업체명</label><input type="text" id="dName" placeholder="" autocomplete="off"></div>
+      <div class="field"><label>한글명 (선택)</label><input type="text" id="dKo" placeholder="" autocomplete="off"></div>
+      <div class="field"><label>축약어 (VENDER 코드)</label><input type="text" id="dCode" placeholder="" autocomplete="off"></div>
+      <div class="field"><label>영업 품목 종류</label><input type="text" id="dItems" placeholder="" autocomplete="off"></div>
       <div class="field"><label>부서 (카테고리)</label><select id="dDept"><option value="">— 미지정 —</option></select></div>
       <div class="field" style="grid-column:1/-1"><label>유사 이름 (이 업체로 인식할 다른 표기 · 여러 개 등록 가능)</label>
-        <div class="alias-box"><span id="aliasChips" style="display:contents"></span><input type="text" id="dAliases" placeholder="예: EGP(GR) 입력 후 Enter 또는 ＋ (쉼표로 여러 개 한 번에)" autocomplete="off"><button class="alias-add" id="aliasAddBtn" type="button">＋ 추가</button></div></div>
-      <button class="btn" id="dSaveBtn" type="button">＋ 추가</button>
+        <div class="alias-box"><span id="aliasChips" style="display:contents"></span><input type="text" id="dAliases" placeholder="" autocomplete="off"><button class="alias-add" id="aliasAddBtn" type="button">추가</button></div></div>
+      <button class="btn" id="dSaveBtn" type="button">추가</button>
     </div>
-    <div class="hint">업체는 <b>축약어</b>로 관리됩니다 — 축약어는 UPC MANAGER 의 <b>VENDER</b> 필드 값이자 불러오기 시 지정하는 업체(카테고리) 이름입니다. 예: 서울트레이딩 WA → <b>STI-WA</b>.
-      영문 대문자·숫자·하이픈(-)만 사용, 중복 불가. 영업 품목 종류는 쉼표(,)로 여러 개 입력.</div>
-    <div class="hint"><b>부서(카테고리)</b>는 DEPARTMENT 관리의 부서 — 업체 목록이 부서별로 묶여 부서 순서대로 표시됩니다 (미지정은 맨 아래).<br>
-      <b>업체명은 중복 등록 가능</b> — 한 업체가 MEAT · GROCERY · FISH 등 파트마다 다른 목록을 취급하면 축약어만 다르게 해서 파트별로 등록합니다.
-      <b>유사 이름</b>에 등록한 표기는 대소문자·공백·괄호 등 기호를 무시하고 비교하며, 1~2글자 오타(4~7자: 1글자 · 8자 이상: 2글자)가 있어도 가장 가까운 업체로 인식됩니다 — 예: 대표 <b>EGP(GROCERY)</b> 에 EGP(GR), EGP(ASIAN), EGP GRO) 등록.
-      같은 유사 이름을 두 업체에 넣을 수는 없습니다.</div>
     <div style="margin-top:10px; display:none;" id="editActs">
       <button class="btn ghost sm" id="dCancelBtn" type="button">수정 취소</button>
     </div>
   </div>
 
   <div class="panel list">
-    <h2><span class="ico">🏢</span> 업체 목록 <span class="cnt" id="dCnt"></span></h2>
+    <h2>업체 목록 <span class="cnt" id="dCnt"></span></h2>
     <div class="sortbar" id="sortBar">정렬:
       <button class="sb" data-sort="code" type="button">축약어</button>
       <button class="sb" data-sort="name" type="button">업체명</button>
@@ -230,6 +237,7 @@
       arr.sort(function(x,y){ var a=(x.num!=null?x.num:1e6), b=(y.num!=null?y.num:1e6); return (a-b)||(x.order-y.order)||String(x.name).localeCompare(String(y.name)); });
       deptList=arr; fillDeptSelect(); renderList();
     }, function(e){ console.warn('[VENDER] DEPARTMENT 읽기 실패', e); });
+    loadUnreg();
   }).catch(function(){ fbFail('Firebase 설정이 비어 있습니다'); });
   });
 
@@ -271,6 +279,41 @@
     renderList();
     Promise.all(ups).catch(function(e){ console.error(e); toast('순서 저장 실패 — 권한 확인','error'); });
   }
+  /* ── 부서 원클릭 변경 팝오버 ── */
+  var __dpop=null;
+  function closeDeptPop(){ if(__dpop){ __dpop.classList.remove('show'); } }
+  function openDeptPop(btn, code){
+    if(!__dpop){ __dpop=document.createElement('div'); __dpop.className='dpop'; document.body.appendChild(__dpop);
+      document.addEventListener('click',function(e){ if(__dpop&&!__dpop.contains(e.target)) closeDeptPop(); });
+      window.addEventListener('scroll',closeDeptPop,true); window.addEventListener('resize',closeDeptPop); }
+    var cur=(depts[code]&&depts[code].dept)||'';
+    __dpop.innerHTML=deptList.map(function(d){ return '<button type="button" data-set="'+esc(d.code)+'" class="'+(d.code===cur?'on':'')+'"><span class="n">'+(d.num!=null?esc(d.num):'·')+'</span>'+esc(d.name||d.code)+(d.nameKo?' <small>'+esc(d.nameKo)+'</small>':'')+'</button>'; }).join('')
+      +'<button type="button" data-set="" class="none'+(cur?'':' on')+'"><span class="n">·</span>미지정</button>';
+    Array.prototype.forEach.call(__dpop.querySelectorAll('button[data-set]'),function(b){ b.onclick=function(e){ e.stopPropagation(); var v=b.getAttribute('data-set'); closeDeptPop();
+      if(!fb) return; if(depts[code]) depts[code].dept=v; renderList();
+      fb.setDoc(fb.doc(fb.db,'VENDER',code),{ dept:v, updatedAt:Date.now() },{merge:true}).then(function(){ toast(code+' → '+(v?deptName(v):'미지정'),'success'); }).catch(function(e){ console.error(e); toast('저장 실패 — 권한 확인','error'); }); }; });
+    var r=btn.getBoundingClientRect(); __dpop.style.left=Math.min(r.left, window.innerWidth-230)+'px'; __dpop.style.top=(r.bottom+4)+'px'; __dpop.classList.add('show');
+  }
+  /* ── 매입일지(DAILY-PURCHASE)에서 쓰였지만 VENDER 에 없는 업체 — 목록 맨 위 「미등록」 그룹 ── */
+  var unregNames={};   /* 이름 → {name,count,total,stores:{}} */
+  function loadUnreg(){
+    if(!fb) return;
+    fb.getDocs(fb.collection(fb.db,'STORE')).then(function(snap){
+      var codes=[]; snap.forEach(function(ds){ if(ds.id.charAt(0)!=='_') codes.push(ds.id); });
+      return Promise.all(codes.map(function(sc){ return fb.getDocs(fb.collection(fb.db,'DAILY-PURCHASE',sc,'DAYS')).then(function(ds){ var out=[]; ds.forEach(function(d){ var x=d.data()||{}; (Array.isArray(x.rows)?x.rows:[]).forEach(function(r){ out.push({ store:sc, vendor:String(r.vendor||'').trim(), amount:+r.amount||0 }); }); }); return out; }).catch(function(){ return []; }); }));
+    }).then(function(all){
+      var m={}; all.forEach(function(rows){ rows.forEach(function(r){ if(!r.vendor) return; var k=r.vendor.toUpperCase(); if(!m[k]) m[k]={ name:r.vendor, count:0, total:0, stores:{} }; m[k].count++; m[k].total+=r.amount; m[k].stores[r.store]=1; }); });
+      unregNames=m; renderList();
+    }).catch(function(e){ console.warn('[VENDER] 매입일지 읽기 실패', e); });
+  }
+  function unregList(){
+    var out=[]; Object.keys(unregNames).forEach(function(k){ var u=unregNames[k]; var hit=(window.EgmmFB&&window.EgmmFB.venderMatch)?window.EgmmFB.venderMatch(depts, u.name):null; if(!hit) out.push(u); });
+    out.sort(function(a,b){ return b.count-a.count||a.name.localeCompare(b.name); }); return out;
+  }
+  function regFromUnreg(name){
+    resetAdd(); $('dName').value=name; $('dCode').value=window.EgmmFB.sanitizeCode(name); $('dCode').dataset.touched='1'; aliasSet([name]);
+    window.scrollTo(0,0); $('dCode').focus(); $('dCode').select();
+  }
   function renderList(){
     renderSortBar();
     var codes=sortedCodes();
@@ -280,6 +323,12 @@
     var none={ code:'', name:'미지정 · NO DEPARTMENT', num:null, nameKo:'', codes:[] };
     codes.forEach(function(c){ var g=byCode[depts[c].dept||'']; (g||none).codes.push(c); });
     var html='';
+    var un=unregList();
+    if(un.length){
+      html+='<div class="dgroup unreg"><span class="gnum">!</span>미등록 · 매입일지에 기록된 업체<span class="gcnt">'+un.length+'개</span></div>';
+      un.forEach(function(u){ html+='<div class="drow unreg"><span class="main"><span class="l1"><span class="dn">'+esc(u.name)+'</span></span><span class="l2"><span class="dk">'+u.count+'건 · '+Object.keys(u.stores).join(', ')+'</span></span></span>'
+        +'<span class="acts"><button class="btn sm" data-reg="'+esc(u.name)+'" type="button">등록</button></span></div>'; });
+    }
     groups.concat([none]).forEach(function(g){
       if(!g.codes.length) return;
       html+='<div class="dgroup'+(g.code?'':' none')+'"><span class="gnum">'+(g.num!=null?esc(g.num):'·')+'</span>'+esc(g.name)+(g.nameKo?' <span class="dk">'+esc(g.nameKo)+'</span>':'')+'<span class="gcnt">'+g.codes.length+'개</span></div>';
@@ -291,6 +340,7 @@
           +((d.items||aliasesOf(d).length)?('<span class="l2">'+(d.items?'<span class="di">'+esc(d.items)+'</span>':'')+(aliasesOf(d).length?'<span class="dal">≈ '+esc(aliasText(d))+'</span>':'')+'</span>'):'')
           +'</span>'
           +'<span class="acts">'
+          +'<button class="btn ghost sm" data-dept="'+esc(c)+'" type="button">'+(d.dept?esc(deptName(d.dept)):'부서')+'</button>'
           +'<button class="btn ghost sm" data-edit="'+esc(c)+'" type="button">수정</button>'
           +'<button class="btn danger sm" data-del="'+esc(c)+'" type="button">삭제</button>'
           +'</span></div>';
@@ -300,6 +350,12 @@
     $('dCnt').textContent = codes.length? (codes.length+'개') : '';
     Array.prototype.forEach.call($('dList').querySelectorAll('button[data-edit]'),function(b){
       b.onclick=function(){ startEdit(b.getAttribute('data-edit')); };
+    });
+    Array.prototype.forEach.call($('dList').querySelectorAll('button[data-dept]'),function(b){
+      b.onclick=function(e){ e.stopPropagation(); openDeptPop(b, b.getAttribute('data-dept')); };
+    });
+    Array.prototype.forEach.call($('dList').querySelectorAll('button[data-reg]'),function(b){
+      b.onclick=function(){ regFromUnreg(b.getAttribute('data-reg')); };
     });
     Array.prototype.forEach.call($('dList').querySelectorAll('button[data-del]'),function(b){
       b.onclick=function(){ delDept(b.getAttribute('data-del')); };
@@ -329,7 +385,7 @@
   function resetAdd(){
     editingCode=null;
     $('addTitle').textContent='업체 추가';
-    $('dSaveBtn').textContent='＋ 추가';
+    $('dSaveBtn').textContent='추가';
     $('dName').value=''; $('dKo').value=''; $('dCode').value=''; $('dItems').value=''; $('dDept').value=''; aliasSet([]);
     delete $('dCode').dataset.touched;
     $('editActs').style.display='none';
@@ -339,7 +395,7 @@
     var d=depts[code]; if(!d) return;
     editingCode=code;
     $('addTitle').textContent='업체 수정: '+code;
-    $('dSaveBtn').textContent='💾 저장';
+    $('dSaveBtn').textContent='저장';
     $('dName').value=d.name||''; $('dKo').value=d.nameKo||''; $('dItems').value=d.items||''; $('dDept').value=d.dept||''; aliasSet(aliasesOf(d));
     $('dCode').value=code; $('dCode').dataset.touched='1';
     $('editActs').style.display='';
