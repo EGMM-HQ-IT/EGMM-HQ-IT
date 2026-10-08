@@ -87,7 +87,10 @@
   .dp-sum.compact th { padding: 5px 9px; font-size: 10px; } .dp-sum.compact th:first-child { text-transform: none; letter-spacing: .06em; color: var(--text); }
   .dp-sum.compact td { padding: 4px 9px; }
   .dp-sum.compact tr.grand td { font-size: 12.5px; } .dp-sum.compact tr.grand td.n { font-size: 13px; }
-  .dp-sum.compact td.n small { display: block; font-size: 10px; font-weight: 800; line-height: 1.2; }
+  .dp-sum.compact td.n small { display: block; font-size: 10px; font-weight: 800; line-height: 1.2; color: var(--text-faint); }
+  .dp-sum.wk { table-layout: fixed; width: auto; min-width: 0; }
+  .dp-sum.wk col.c-dept { width: 25ch; } .dp-sum.wk col.c-amt { width: 15ch; }
+  .dp-sum.wk td, .dp-sum.wk th { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .dp-wk-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
   .dp-wk-tab { border: 1px solid var(--border); background: var(--bg-elev); color: var(--text-dim); border-radius: 999px; padding: 6px 13px; font-size: 12px; font-weight: 800; cursor: pointer; }
   .dp-wk-tab.on { background: var(--text); border-color: var(--text); color: #fff; }
@@ -1587,18 +1590,21 @@
   $('dpWeekCard').onclick=function(){ openWeekStat(); };
   /* 주간 팝업: 화면 전체 · 왼쪽 = 지난달 · 오른쪽 = 이번 달 · 위에서부터 1주차 → 아래로 주차별 (양쪽 같은 레이아웃·같은 가로 위치) */
   function weekTable(y,m,w,cmpMap){
+    /* 열: 부서(25자) · 금액 = 이번 주(15자) · 증가 = 전주 대비 증감(15자) · 누적 합계 = 1주~이번 주(15자) */
     var wr=weekRange(y,m,w), thisWk=deptSum(ymd(y,m,wr.s),ymd(y,m,wr.e)), cum=deptSum(ymd(y,m,1),ymd(y,m,wr.e));
-    var prevCum=w>1?deptSum(ymd(y,m,1),ymd(y,m,weekRange(y,m,w-1).e)):null;
-    var order=deptOrder([thisWk,cum,cmpMap||{}]);
-    function cmpSmall(cur,base){ var diff=cur-base; if(Math.abs(diff)<0.005) return ''; var pct=base?(' '+(diff>=0?'+':'')+(diff/Math.abs(base)*100).toFixed(1)+'%'):''; return '<small class="'+(diff>=0?'dp-cmp-pos':'dp-cmp-neg')+'">'+(diff>=0?'▲':'▼')+fmt$(Math.abs(diff))+pct+'</small>'; }
-    var html='<table class="dp-sum compact"><tr><th>W'+w+' · '+m+'/'+wr.s+'–'+m+'/'+wr.e+'</th><th>WEEK</th><th>ACCUM 1~'+w+'</th></tr>';
-    order.forEach(function(d){ var a=(thisWk[d]||{total:0}).total, b=(cum[d]||{total:0}).total, c=cmpMap?((cmpMap[d]||{total:0}).total):0; var pc=prevCum?((prevCum[d]||{total:0}).total):0;
-      html+='<tr><td class="lbl">'+esc(d)+'</td><td class="n">'+fmt$(a)+(cmpMap?cmpSmall(a,c):'')+'</td><td class="n">'+fmt$(b)+(prevCum?cmpSmall(b,pc):'')+'</td></tr>'; });
-    var dA=deptTotOf(thisWk), dB=deptTotOf(cum), dC=cmpMap?deptTotOf(cmpMap):0, dP=prevCum?deptTotOf(prevCum):0;
-    var cA=commonOf(thisWk), cB=commonOf(cum), cC=cmpMap?commonOf(cmpMap):0, cP=prevCum?commonOf(prevCum):0;
-    html+='<tr class="dept-tot"><td class="lbl">DEPARTMENT TOTAL</td><td class="n">'+fmt$(dA)+(cmpMap?cmpSmall(dA,dC):'')+'</td><td class="n">'+fmt$(dB)+(prevCum?cmpSmall(dB,dP):'')+'</td></tr>';
-    html+='<tr class="common"><td class="lbl">COMMON (Store Supply)</td><td class="n">'+fmt$(cA)+(cmpMap?cmpSmall(cA,cC):'')+'</td><td class="n">'+fmt$(cB)+(prevCum?cmpSmall(cB,cP):'')+'</td></tr>';
-    html+='<tr class="grand"><td class="lbl">GRAND TOTAL</td><td class="n">'+fmt$(dA+cA)+(cmpMap?cmpSmall(dA+cA,dC+cC):'')+'</td><td class="n">'+fmt$(dB+cB)+(prevCum?cmpSmall(dB+cB,dP+cP):'')+'</td></tr>';
+    var prevWk=null; if(w>1){ var pr=weekRange(y,m,w-1); prevWk=deptSum(ymd(y,m,pr.s),ymd(y,m,pr.e)); }
+    var order=deptOrder([thisWk,cum]);
+    function inc(cur,base){ if(base==null) return '<span class="dp-cmp-zero">—</span>'; var diff=cur-base; if(Math.abs(diff)<0.005) return '<span class="dp-cmp-zero">—</span>';
+      var pct=base?('<small>'+(diff>=0?'+':'')+(diff/Math.abs(base)*100).toFixed(1)+'%</small>'):''; return '<span class="'+(diff>=0?'dp-cmp-pos':'dp-cmp-neg')+'">'+(diff>=0?'▲':'▼')+fmt$(Math.abs(diff))+'</span>'+pct; }
+    function tr(label,a,p,b,cls){ return '<tr class="'+(cls||'')+'"><td class="lbl">'+label+'</td><td class="n">'+fmt$(a)+'</td><td class="n">'+inc(a,p)+'</td><td class="n">'+fmt$(b)+'</td></tr>'; }
+    var html='<table class="dp-sum compact wk"><colgroup><col class="c-dept"><col class="c-amt"><col class="c-amt"><col class="c-amt"></colgroup>'
+      +'<tr><th>W'+w+' · '+m+'/'+wr.s+'–'+m+'/'+wr.e+'</th><th>금액 WEEK</th><th>증가 vs 전주</th><th>누적 합계</th></tr>';
+    order.forEach(function(d){ var a=(thisWk[d]||{total:0}).total, pv=prevWk?((prevWk[d]||{total:0}).total):null, b=(cum[d]||{total:0}).total; html+=tr(esc(d),a,pv,b); });
+    var dA=deptTotOf(thisWk), dP=prevWk?deptTotOf(prevWk):null, dB=deptTotOf(cum);
+    var cA=commonOf(thisWk), cP=prevWk?commonOf(prevWk):null, cB=commonOf(cum);
+    html+=tr('DEPARTMENT TOTAL',dA,dP,dB,'dept-tot');
+    html+=tr('COMMON (Store Supply)',cA,cP,cB,'common');
+    html+=tr('GRAND TOTAL',dA+cA,(dP==null?null:dP+cP),dB+cB,'grand');
     return { html:html+'</table>', weekMap:thisWk };
   }
   function openWeekStat(){
