@@ -39,15 +39,26 @@
   .dp-card-btn:active { transform: scale(.995); }
   .dp-card-go { margin-left: auto; font-size: 18px; font-weight: 900; color: var(--text-faint); line-height: 1; }
   /* 하단 고정 집계표 — 업로드한 양식 (DEPARTMENT · ACCUMULATING DAILY/WEEKLY/MONTHLY) */
-  .dp-sumwrap { flex: 0 0 auto; padding: 10px 16px 12px; border-top: 1.5px solid var(--border-bright); background: var(--bg-elev); }
-  .dp-sum { width: 100%; border-collapse: collapse; font-size: 12.5px; font-weight: 800; border: 2px solid #8b8b96; background: #fff; }
-  .dp-sum th, .dp-sum td { border: 1px dotted #a9a9b4; padding: 5px 10px; text-align: center; white-space: nowrap; }
-  .dp-sum th { background: #ececf2; color: #1e1e22; letter-spacing: .04em; }
+  .dp-sumwrap { flex: 0 0 auto; padding: 10px 16px 12px; border-top: 1px solid var(--border); background: linear-gradient(180deg, #fbfaf6, var(--bg)); }
+  /* 누계표 — 이 앱의 기존 통계표(Paper & Pine) 디자인 */
+  .dp-sum { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; background: var(--bg-elev); border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+    box-shadow: 0 1px 0 #fff inset, 0 8px 24px rgba(26,26,29,.05); }
+  .dp-sum th { font-size: 10.5px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--text-faint); text-align: center;
+    padding: 8px 12px; background: var(--bg-elev-2); border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .dp-sum th .sub { display: block; font-size: 9.5px; letter-spacing: .06em; text-transform: none; color: var(--text-faint); opacity: .85; margin-top: 1px; }
+  .dp-sum th:first-child { text-align: left; }
+  .dp-sum th:not(:first-child) { text-align: right; }
+  .dp-sum th.grp { text-align: center; letter-spacing: .2em; }
+  .dp-sum td { padding: 8px 12px; border-bottom: 1px solid var(--border); font-weight: 700; color: var(--text); }
+  .dp-sum td.lbl { text-align: left; font-weight: 800; color: var(--text-dim); letter-spacing: .02em; }
   .dp-sum td.n { text-align: right; font-variant-numeric: tabular-nums; }
-  .dp-sum tr.dept-tot td { background: #ececf2; border-top: 2px solid #8b8b96; }
-  .dp-sum tr.common td { background: #f3f3f7; border-top: 2px solid #8b8b96; }
-  .dp-sum tr.grand td { background: #ececf2; border-top: 2px solid #8b8b96; border-bottom: 2px solid #8b8b96; font-size: 13px; }
-  .dp-sum td.lbl { text-align: center; }
+  .dp-sum tr:last-child td { border-bottom: none; }
+  .dp-sum tr.dept-tot td { border-top: 1.5px solid var(--border-bright); background: var(--bg-elev-2); font-weight: 900; }
+  .dp-sum tr.dept-tot td.lbl { color: var(--text); }
+  .dp-sum tr.common td { color: var(--text-dim); background: var(--bg); }
+  .dp-sum tr.grand td { border-top: 1.5px solid var(--border-bright); background: var(--accent-soft); font-weight: 900; font-size: 13.5px; }
+  .dp-sum tr.grand td.lbl { color: #8a6d2e; letter-spacing: .08em; }
+  .dp-sum tr.grand td.n { font-family: var(--serif); font-size: 15px; }
   /* 누계 팝업 */
   .dp-wk-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
   .dp-wk-tab { border: 1px solid var(--border); background: var(--bg-elev); color: var(--text-dim); border-radius: 999px; padding: 6px 13px; font-size: 12px; font-weight: 800; cursor: pointer; }
@@ -1133,7 +1144,7 @@
   function deptMatrix(cols, cls, headTop){
     var order=deptOrder(cols.map(function(c){ return c.map; }));
     var html='<table class="'+(cls||'dp-sum')+'">';
-    if(headTop) html+='<tr><th rowspan="2">DEPARTMENT</th><th colspan="'+cols.length+'">'+esc(headTop)+'</th></tr><tr>'+cols.map(function(c){ return '<th>'+c.label+'</th>'; }).join('')+'</tr>';
+    if(headTop) html+='<tr><th rowspan="2">DEPARTMENT</th><th class="grp" colspan="'+cols.length+'">'+esc(headTop)+'</th></tr><tr>'+cols.map(function(c){ return '<th>'+c.label+'</th>'; }).join('')+'</tr>';
     else html+='<tr><th>DEPARTMENT</th>'+cols.map(function(c){ return '<th>'+c.label+'</th>'; }).join('')+'</tr>';
     function cell(c,val,base){ return '<td class="n">'+fmt$(val)+(c.cmp?('<br>'+cmpHtml(val,base)):'')+'</td>'; }
     order.forEach(function(d){ html+='<tr><td class="lbl">'+esc(d)+'</td>'+cols.map(function(c){ var v=(c.map[d]||{total:0}).total, b=c.cmp?((c.cmp[d]||{total:0}).total):0; return cell(c,v,b); }).join('')+'</tr>'; });
