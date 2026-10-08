@@ -479,6 +479,16 @@ try{ document.documentElement.setAttribute('data-theme', localStorage.getItem('p
   .ffx-tbl td { padding:3px 4px; overflow:hidden; }
   .ffx-tbl .icp-sel { font-size:11px; padding:3px 4px; width:100%; box-sizing:border-box; }
   .ffx-tbl .ffx-prev { font-family:var(--mono); font-size:10.5px; white-space:nowrap; }
+  /* [2026-10-08] POS DESC 구간 박스 — 필드 구간(실선) · 문구(점선) 를 각각 상자로 구분 */
+  .ffx-seg { display:flex; align-items:center; gap:3px; border:1.5px solid #8a93a6; border-radius:8px; padding:4px 5px; background:#f6f8fc; }
+  .ffx-seg .icp-sel { width:auto; }
+  .ffx-seg .ffx-f { flex:1 1 90px; min-width:70px; }
+  .ffx-seg .ffx-s { width:34px; padding:3px 2px; text-align:center; } .ffx-seg .ffx-n { width:48px; padding:3px 2px; text-align:center; }
+  .ffx-seg .ffx-side { width:52px; }
+  .ffx-seg .lb { font-size:9.5px; font-weight:800; color:#64748b; white-space:nowrap; }
+  .ffx-ph { border:1.5px dashed #c5a059; border-radius:8px; padding:4px; background:#fffaf0; }
+  .ffx-ph .icp-sel { width:100%; }
+  .ffx-pre { border:1.5px solid #c5a059 !important; border-radius:8px !important; background:#fffaf0 !important; }
   .plu-fe-tbl { table-layout:auto; width:100%; }
   .fe-fx-del { border:1.5px solid #d9b8b8; background:#fdf3f3; color:#b04141; border-radius:7px; padding:3px 7px; font-size:11px; font-weight:700; cursor:pointer; margin-left:5px; }
   .fe-fx-del:hover { background:#f7dede; }
@@ -6117,6 +6127,7 @@ function ffxPosNorm(pos){ /* [2026-10-02] POS 구성 v2 정규화 — pre(앞 �
     var x=pos.fields[i]; if(!x||typeof x!=='object') x=pos.fields[i]={f:'',n:'',side:'L'};
     if(typeof x.f!=='string') x.f='';
     if(x.n===''||x.n==null) x.n=''; else { var nn=parseInt(x.n,10); x.n=(nn>0)?nn:''; }
+    if(x.s===''||x.s==null) x.s=''; else { var ss=parseInt(x.s,10); x.s=(ss>1)?ss:''; } /* [2026-10-08] 시작 위치(앞에서 몇 번째 글자부터) — 비움·1 = 처음부터 */
     x.side=(x.side==='R')?'R':'L';
     if(i<4&&typeof pos.ph[i]!=='string') pos.ph[i]='';
   }
@@ -6141,8 +6152,9 @@ function ffxPosBuild(pos, F){ /* 행 값(F) 으로 POS DESC 생성 — 문구는
   for(var i=0;i<5;i++){
     var x=pos.fields[i]; if(!x.f) continue;
     var v=String(F(x.f)||'');
-    if(x.n===''){ if(v==='') return ''; var r=pl.rest<1?1:pl.rest; out+=v.slice(0,r); }
-    else if(v!==''){ out+=(x.side==='R')?v.slice(-x.n):v.slice(0,x.n); }
+    var st0=(x.side!=='R'&&x.s>1)?(x.s-1):0; /* [2026-10-08] 왼쪽 모드 시작 위치 */
+    if(x.n===''){ if(v==='') return ''; var r=pl.rest<1?1:pl.rest; out+=v.slice(st0,st0+r); }
+    else if(v!==''){ out+=(x.side==='R')?v.slice(-x.n):v.slice(st0,st0+x.n); }
     if(v!==''&&i<4) out+=String(pos.ph[i]||'');
   }
   return out.slice(0,18);
@@ -6155,7 +6167,8 @@ function posFormulaFromFfx(big){ /* 대분류 설정 → 동등한 수식 문자
   for(var i=0;i<5;i++){
     var x=p.fields[i]; if(!x.f) continue;
     var Fv="F('"+x.f+"')", ph=(i<4)?String(p.ph[i]||''):'';
-    var take=(x.n==='')?("LEFT("+Fv+","+(pl.rest<1?1:pl.rest)+")"):((x.side==='R')?("RIGHT("+Fv+","+x.n+")"):("LEFT("+Fv+","+x.n+")"));
+    var cnt=(x.n==='')?(pl.rest<1?1:pl.rest):x.n;
+    var take=(x.side==='R'&&x.n!=='')?("RIGHT("+Fv+","+x.n+")"):((x.s>1)?("MID("+Fv+","+x.s+","+cnt+")"):("LEFT("+Fv+","+cnt+")"));
     parts.push(ph?("IF("+Fv+"=='','',"+take+"+"+q(ph)+")"):take);
   }
   var body=parts.join('+');
@@ -6173,14 +6186,14 @@ function openFieldFxModal(){
   var sampleOf=function(big){ var subs=S.data[big]||{}; for(var k in subs){ if(Array.isArray(subs[k])&&subs[k].length) return subs[k][0]; } return null; };
   var h='<div class="plu-imp-hint" style="margin-bottom:6px;">카테고리(대분류)별로 각각 설정됩니다.<br>'
     +'<b>기준 필드</b>: 필드리스트 위 카테고리명 칩이 이 필드 값으로 표시·필터됩니다 · '
-    +'<b>POS DESC 구성</b>: 앞 문구 + 필드(N자 · 왼쪽/오른쪽부터) + 문구 + 필드 + 문구 + 필드 + 문구 + 필드 + 문구 + 필드 = 최대 18자. '
-    +'N 을 비우면 그 필드가 나머지 글자수를 모두 받습니다(1개만). 문구는 바로 앞 필드 값이 있을 때만 붙습니다. 18자를 넘으면 <span style="color:#b91c1c;font-weight:800;">빨간색 에러</span>로 저장되지 않습니다 (저장 시 전체 재생성·실시간 유지).</div>'
+    +'<b>POS DESC 구성</b>: 앞 문구 + 구간(필드 · 시작 위치 · N자 · 왼쪽/오른쪽) + 문구 + 구간 … = 최대 18자 (구간 5개 · 문구 4개). '
+    +'시작 = 앞에서 몇 번째 글자부터 (비움 = 처음부터 · 왼쪽일 때만). N 을 비우면 그 구간이 나머지 글자수를 모두 받습니다(1개만). 문구는 바로 앞 구간 값이 있을 때만 붙습니다. 18자를 넘으면 <span style="color:#b91c1c;font-weight:800;">빨간색 에러</span>로 저장되지 않습니다 (저장 시 전체 재생성·실시간 유지).</div>'
     +'<div style="overflow:auto;max-height:60vh;border:1px solid #dde3ec;border-radius:6px;">'
-    +'<table class="plu-fe-tbl ffx-tbl" style="width:1840px;">'
+    +'<table class="plu-fe-tbl ffx-tbl" style="width:2160px;">'
     +'<thead><tr><th style="width:70px;">카테고리</th><th style="width:150px;">카테고리명 칩 기준 필드</th><th style="width:150px;">합계 · 예시</th><th style="width:64px;">앞 문구</th>';
   for(var i=0;i<5;i++){
-    h+='<th style="width:128px;">필드'+(i+1)+'</th><th style="width:44px;">N자</th><th style="width:64px;">방향</th>';
-    if(i<4) h+='<th style="width:58px;">문구</th>';
+    h+='<th style="width:262px;">구간 '+(i+1)+' <span style="font-weight:600;color:#64748b;">(필드 · 시작 · N자 · 방향)</span></th>';
+    if(i<4) h+='<th style="width:74px;">문구</th>';
   }
   h+='</tr></thead><tbody>';
   S.tabs.forEach(function(t){
@@ -6192,10 +6205,11 @@ function openFieldFxModal(){
       +'<td><input type="text" class="icp-sel ffx-pre" value="'+escapeHtml(p.pre)+'" placeholder="(없음)"></td>';
     for(var i=0;i<5;i++){
       var x=p.fields[i];
-      h+='<td><select class="icp-sel ffx-f" data-i="'+i+'">'+fOpts(x.f)+'</select></td>'
-        +'<td><input type="text" inputmode="numeric" class="icp-sel ffx-n" style="padding:3px 2px;text-align:center;" data-i="'+i+'" value="'+(x.n===''?'':x.n)+'" placeholder="나머지" title="비우면 나머지 글자수"></td>'
-        +'<td><select class="icp-sel ffx-side" data-i="'+i+'"><option value="L"'+(x.side!=='R'?' selected':'')+'>왼쪽</option><option value="R"'+(x.side==='R'?' selected':'')+'>오른쪽</option></select></td>';
-      if(i<4) h+='<td><input type="text" class="icp-sel ffx-p" data-i="'+i+'" value="'+escapeHtml(p.ph[i]||'')+'" placeholder="(없음)"></td>';
+      h+='<td><div class="ffx-seg"><select class="icp-sel ffx-f" data-i="'+i+'">'+fOpts(x.f)+'</select>'
+        +'<span class="lb">시작</span><input type="text" inputmode="numeric" class="icp-sel ffx-s" data-i="'+i+'" value="'+(x.s===''?'':x.s)+'" placeholder="1" title="앞에서 몇 번째 글자부터 (비움 = 처음부터)"'+(x.side==='R'?' disabled':'')+'>'
+        +'<span class="lb">N자</span><input type="text" inputmode="numeric" class="icp-sel ffx-n" data-i="'+i+'" value="'+(x.n===''?'':x.n)+'" placeholder="나머지" title="비우면 나머지 글자수">'
+        +'<select class="icp-sel ffx-side" data-i="'+i+'"><option value="L"'+(x.side!=='R'?' selected':'')+'>왼쪽</option><option value="R"'+(x.side==='R'?' selected':'')+'>오른쪽</option></select></div></td>';
+      if(i<4) h+='<td><div class="ffx-ph"><input type="text" class="icp-sel ffx-p" data-i="'+i+'" value="'+escapeHtml(p.ph[i]||'')+'" placeholder="(없음)"></div></td>';
     }
     h+='</tr>';
   });
@@ -6206,8 +6220,8 @@ function openFieldFxModal(){
   function readRow(tr){
     var pos={ v2:1, pre:tr.querySelector('.ffx-pre').value.replace(/'/g,''), fields:[], ph:[] };
     for(var i=0;i<5;i++){
-      var nv=tr.querySelector('.ffx-n[data-i="'+i+'"]').value.trim();
-      pos.fields.push({ f:tr.querySelector('.ffx-f[data-i="'+i+'"]').value, n:(nv===''?'':(parseInt(nv,10)||'')), side:tr.querySelector('.ffx-side[data-i="'+i+'"]').value });
+      var nv=tr.querySelector('.ffx-n[data-i="'+i+'"]').value.trim(), sv=tr.querySelector('.ffx-s[data-i="'+i+'"]').value.trim();
+      pos.fields.push({ f:tr.querySelector('.ffx-f[data-i="'+i+'"]').value, n:(nv===''?'':(parseInt(nv,10)||'')), s:(sv===''?'':(parseInt(sv,10)||'')), side:tr.querySelector('.ffx-side[data-i="'+i+'"]').value });
       if(i<4) pos.ph.push(tr.querySelector('.ffx-p[data-i="'+i+'"]').value.replace(/'/g,''));
     }
     return ffxPosNorm(pos);
@@ -6223,12 +6237,14 @@ function openFieldFxModal(){
     }
     td.innerHTML='<span style="font-weight:800;'+(bad?'color:#b91c1c;':'')+'">'+escapeHtml(msg)+'</span>'+(ex?'<br><span style="color:#64748b;">예: '+escapeHtml(ex)+'</span>':'');
     if(bad) td.setAttribute('data-bad','1'); else td.removeAttribute('data-bad');
-    tr.querySelectorAll('.ffx-n,.ffx-p,.ffx-pre').forEach(function(el){ el.style.color=bad?'#b91c1c':''; el.style.borderColor=bad?'#b91c1c':''; });
+    tr.querySelectorAll('.ffx-n,.ffx-s,.ffx-p,.ffx-pre').forEach(function(el){ el.style.color=bad?'#b91c1c':''; el.style.borderColor=bad?'#b91c1c':''; });
   }
   $('ffBody').querySelectorAll('tbody tr').forEach(function(tr){
     tr.querySelectorAll('.ffx-pre,.ffx-p').forEach(function(el){ el.oninput=function(){ prevRow(tr); }; });
-    tr.querySelectorAll('.ffx-n').forEach(function(el){ el.oninput=function(){ this.value=this.value.replace(/[^0-9]/g,''); prevRow(tr); }; });
-    tr.querySelectorAll('.ffx-f,.ffx-side').forEach(function(el){ el.onchange=function(){ prevRow(tr); }; });
+    tr.querySelectorAll('.ffx-n,.ffx-s').forEach(function(el){ el.oninput=function(){ this.value=this.value.replace(/[^0-9]/g,''); prevRow(tr); }; });
+    tr.querySelectorAll('.ffx-f,.ffx-side').forEach(function(el){ el.onchange=function(){
+      if(el.classList.contains('ffx-side')){ var si=tr.querySelector('.ffx-s[data-i="'+el.getAttribute('data-i')+'"]'); if(si) si.disabled=(el.value==='R'); } /* 오른쪽 = 시작 위치 사용 안 함 */
+      prevRow(tr); }; });
     prevRow(tr);
   });
   $('ffX').onclick=function(){ $('ffOv').classList.remove('show'); };
