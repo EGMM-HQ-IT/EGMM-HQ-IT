@@ -79,7 +79,9 @@
   .dp-xl-res td.ok { color: var(--accent-warm); font-weight: 800; } .dp-xl-res td.err { color: var(--danger); font-weight: 800; }
   /* 누계 팝업 */
   .dp-stat-modal.dp-stat-full { max-width: 98vw; width: 98vw; height: 96vh; max-height: 96vh; }
-  .dp-wk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; align-items: start; }
+  .dp-wk-grid { display: grid; grid-template-columns: auto auto; justify-content: center; column-gap: 0; row-gap: 8px; align-items: start; }
+  .dp-wk-cell, .dp-wk-head { padding: 0 10px; }
+  .dp-wk-cell.cur, .dp-wk-head.cur { border-left: 2px dotted var(--border-bright); }   /* 전달 | 이번달 가운데 점선 */
   .dp-wk-head { font-size: 11px; font-weight: 800; letter-spacing: .18em; color: var(--text-faint); padding: 2px 4px 6px; border-bottom: 1.5px solid var(--border-bright); }
   .dp-wk-head.cur { color: var(--accent-warm); }
   .dp-wk-cell { min-width: 0; }
@@ -89,7 +91,7 @@
   .dp-sum.compact tr.grand td { font-size: 12.5px; } .dp-sum.compact tr.grand td.n { font-size: 13px; }
   .dp-sum.compact td.n small { display: block; font-size: 10px; font-weight: 800; line-height: 1.2; color: var(--text-faint); }
   .dp-sum.wk { table-layout: fixed; width: auto; min-width: 0; }
-  .dp-sum.wk col.c-dept { width: 25ch; } .dp-sum.wk col.c-amt { width: 15ch; }
+  .dp-sum.wk col.c-dept { width: 25ch; } .dp-sum.wk col.c-amt { width: 15ch; } .dp-sum.wk col.c-inc { width: 30ch; }
   .dp-sum.wk td, .dp-sum.wk th { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .dp-wk-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
   .dp-wk-tab { border: 1px solid var(--border); background: var(--bg-elev); color: var(--text-dim); border-radius: 999px; padding: 6px 13px; font-size: 12px; font-weight: 800; cursor: pointer; }
@@ -1595,10 +1597,10 @@
     var prevWk=null; if(w>1){ var pr=weekRange(y,m,w-1); prevWk=deptSum(ymd(y,m,pr.s),ymd(y,m,pr.e)); }
     var order=deptOrder([thisWk,cum]);
     function inc(cur,base){ if(base==null) return '<span class="dp-cmp-zero">—</span>'; var diff=cur-base; if(Math.abs(diff)<0.005) return '<span class="dp-cmp-zero">—</span>';
-      var pct=base?('<small>'+(diff>=0?'+':'')+(diff/Math.abs(base)*100).toFixed(1)+'%</small>'):''; return '<span class="'+(diff>=0?'dp-cmp-pos':'dp-cmp-neg')+'">'+(diff>=0?'▲':'▼')+fmt$(Math.abs(diff))+'</span>'+pct; }
+      var pct=base?(' ('+(diff>=0?'+':'')+(diff/Math.abs(base)*100).toFixed(1)+'%)'):''; return '<span class="'+(diff>=0?'dp-cmp-pos':'dp-cmp-neg')+'">'+(diff>=0?'▲ ':'▼ ')+fmt$(Math.abs(diff))+pct+'</span>'; }
     function tr(label,a,p,b,cls){ return '<tr class="'+(cls||'')+'"><td class="lbl">'+label+'</td><td class="n">'+fmt$(a)+'</td><td class="n">'+inc(a,p)+'</td><td class="n">'+fmt$(b)+'</td></tr>'; }
-    var html='<table class="dp-sum compact wk"><colgroup><col class="c-dept"><col class="c-amt"><col class="c-amt"><col class="c-amt"></colgroup>'
-      +'<tr><th>W'+w+' · '+m+'/'+wr.s+'–'+m+'/'+wr.e+'</th><th>금액 WEEK</th><th>증가 vs 전주</th><th>누적 합계</th></tr>';
+    var html='<table class="dp-sum compact wk"><colgroup><col class="c-dept"><col class="c-amt"><col class="c-inc"><col class="c-amt"></colgroup>'
+      +'<tr><th>W'+w+' · '+m+'/'+wr.s+'–'+m+'/'+wr.e+'</th><th>AMOUNT</th><th>INCREASE / DECREASE</th><th>TOTAL</th></tr>';
     order.forEach(function(d){ var a=(thisWk[d]||{total:0}).total, pv=prevWk?((prevWk[d]||{total:0}).total):null, b=(cum[d]||{total:0}).total; html+=tr(esc(d),a,pv,b); });
     var dA=deptTotOf(thisWk), dP=prevWk?deptTotOf(prevWk):null, dB=deptTotOf(cum);
     var cA=commonOf(thisWk), cP=prevWk?commonOf(prevWk):null, cB=commonOf(cum);
