@@ -1472,6 +1472,11 @@ function storeNameFromVal(v){
   if(s===''||s==='전체'||s==='ALL') return null;
   return s;
 }
+/* [버그 수정 2026-10-08] LOCATION 의 기본 번호(99 · "99. …") 는 내보내기 때 모든 행에 실려 나가는 기본값이므로,
+   불러오기 때 이 값만으로 매장 저장 컨텍스트를 강제하지 않는다 — 모달의 「매장」 선택(기본 = 지금 보고 있는 매장)을 따름.
+   (이전: 99 → EGMM 매장 컨텍스트로 강제 저장되어, 전체(기본) 화면에서 내보낸 파일을 다시 불러와도 전체 화면 값이 바뀌지 않았음)
+   매장 이름·다른 번호(1. TACOMA 등)가 적힌 행은 종전대로 그 매장에 저장. 99 = EGMM 매장 행 표시 규칙(rowInStore)은 그대로. */
+function isDefaultLoc(v){ var raw=String(v==null?'':v).trim(); var m=/^([0-9]+)\s*\./.exec(raw); var lead=m?m[1]:(/^[0-9]+$/.test(raw)?raw:null); return !!(lead&&STORE_NUM_MAP[lead]); }
 function isMasterLoc(v){ /* 행 LOCATION 값이 기본(전체·ALL)을 뜻하는가 — 99 는 EGMM 매장이므로 해당 안 됨 */
   var raw=String(v==null?'':v).trim();
   if(raw==='') return false; /* 빈값은 '지정 없음' — 모달 선택을 따름 */
@@ -1980,6 +1985,7 @@ function sortRowsByPlu(big,sub){
     return a.i-b.i;
   });
   for(var i=0;i<dec.length;i++) arr[i]=dec[i].r;
+  var __ef=upcErrField(big); if(__ef){ var __s=upcErrFirst(arr.slice(),big); for(var j=0;j<__s.length;j++) arr[j]=__s[j]; } /* [2026-10-08] UPC(TOSHIBA) 오류 행 맨 위 */
 }
 var AUTO_SORT=false; /* [2026-10-02] PLU · UPC 공통: 자동 정렬 없음 — 상단 「정렬」로만 */
 function sortAllByPlu(big){
@@ -2137,6 +2143,9 @@ function calcRow(big,row,store){
         var __mk=optNum(out);
         if(f.vmap[__mk]!=null) out=optByNum(f,String(f.vmap[__mk]));
       }
+      /* [버그 수정 2026-10-08] 목록 필드가 쉐어·수식으로 값을 받으면 번호 기준으로 이 필드의 목록 항목에 맞춤
+         (예: item_type ← PLU TYPE "0. (LB)WEIGHT" → "0. Normal Item" — 이전에는 원본 목록의 이름이 그대로 들어가 표시·내보내기가 어긋남) */
+      if(f.options&&f.options.length&&out!==''){ var __on=optNum(out), __oo=optByNum(f,__on); if(__oo!==__on) out=__oo; }
       if(st){ if(!row.sv) row.sv={}; if(!row.sv[st]) row.sv[st]={}; row.sv[st][f.key]=out; if(!row.v) row.v={}; if(row.v[f.key]==null||row.v[f.key]==='') row.v[f.key]=out; }
       else { if(!row.v) row.v={}; row.v[f.key]=out; }
     }
@@ -2687,16 +2696,20 @@ function renderTools(){
   slot.appendChild(wrap);
 }
 
+/* [2026-10-08] UPC(TOSHIBA) 오류(✗무효 · ?확인불가) 행 판정 — 리스트·정렬에서 맨 위로 */
+function upcErrField(big){ var L=S.layouts[big]||[]; for(var i=0;i<L.length;i++){ if(String(L[i].formula||'').indexOf('UPCHANA()')>=0) return L[i]; } return null; }
+function upcErrRow(row,ef){ if(!ef) return false; var v=String(getCell(row,ef,'')||''); return v.charAt(0)==='\u2717'||v.charAt(0)==='?'; }
+function upcErrFirst(rows,big){ var ef=upcErrField(big); if(!ef) return rows; var e=[],o=[]; rows.forEach(function(r){ (upcErrRow(r,ef)?e:o).push(r); }); return e.length?e.concat(o):rows; }
 function filteredRows(){
   /* [요구 2026-09] 검색어가 있으면 카테고리가 달라도 전체 상품에서 검색 */
   if(gsActive()) return globalSearchRows();
   var rows=curRows();
   var cateF=catChipFieldLive(curBig(),rows); /* [버그 수정] 칩과 동일한 값 기반 필드 */
-  return rows.filter(function(r){
+  return upcErrFirst(rows.filter(function(r){
     if(!rowInStore(curBig(),r,S.curStore)) return false; /* [요구 3] 선택 매장 소속 행(+전체 행)만 표시 */
     if(catFilter && cateF){ if(String(getCell(r,cateF,'')).trim()!==catFilter) return false; }
     return true;
-  });
+  }),curBig());
 }
 /* [검색 범위 · 2026-10-04] S.ui.searchBigs = 체크한 상위 카테고리 배열(null/빈 배열 = 전체) */
 function searchBigsSet(){ var a=(S&&S.ui&&Array.isArray(S.ui.searchBigs))?S.ui.searchBigs:null; if(!a||!a.length) return null; var set={}, any=false; a.forEach(function(b){ set[b]=1; }); S.tabs.forEach(function(t){ if(set[t.label]) any=true; }); return any?set:null; }
@@ -4804,6 +4817,7 @@ function renderImportModal(){
         cols.forEach(function(ci){
           var raw=cellStr(rr[ci]);
           if(String(raw).trim()!==''&&isMasterLoc(raw)){ det99=true; return; } /* [LOCATION 99] 기본(전체) 표시 */
+          if(isDefaultLoc(raw)) return; /* [2026-10-08] 기본 번호(99)는 매장 감지에서 제외 — 모달 기본 = 현재 보는 매장 */
           var nm=storeNameFromVal(raw); if(nm&&!seenS[nm]){ seenS[nm]=1; detStores.push(nm); }
         });
       }
@@ -5089,6 +5103,7 @@ function applyImport(opts){
         for(var __sc=0;__sc<storeCols.length;__sc++){
           var __lv=cellStr(row[storeCols[__sc]]);
           if(String(__lv).trim()===''){ continue; }
+          if(isDefaultLoc(__lv)){ break; } /* [2026-10-08] 기본 번호(99) = 모달 선택 매장 그대로 */
           if(isMasterLoc(__lv)){ rowStore=''; }
           else { var __nm=storeNameFromVal(__lv); if(__nm){ rowStore=__nm; if(S.stores.indexOf(__nm)<0){ S.stores.push(__nm); stats.storesAdded=(stats.storesAdded||0)+1; } } }
           break;
@@ -5548,21 +5563,63 @@ function runExport(keys,fx,useOnly,sortMode){
      - 참조 필드가 이번 내보내기에 없거나 변환 불가한 수식은 계산값 그대로(폴백) */
   var colOf={}; fields.forEach(function(f,i){ colOf[f.key]=i; });
   function colRef(key,R){ return XLSX.utils.encode_col(colOf[key])+(R+1); }
+  /* [버그 수정 2026-10-08] 엔진 수식의 + 는 JS 규칙(한쪽이라도 문자열이면 결합)이므로, 피연산자 종류를 보고
+     문자열 결합이면 & 로, 둘 다 숫자(NUM·ROUND·LEN·FIND·숫자)일 때만 + 로 변환. (이전: 따옴표 옆의 + 만 & 로 바꿔
+     LEFT(..)+IF(..) 같은 POS DESC 결합이 엑셀에서 #VALUE! 로 나왔음) */
+  function fxPlusToAmp(src){
+    function headAt(i,dir){ /* i 위치부터 dir 방향 피연산자의 종류: 'n'(숫자) | 's'(문자열) */
+      var j=i;
+      if(dir<0){
+        while(j>=0&&/\s/.test(src.charAt(j))) j--;
+        var ch=src.charAt(j);
+        if(ch==="'") return 's';
+        if(ch===')'){ var d=0; for(;j>=0;j--){ var c=src.charAt(j); if(c===')') d++; else if(c==='('){ d--; if(d===0) break; } }
+          var k=j-1; while(k>=0&&/[A-Za-z_0-9]/.test(src.charAt(k))) k--; var nm=src.slice(k+1,j).toUpperCase();
+          if(nm==='') return 'n'; /* 괄호 묶음 → 산술 */
+          if(nm==='NUM'||nm==='ROUND'||nm==='LEN'||nm==='FIND'||nm==='VALUE') return 'n';
+          return 's'; /* F · LEFT · RIGHT · MID · IF → 문자열 */ }
+        return /[0-9.]/.test(ch)?'n':'s';
+      } else {
+        while(j<src.length&&/\s/.test(src.charAt(j))) j++;
+        var ch2=src.charAt(j);
+        if(ch2==="'") return 's';
+        if(ch2==='(') return 'n';
+        if(/[0-9.]/.test(ch2)) return 'n';
+        var k2=j; while(k2<src.length&&/[A-Za-z_0-9]/.test(src.charAt(k2))) k2++; var nm2=src.slice(j,k2).toUpperCase();
+        if(nm2==='NUM'||nm2==='ROUND'||nm2==='LEN'||nm2==='FIND'||nm2==='VALUE') return 'n';
+        return 's';
+      }
+    }
+    var out='', inQ=false;
+    for(var i=0;i<src.length;i++){
+      var c=src.charAt(i);
+      if(c==="'"){ inQ=!inQ; out+=c; continue; }
+      if(c==='+'&&!inQ){ out+=(headAt(i-1,-1)==='s'||headAt(i+1,1)==='s')?'&':'+'; continue; }
+      out+=c;
+    }
+    return out;
+  }
+  function fxVmapWrap(f,expr){ /* 값 매핑(vmap) → IF 사슬: IF(expr="1","10",IF(expr="2","0",expr)) */
+    if(!f.vmap) return expr;
+    var ks=Object.keys(f.vmap); if(!ks.length) return expr;
+    var out=expr; for(var i=ks.length-1;i>=0;i--){ out='IF('+expr+'="'+String(ks[i]).replace(/"/g,'')+'","'+String(f.vmap[ks[i]]).replace(/"/g,'')+'",'+out+')'; }
+    return out;
+  }
   function xlFx(f,R){
-    if(f.share&&f.share!==f.key){ return (colOf[f.share]==null)?null:colRef(f.share,R); } /* 쉐어 = 원본 열 참조 */
+    if(f.share&&f.share!==f.key){ return (colOf[f.share]==null)?null:fxVmapWrap(f,colRef(f.share,R)); } /* 쉐어 = 원본 열 참조 (+ 값 매핑) */
     var src=String(f.formula||''); if(!src) return null;
     if(src.indexOf('UPCHANA()')>=0) return null; /* [UPC(TOSHIBA)] 엑셀 함수로 표현 불가 → 값으로 내보냄 */
     src=src.split("FFXPOS()").join(posFormulaFromFfx(expBig)); /* [MODULE 23] 대분류별 POS 구성 전개 */
     var refs=(src.match(/F\('([^']+)'\)/g)||[]).map(function(t){ return t.slice(3,-2); });
     for(var i=0;i<refs.length;i++){ if(colOf[refs[i]]==null) return null; }
+    src=fxPlusToAmp(src);
     var out=src.replace(/NUM\(\s*F\('([^']+)'\)\s*\)/g,function(m,k){ return 'IFERROR(VALUE('+colRef(k,R)+'),0)'; });
     if(/NUM\(/.test(out)) return null;
     out=out.replace(/F\('([^']+)'\)/g,function(m,k){ return colRef(k,R); });
     out=out.replace(/==/g,'=').replace(/!=/g,'<>');
     out=out.replace(/''/g,'""');
-    out=out.replace(/'\s*\+/g,"'&").replace(/\+\s*'/g,"&'");
     out=out.replace(/'/g,'"');
-    return out;
+    return fxVmapWrap(f,out);
   }
   /* [리스트 서식 그대로 내보내기]
      - 열 너비 = 필드 너비(px)
