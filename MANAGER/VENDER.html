@@ -67,7 +67,7 @@
   .drow .mv button:disabled{ opacity:.3; cursor:default; }
   .dlist{ display:grid; grid-template-columns:1fr 1fr; gap:7px 12px; align-content:start; }   /* 2열 */
   .dgroup{ grid-column:1/-1; display:flex; align-items:center; gap:10px; margin-top:8px; padding:6px 2px 5px; border-bottom:1.5px solid var(--border-bright); font-size:13px; font-weight:900; letter-spacing:.06em; color:var(--text); }
-  .dgroup:first-child{ margin-top:0; }
+  .dgroup:first-child{ margin-top:2px; }
   .dgroup .gnum{ min-width:24px; height:24px; border-radius:7px; background:var(--accent-warm); color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:12px; font-weight:900; padding:0 7px; }
   .dgroup .gcnt{ margin-left:auto; font-size:11px; font-weight:800; color:var(--text-faint); }
   .dgroup.none{ color:var(--text-faint); } .dgroup.none .gnum{ background:var(--border-bright); color:var(--text-dim); }
@@ -136,15 +136,15 @@
       <div class="field"><label>한글명 (선택)</label><input type="text" id="dKo" placeholder="예: 서울트레이딩" autocomplete="off"></div>
       <div class="field"><label>축약어 (VENDER 코드)</label><input type="text" id="dCode" placeholder="예: STI-WA" autocomplete="off"></div>
       <div class="field"><label>영업 품목 종류</label><input type="text" id="dItems" placeholder="예: 라면, 과자, 음료, 냉동식품" autocomplete="off"></div>
-      <div class="field"><label>부서 (카테고리)</label><select id="dDept"><option value="">— 미지정 —</option></select>
-        <div class="hint" style="margin-top:4px">DEPARTMENT 관리의 부서 — 목록이 이 부서별로 묶여 표시됩니다</div></div>
+      <div class="field"><label>부서 (카테고리)</label><select id="dDept"><option value="">— 미지정 —</option></select></div>
       <div class="field" style="grid-column:1/-1"><label>유사 이름 (이 업체로 인식할 다른 표기 · 여러 개 등록 가능)</label>
         <div class="alias-box"><span id="aliasChips" style="display:contents"></span><input type="text" id="dAliases" placeholder="예: EGP(GR) 입력 후 Enter 또는 ＋ (쉼표로 여러 개 한 번에)" autocomplete="off"><button class="alias-add" id="aliasAddBtn" type="button">＋ 추가</button></div></div>
       <button class="btn" id="dSaveBtn" type="button">＋ 추가</button>
     </div>
     <div class="hint">업체는 <b>축약어</b>로 관리됩니다 — 축약어는 UPC MANAGER 의 <b>VENDER</b> 필드 값이자 불러오기 시 지정하는 업체(카테고리) 이름입니다. 예: 서울트레이딩 WA → <b>STI-WA</b>.
       영문 대문자·숫자·하이픈(-)만 사용, 중복 불가. 영업 품목 종류는 쉼표(,)로 여러 개 입력.</div>
-    <div class="hint"><b>업체명은 중복 등록 가능</b> — 한 업체가 MEAT · GROCERY · FISH 등 파트마다 다른 목록을 취급하면 축약어만 다르게 해서 파트별로 등록합니다.
+    <div class="hint"><b>부서(카테고리)</b>는 DEPARTMENT 관리의 부서 — 업체 목록이 부서별로 묶여 부서 순서대로 표시됩니다 (미지정은 맨 아래).<br>
+      <b>업체명은 중복 등록 가능</b> — 한 업체가 MEAT · GROCERY · FISH 등 파트마다 다른 목록을 취급하면 축약어만 다르게 해서 파트별로 등록합니다.
       <b>유사 이름</b>에 등록한 표기는 대소문자·공백·괄호 등 기호를 무시하고 비교하며, 1~2글자 오타(4~7자: 1글자 · 8자 이상: 2글자)가 있어도 가장 가까운 업체로 인식됩니다 — 예: 대표 <b>EGP(GROCERY)</b> 에 EGP(GR), EGP(ASIAN), EGP GRO) 등록.
       같은 유사 이름을 두 업체에 넣을 수는 없습니다.</div>
     <div style="margin-top:10px; display:none;" id="editActs">
