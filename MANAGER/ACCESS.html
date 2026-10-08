@@ -161,7 +161,8 @@
           <div class="field"><label>아이디 (ID)</label><input type="text" id="fId" placeholder="예: JOHN" autocomplete="off" autocapitalize="characters"></div>
           <div class="field"><label>비밀번호 (PASSWORD)</label>
             <div style="display:flex;gap:6px;align-items:stretch;">
-              <input type="password" id="fPw" placeholder="" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" style="flex:1;min-width:0;">
+              <input type="text" id="fPw" name="egmm-acct-key" placeholder="" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore style="flex:1;min-width:0;-webkit-text-security:disc;">
+              <button class="btn ghost sm" id="pwEyeBtn" type="button" style="white-space:nowrap;">보기</button>
               <button class="btn ghost sm" id="pwTestBtn" type="button" title="선택한 계정에 저장된 비밀번호와 입력값이 맞는지 확인" style="display:none;white-space:nowrap;">🔎 확인</button>
             </div>
             <div class="hint" id="pwHint">새 계정: 필수 입력</div></div>
@@ -522,7 +523,7 @@
     editingId=null;
     $('formTitle').textContent='새 계정 만들기';
     $('fId').value=''; $('fId').disabled=false;
-    $('fPw').value=''; $('pwHint').textContent='새 계정: 필수 입력';
+    $('fPw').value=''; pwTyped=false; $('pwHint').textContent='새 계정: 필수 입력';
     $('fName').value=''; $('fRank').value=''; $('fLevel').value=''; $('fMemo').value='';
     $('fBlocked').checked=false; syncBlockLbl();
     $('fAll').checked=false; syncAllToggle();
@@ -537,7 +538,7 @@
     editingId=id;
     $('formTitle').textContent='계정 수정: '+id;
     $('fId').value=id; $('fId').disabled=true;
-    $('fPw').value=''; $('pwHint').textContent='변경할 때만 입력 (비워두면 기존 비밀번호 유지)';
+    $('fPw').value=''; pwTyped=false; $('pwHint').textContent='변경할 때만 입력 (비워두면 기존 비밀번호 유지)';
     $('fName').value=u.fullName||'';
     $('fRank').value=u.rank||'';
     $('fLevel').value=(typeof u.level==='number')?String(u.level):'';
@@ -566,7 +567,7 @@
     if(id==='_RANKS'){ toast('사용할 수 없는 아이디','error'); return; }
     var isNew = !editingId;
     if(isNew && users[id]){ warnPopup('⚠️ 아이디 중복','아이디 "'+id+'" 는 이미 존재합니다.'); return; }
-    var pw=$('fPw').value.trim();
+    var pw=pwTyped ? $('fPw').value.trim() : '';   /* [2026-10-08] 직접 입력한 값만 사용 — 브라우저 자동완성으로 채워진 값은 무시 */
     if(isNew && !pw){ toast('새 계정은 비밀번호가 필요합니다','error'); $('fPw').focus(); return; }
 
     var perms=currentPermsFromUI();
@@ -602,6 +603,11 @@
         .catch(function(e){ console.error(e); toast('비밀번호 처리 실패 — 저장 안 됨','error'); });
     } else done();
   };
+  /* [2026-10-08] 비밀번호 칸: 직접 입력 여부 추적 + 보기/숨기기 (자동완성 값이 몰래 저장되는 것 방지) */
+  var pwTyped=false;
+  $('fPw').addEventListener('input',function(){ pwTyped=$('fPw').value!==''; });
+  $('fPw').addEventListener('change',function(){ pwTyped=$('fPw').value!==''; });
+  $('pwEyeBtn').onclick=function(){ var i=$('fPw'), on=i.style.webkitTextSecurity==='none'; i.style.webkitTextSecurity=on?'disc':'none'; this.textContent=on?'보기':'숨김'; };
   /* 저장된 비밀번호와 입력값 대조 — 로그인 문제 진단용 (EGMM.html 과 동일한 verifyPw 사용) */
   $('pwTestBtn').onclick=function(){
     if(!editingId || !users[editingId]) return;
