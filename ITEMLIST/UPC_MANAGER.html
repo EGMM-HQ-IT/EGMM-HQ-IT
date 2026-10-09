@@ -481,6 +481,7 @@ try{ document.documentElement.setAttribute('data-theme', localStorage.getItem('p
   .toast { z-index:3400; }
   /* 숨김 필드 표시 */
   .plu-fe-tbl tr.fe-hidden-row td { opacity:.45; }
+  .fe-lock{ border:1.5px solid var(--line,#ccc); background:transparent; border-radius:7px; padding:3px 8px; font:inherit; font-size:11.5px; font-weight:800; cursor:pointer; color:inherit; } .fe-lock.on{ background:#9C3327; border-color:#9C3327; color:#fff; }
   .plu-fe-hcnt { font-size:12px; color:#b45309; font-weight:700; }
   /* 리스트 세로 한 줄 고정 — 글씨가 길어도 줄바꿈 없이 말줄임 */
   .plu-table tbody td { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -1059,7 +1060,7 @@ html[data-theme=night] .plu-cm-row.cur { border-color:#4d8bea; background:#1e2c4
     <div class="plu-fe-head"><b>필드 편집 — <span id="feCat"></span></b><button class="plu-fe-x" id="feX" type="button">✕</button></div>
     <div class="plu-fe-body">
       <table class="plu-fe-tbl">
-        <thead><tr><th></th><th>입력<br>번호</th><th>필드명 · 색상</th><th>묶음</th><th>너비</th><th>형식</th><th>표시</th><th>정렬</th><th>쉐어</th><th>숨김</th><th>전체적용</th><th>순서/삭제</th></tr></thead>
+        <thead><tr><th></th><th>입력<br>번호</th><th>필드명 · 색상</th><th>묶음</th><th>너비</th><th>형식</th><th>표시</th><th>정렬</th><th>쉐어</th><th>숨김</th><th>고정</th><th>전체적용</th><th>순서/삭제</th></tr></thead>
         <tbody id="feRows"></tbody>
       </table>
     </div>
@@ -2342,6 +2343,7 @@ function renderBigTabs(){
       pluBig=i; pluSub=0; searchQ=''; catFilter=''; selRows={}; $('pluSearch').value=''; S.ui.big=i; S.ui.sub=0; saveUi(); renderAll();
     };
     b.ondblclick=function(){
+      if(CAT_LOCK){ showToast('상위 카테고리 이름은 EGMM > MART > CATEGORY MANAGER 에서만 변경할 수 있습니다','error'); return; } /* [2026-10-09] 잠금 */
       startTabInlineEdit(b, t.label, function(nm){ renameBigCat(i, nm); }, function(){ renderBigTabs(); });
     };
     b.draggable=true;
@@ -2408,6 +2410,7 @@ function renderSubTabs(){
       pluSub=i; catFilter=''; selRows={}; S.ui.sub=i; saveUi(); renderSubTabs(); renderContent();
     };
     b.ondblclick=function(){
+      if(CAT_LOCK){ showToast('중간 카테고리 이름은 EGMM > MART > CATEGORY MANAGER 에서만 변경할 수 있습니다','error'); return; } /* [2026-10-09] 잠금 */
       startTabInlineEdit(b, s, function(nm){ renameSubCat(i, nm); }, function(){ renderSubTabs(); });
     };
     b.draggable=true;
@@ -2524,12 +2527,12 @@ function renderCatMgr(){
       +'<span class="plu-cm-ops">'
       +'<button type="button" class="plu-fe-mv" data-act="bup" data-i="'+i+'" title="위로">↑</button>'
       +'<button type="button" class="plu-fe-mv" data-act="bdn" data-i="'+i+'" title="아래로">↓</button>'
-      +'<button type="button" class="plu-fe-mv" data-act="bren" data-i="'+i+'" title="이름 수정">이름</button>'
-      +'<button type="button" class="plu-fe-mv del" data-act="bdel" data-i="'+i+'" title="대분류 삭제 (사용중 상품 보호 동일 적용)">삭제</button>'
+      +(CAT_LOCK?'':'<button type="button" class="plu-fe-mv" data-act="bren" data-i="'+i+'" title="이름 수정">이름</button>'
+      +'<button type="button" class="plu-fe-mv del" data-act="bdel" data-i="'+i+'" title="대분류 삭제 (사용중 상품 보호 동일 적용)">삭제</button>')
       +'</span></div>';
   });
   h+='</div>';
-  h+='<button type="button" class="plu-fe-add" data-act="badd" style="margin-top:8px;">＋ 대분류 추가</button>';
+  h+=CAT_LOCK?'<div class="icp-lbl" style="margin-top:8px;color:#9C3327">상위·중간 카테고리 추가/이름/삭제는 EGMM > MART > CATEGORY MANAGER 에서만 할 수 있습니다</div>':'<button type="button" class="plu-fe-add" data-act="badd" style="margin-top:8px;">＋ 대분류 추가</button>';
   var big=curBig();
   h+='<div class="icp-lbl" style="margin-top:16px;">중간 카테고리 (소분류) — '+escapeHtml(big)+'</div>';
   h+='<div class="plu-cm-list">';
@@ -2541,16 +2544,17 @@ function renderCatMgr(){
       +'<span class="plu-cm-ops">'
       +'<button type="button" class="plu-fe-mv" data-act="sup" data-i="'+i+'" title="위로">↑</button>'
       +'<button type="button" class="plu-fe-mv" data-act="sdn" data-i="'+i+'" title="아래로">↓</button>'
-      +'<button type="button" class="plu-fe-mv" data-act="sren" data-i="'+i+'" title="이름 수정">이름</button>'
-      +'<button type="button" class="plu-fe-mv del" data-act="sdel" data-i="'+i+'" title="소분류 삭제 (사용중 상품 보호 동일 적용)">삭제</button>'
+      +(CAT_LOCK?'':'<button type="button" class="plu-fe-mv" data-act="sren" data-i="'+i+'" title="이름 수정">이름</button>'
+      +'<button type="button" class="plu-fe-mv del" data-act="sdel" data-i="'+i+'" title="소분류 삭제 (사용중 상품 보호 동일 적용)">삭제</button>')
       +'</span></div>';
   });
   h+='</div>';
-  h+='<button type="button" class="plu-fe-add" data-act="sadd" style="margin-top:8px;">＋ 소분류 추가 ('+escapeHtml(big)+')</button>';
+  h+=CAT_LOCK?'':'<button type="button" class="plu-fe-add" data-act="sadd" style="margin-top:8px;">＋ 소분류 추가 ('+escapeHtml(big)+')</button>';
   el.innerHTML=h;
 }
 function openCatMgr(){ renderCatMgr(); $('catOv').classList.add('show'); }
 async function __catMgrAct(act,i){
+  if(CAT_LOCK&&act!=='bup'&&act!=='bdn'&&act!=='sup'&&act!=='sdn'){ showToast('상위·중간 카테고리 추가/이름/삭제는 CATEGORY MANAGER 에서만','error'); return; } /* [2026-10-09] 잠금 */
   /* 기존 MODULE 06 함수를 그대로 사용 — 확인 팝업·중복 검사·사용중(체크) 보호 동일 */
   if(act==='badd'){ await addBigCat(); }
   else if(act==='bdel'){ await deleteBigCat(i); }
@@ -3045,7 +3049,7 @@ function renderContent(){
      이전엔 셀마다 selSrcSelect(수식 정규식 + 필드 검색)·normKey 를 다시 돌려 행×열×열 비용이 들었다. */
   var st0=S.curStore;
   var FP=fs.map(function(f,i){
-    var isCalc=!!f.formula||(!!f.share&&f.share!==f.key)||catIsPosField(f); /* [2026-10-09] CATEGORY_MAIN / SUB 는 잠금 — CATEGORY MANAGER 에서만 변경 */
+    var isCalc=!!f.formula||(!!f.share&&f.share!==f.key)||catIsPosField(f)||fieldLocked(f); /* [2026-10-09] CATEGORY_MAIN / SUB 는 잠금 — CATEGORY MANAGER 에서만 변경 · 고정 필드도 잠금 */
     var cls=(isCalc?'plu-c-calc':'editable')+gEdge[i]+(f.bold?' plu-c-bold':'')+(normKey(f.key)==='PLU'?' plu-c-no':'')+(i<=__frzIdx?' plu-frz'+(i===__frzIdx?' plu-frz-last':''):'');
     var sf=null; try{ sf=(f.type==='check')?null:selSrcSelect(f); }catch(e){}
     return {
@@ -3196,6 +3200,7 @@ function bindContent(el,fs,shown){
     if(t.classList.contains('cellChk')){
       var td=t.closest('td'), tr=t.closest('tr[data-id]'); if(!td||!tr) return;
       var fi=parseInt(td.getAttribute('data-fi'),10);
+      if(fieldLocked(fs[fi])){ t.checked=!t.checked; showToast('고정된 필드 — 필드편집에서 고정을 풀어야 수정할 수 있습니다','error'); return; }
       var r=rowById(tr.getAttribute('data-id')); if(!r) return;
       setCell(r,fs[fi],t.checked?'1':''); refreshCalcCells(td,r,fs); saveState();
       /* [요구 2026-09] 사용 체크 = 사용중 → 정상 표시 · 해제 = 미사용 → 그레이·사선 */
@@ -3222,7 +3227,7 @@ function bindContent(el,fs,shown){
     var tgt=ev.target, kind='', td0=null, fi0=-1;
     if(tgt.closest('td.plu-c-sel')){ kind='sel'; td0=tgt.closest('td.plu-c-sel'); }
     else if(tgt.classList&&tgt.classList.contains('lockChk')){ kind='lock'; td0=tgt.closest('td'); }
-    else if(tgt.classList&&tgt.classList.contains('cellChk')){ kind='chk'; td0=tgt.closest('td'); fi0=parseInt(td0.getAttribute('data-fi'),10); }
+    else if(tgt.classList&&tgt.classList.contains('cellChk')){ kind='chk'; td0=tgt.closest('td'); fi0=parseInt(td0.getAttribute('data-fi'),10); if(fieldLocked(fs[fi0])){ ev.preventDefault(); showToast('고정된 필드 — 필드편집에서 고정을 풀어야 수정할 수 있습니다','error'); return; } }
     if(!kind) return;
     var tr0=td0.closest('tr[data-id]'); if(!tr0||!el.contains(tr0)) return;
     ev.preventDefault();
@@ -3284,6 +3289,7 @@ function startCellEdit(td,id,fs){
   var __catL=(normKey(f.key)==='CATEGORY_NUMBER'&&!gsActive())?catSubsOf(curBig(),curSub()):[];
   var __ccSel=(ccIsLinkField(f)&&ccIndex().list.length>0); if(__ccSel) __catL=[]; /* 검색(전체 찾기) 중에도 동작 — 행의 대분류 기준 */ /* [CATEGORY CODE] 연결 필드 = 코드 드롭다운 (코드가 등록돼 있을 때 우선) */
   if(catIsPosField(f)){ showToast('CATEGORY_MAIN / CATEGORY_SUB 는 CATEGORY MANAGER 에서만 변경할 수 있습니다','error'); td.classList.remove('editing'); __editEnd(); return; }
+  if(fieldLocked(f)){ showToast('고정된 필드 — 필드편집에서 고정을 풀어야 수정할 수 있습니다','error'); td.classList.remove('editing'); __editEnd(); return; }
   var __posSel=false; /* [2026-10-09] 셀 잠금 — 위치 변경은 CATEGORY MANAGER 에서만 */
   if(f.type==='select'||__catL.length||__ccSel||__posSel){ /* 드롭다운(데이터 유효성) 필드 · [2026-10-02] CATEGORY_NO = 공유 트리의 하위 카테고리 목록 */
     var sh='<select class="plu-cell-input"><option value=""></option>';
@@ -3865,9 +3871,10 @@ function __fmKey(ev){ if(ev.key==='Escape') closeFieldMenu(); }
 function openFieldMenu(f,x,y){
   closeFieldMenu();
   var isCalc=!!f.formula||(!!f.share&&f.share!==f.key), isSrp=normKey(f.key)==='PRICE_SRP'||normKey(f.key)==='SRP';
+  if(fieldLocked(f)){ isCalc=true; isSrp=false; }
   var m=document.createElement('div'); m.id='pluFieldMenu'; m.className='plu-fmenu';
   m.innerHTML='<div class="fm-title">'+escapeHtml(f.label||f.key)+' · '+(gsActive()?'검색 결과':escapeHtml(curSub()))+' '+fieldMenuRows().length+'행</div>'
-    +(isCalc?'<div style="padding:6px 9px;color:var(--ink-dim,#777)">수식(자동 계산) 필드 — 문자 편집 불가</div>'
+    +(isCalc?'<div style="padding:6px 9px;color:var(--ink-dim,#777)">'+(fieldLocked(f)?'고정된 필드 — 필드편집에서 고정을 풀어야 수정 가능':'수식(자동 계산) 필드 — 문자 편집 불가')+'</div>'
       :'<button data-op="fill">문자 채우기</button><button data-op="add">문자 추가 (앞/뒤)</button><button data-op="auto">문자 자동추가 (필드+문자 조합)</button><div class="fm-sep"></div><button data-op="del">문자 삭제</button><button data-op="rep">문자 교체</button>'+(isSrp?'<div class="fm-sep"></div><button data-op="srp">SRP 가격 생성 (COST 기준)</button>':''))
     +'<div class="fm-sep"></div><button data-op="freeze">'+(S.freezeKey===f.key?'필드 고정 해제':'필드 고정 (여기까지 왼쪽)')+'</button>';
   document.body.appendChild(m);
@@ -3876,6 +3883,7 @@ function openFieldMenu(f,x,y){
   setTimeout(function(){ document.addEventListener('mousedown',__fmOut,true); document.addEventListener('keydown',__fmKey,true); },0);
 }
 function __fmApply(f,rows,fn,note,type){
+  if(fieldLocked(f)){ showToast('고정된 필드 — 필드편집에서 고정을 풀어야 수정할 수 있습니다','error'); return 0; }
   var big0=curBig(), ids=[], n=0, stCtx=S.curStore;
   { var __ub={}; rows.forEach(function(r){ __ub[rowBigOfRow(r)]=1; }); undoMark(note||'필드 편집',Object.keys(__ub)); }
   rows.forEach(function(r){ var cur=String(getCell(r,f,stCtx)==null?'':getCell(r,f,stCtx)); var nv=fn(cur,r); if(nv==null||nv===cur) return; setCell(r,f,nv,stCtx); var bg=rowBigOfRow(r); calcRowAll(bg,r); ids.push(r.id); n++; });
@@ -4350,8 +4358,9 @@ function renderFeRows(focusKey){
       '<td><select class="fe-align"><option value=""'+(!f.align?' selected':'')+'>기본</option><option value="left"'+(f.align==='left'?' selected':'')+'>왼쪽</option><option value="center"'+(f.align==='center'?' selected':'')+'>가운데</option><option value="right"'+(f.align==='right'?' selected':'')+'>오른쪽</option></select></td>'+
       '<td>'+feShareSelHtml(f)+'</td>'+
       '<td style="text-align:center;"><input type="checkbox" class="fe-hidden"'+(f.hidden?' checked':'')+'></td>'+
+      '<td style="text-align:center;"><button type="button" class="fe-lock'+(f.lock?' on':'')+'" title="고정: 풀기 전까지 이 필드는 셀 입력·체크·채우기·문자 편집·엑셀 불러오기로 바꿀 수 없음 (시스템 자동 변경은 허용)">'+(f.lock?'🔒 고정':'고정')+'</button></td>'+
       '<td style="text-align:center;">'+(S.curStore?'':'<button type="button" class="fe-allst'+(f.allStores?' on':'')+'" title="켜면 이 필드는 매장 구분 없이 모든 매장에 같은 값이 동시에 적용됩니다">전체</button>')+'</td>'+
-      '<td><span class="plu-fe-ops">'+((f.formula||(f.share&&f.share!==f.key))?'':'<button type="button" class="plu-fe-mv fe-fill" title="이 필드를 모든 행에 같은 값으로 채우기">채우기</button>')+'<button type="button" class="plu-fe-mv" data-op="up">▲</button><button type="button" class="plu-fe-mv" data-op="dn">▼</button><button type="button" class="plu-fe-mv del" data-op="del">삭제</button></span></td>';
+      '<td><span class="plu-fe-ops">'+((f.formula||(f.share&&f.share!==f.key)||f.lock)?'':'<button type="button" class="plu-fe-mv fe-fill" title="이 필드를 모든 행에 같은 값으로 채우기">채우기</button>')+'<button type="button" class="plu-fe-mv" data-op="up">▲</button><button type="button" class="plu-fe-mv" data-op="dn">▼</button><button type="button" class="plu-fe-mv del" data-op="del">삭제</button></span></td>';
     /* [요구 2026-09] 입력번호·너비: 숫자만 입력 가능 (type=text — 화살표 업다운 없음) */
     tr.querySelectorAll('.fe-eno,.fe-w').forEach(function(ni){
       ni.addEventListener('input',function(){ var v=ni.value.replace(/[^0-9]/g,''); if(v!==ni.value) ni.value=v; });
@@ -4397,6 +4406,8 @@ function renderFeRows(focusKey){
     };
     var fillBtn=tr.querySelector('.fe-fill');
     if(fillBtn) fillBtn.onclick=function(){ openFillModal(f); };
+    var lockB=tr.querySelector('.fe-lock'); /* [고정 2026-10-09] */
+    if(lockB) lockB.onclick=function(){ if(f.lock) delete f.lock; else f.lock=true; renderFeRows(f.key); fePreview(true); showToast(f.lock?('"'+(f.label||f.key)+'" 고정 — 풀기 전까지 수정 불가'):('"'+(f.label||f.key)+'" 고정 해제'),'success'); };
     var fxDel=tr.querySelector('.fe-fx-del'); /* [요구 2] 수식 삭제 */
     if(fxDel) fxDel.onclick=async function(){
       if(!(await uiConfirm('"'+f.label+'" 필드의 수식을 삭제할까요?\n현재 계산된 값은 남고, 이후 직접 입력할 수 있게 됩니다.','수식 삭제'))) return;
@@ -4499,6 +4510,7 @@ function optSave(){
    - 채운 뒤 해당 행 수식·쉐어 재계산 */
 var fillField=null;
 function openFillModal(f){
+  if(fieldLocked(f)){ showToast('고정된 필드 — 필드편집에서 고정을 풀어야 채울 수 있습니다','error'); return; }
   fillField=f;
   var st=S.curStore||'기본(마스터)';
   var h='';
@@ -5186,7 +5198,7 @@ function runImport(){
   renderBigTabs(); renderSubTabs(); /* 부서 라우팅으로 소분류가 자동 생성됐을 수 있음 */
   saveState(); $('impOv').classList.remove('show'); renderStoreBar(); renderContent();
   if(res.excl){ var __ex=[]; for(var __ek in res.excl) __ex.push(__ek+' '+res.excl[__ek]+'행'); uiAlert('규칙에 따라 제외된 행: '+__ex.join(' · ')+'\n(업데이트 '+res.upd+' · 추가 '+res.add+')','업체 리스트 파일 제외 행'); }
-  showToast('불러오기 완료 — 업데이트 '+res.upd+(res.upcMulti?' (UPC 기준 중복 행 포함)':'')+' · 추가 '+res.add+(res.shortUpc?' · UPC 6자리 이하 제외 '+res.shortUpc:'')+(res.trashed?' · TRASH 일치 무시 '+res.trashed:'')+(res.skipped?' · 기준값 없음 건너뜀 '+res.skipped:'')+(res.moved?' · 소분류 이동 '+res.moved:'')+(res.catMain?' · CATEGORY_MAIN 으로 상위 이동 '+res.catMain:'')+(res.catSub?' · CATEGORY_SUB 로 중간 이동 '+res.catSub:'')+(res.newBig?' · 새 상위 '+res.newBig:'')+(res.newSub?' · 새 중간 '+res.newSub:'')+(res.dept?' · DEPARTMENT 라우팅 '+res.dept:'')+(res.unhid?' · 숨김 해제 '+res.unhid+'필드':'')+(res.fml?' · 엑셀 함수 적용 '+res.fml:'')+(res.storesAdded?' · 매장 추가 '+res.storesAdded:''),'success');
+  showToast('불러오기 완료 — 업데이트 '+res.upd+(res.upcMulti?' (UPC 기준 중복 행 포함)':'')+' · 추가 '+res.add+(res.shortUpc?' · UPC 6자리 이하 제외 '+res.shortUpc:'')+(res.trashed?' · TRASH 일치 무시 '+res.trashed:'')+(res.skipped?' · 기준값 없음 건너뜀 '+res.skipped:'')+(res.moved?' · 소분류 이동 '+res.moved:'')+(res.catMain?' · CATEGORY_MAIN 으로 상위 이동 '+res.catMain:'')+(res.catSub?' · CATEGORY_SUB 로 중간 이동 '+res.catSub:'')+(res.newBig?' · 새 상위 '+res.newBig:'')+(res.locked?' · 고정 필드 건너뜀 '+res.locked+'칸':'')+(res.newSub?' · 새 중간 '+res.newSub:'')+(res.dept?' · DEPARTMENT 라우팅 '+res.dept:'')+(res.unhid?' · 숨김 해제 '+res.unhid+'필드':'')+(res.fml?' · 엑셀 함수 적용 '+res.fml:'')+(res.storesAdded?' · 매장 추가 '+res.storesAdded:''),'success');
   if(res.catCode) setTimeout(function(){ ccAutoReport(res.catCode,'엑셀 불러오기'); },50);
   if(res.fmlFail&&res.fmlFail.length) uiAlert('엑셀 함수를 적용하지 못한 열 '+res.fmlFail.length+'건 (기존 수식 유지):\n'+res.fmlFail.slice(0,20).join('\n')+(res.fmlFail.length>20?'\n…':''),'수식 변환 결과');
   /* [디버깅 지원] 매칭 기준을 지정했는데 기존 행 업데이트가 0건 = PLU 값이 하나도 일치하지 않음 */
@@ -5479,7 +5491,7 @@ function applyImport(opts){
         var r0=ht.row;
         var dest0=dest; if(__noSub&&!(venderRow&&SUB_BY_VENDER)&&!destByRule&&!__deptSub&&!__fieldSub&&!(SUB_BY_VENDER&&__fileVend)) dest=ht.sub; /* 중간 선택 안 함 → 기존 행 제자리 */
         for(var k in vals){
-          var f=fieldByKey(rowBig,k); if(!f) continue;
+          var f=fieldByKey(rowBig,k); if(!f) continue; if(fieldLocked(f)){ stats.locked=(stats.locked||0)+1; continue; } /* [고정] 고정 필드는 파일 값으로 덮지 않음 */
           var __vv=vals[k]; var __sf=selSrcSelect(f); if(__sf) __vv=optResolve(__sf,__vv); /* [영구 규칙] 목록 값 정규화 */
           setCell(r0,f,__vv,rowStore); /* 모든 필드 매장별 저장 (기본은 자동 시드) — 수식 필드 값은 재계산이 확정 */
         }
@@ -5496,7 +5508,7 @@ function applyImport(opts){
       }else{
         var nr={id:newId(),v:{},sv:{},m:rowStamp()};
         for(var k2 in vals){
-          var f2=fieldByKey(rowBig,k2); if(!f2) continue;
+          var f2=fieldByKey(rowBig,k2); if(!f2) continue; if(fieldLocked(f2)){ stats.locked=(stats.locked||0)+1; continue; }
           var __vv2=vals[k2]; var __sf2=selSrcSelect(f2); if(__sf2) __vv2=optResolve(__sf2,__vv2); /* [영구 규칙] 목록 값 정규화 */
           setCell(nr,f2,__vv2,rowStore);
         }
@@ -8132,6 +8144,8 @@ function catTreeStart(conn){
    · CATEGORY_KOR 입력 → 그 중간의 하위 목록(공유 트리)에서 같은 KOR(또는 ENG) 이름을 찾아 CATEGORY NO(= CATEGORY CODE A-BB-CC) · ENG 자동 채움. 트리 반영 때도 KOR 이름이 우선.
    · UPC: 중간 카테고리는 더 이상 VENDER 값으로 정하지 않음 (SUB_BY_VENDER=false) — VENDER 는 일반 필드 */
 var CAT_MAIN_KEY='CATEGORY_MAIN', CAT_SUB_KEY='CATEGORY_SUB';
+function fieldLocked(f){ return !!(f&&f.lock); } /* [고정 2026-10-09] 필드편집의 「고정」 — 풀기 전까지 사용자 수정(셀·체크·필드 메뉴·채우기·불러오기) 불가. 시스템 자동 변경은 허용 */
+var CAT_LOCK=true; /* [2026-10-09] 이 화면에서 상위/중간 카테고리 추가·이름 변경·삭제 잠금 — CATEGORY MANAGER 에서만 (엑셀 불러오기의 자동 생성은 예외) */
 function catTabOf(bg){ for(var i=0;i<(S&&S.tabs?S.tabs.length:0);i++){ if(S.tabs[i].label===bg) return S.tabs[i]; } return null; }
 function catPosSync(st){ st=st||S; if(!st||!st.data||!st.tabs) return 0; var n=0;
   st.tabs.forEach(function(t){ var big=t.label, L=st.layouts[big]||[], fm=null, fsb=null; for(var i=0;i<L.length;i++){ var k=normKey(L[i].key); if(k===CAT_MAIN_KEY) fm=L[i]; else if(k===CAT_SUB_KEY) fsb=L[i]; } if(!fm&&!fsb) return;
