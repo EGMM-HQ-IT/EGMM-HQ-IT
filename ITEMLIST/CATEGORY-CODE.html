@@ -112,7 +112,9 @@
       <div class="setbox">
         <h2>연결 필드 <span class="cnt">코드가 기록되는 상품 필드 (리스트별)</span></h2>
         <div class="row"><label>PLU LIST</label><select id="linkPlu"></select><label>UPC LIST</label><select id="linkUpc"></select></div>
-        <div class="hint">기본은 CATEGORY NO. 감지(매칭)하는 이름은 CATEGORY ENG 값입니다. 바꾸면 「CLOUD 저장」으로 함께 저장됩니다.</div>
+        <h2 style="margin-top:10px">감지 필드 <span class="cnt">소분류 이름과 비교하는 상품 필드 (리스트별)</span></h2>
+        <div class="row"><label>PLU LIST</label><select id="detPlu"></select><label>UPC LIST</label><select id="detUpc"></select></div>
+        <div class="hint">기본: 연결 = CATEGORY NO · 감지 = CATEGORY ENG. 감지 필드 값이 소분류의 영문 또는 한글 이름과 같으면 코드가 생성됩니다. 바꾸면 「CLOUD 저장」으로 함께 저장됩니다.</div>
       </div>
     </div>
   </div>
@@ -144,7 +146,7 @@ window.__CC_SEED={"bigs":[{"a":"1","name":"GROCERY","mids":[{"bb":"10","name":"K
 
   /* ── 상태 ── */
   var F=null, db=null;
-  var D={ bigs:[], link:{ 'PLU-LIST':'CATEGORY_NUMBER', 'UPC-LIST':'CATEGORY_NUMBER' } };
+  var D={ bigs:[], link:{ 'PLU-LIST':'CATEGORY_NUMBER', 'UPC-LIST':'CATEGORY_NUMBER' }, detect:{ 'PLU-LIST':'CATEGORY_ENGLISH', 'UPC-LIST':'CATEGORY_ENGLISH' } };
   var savedAt='', dirty=false, selA=-1, selB=-1, q='';
   var listFields={ 'PLU-LIST':null, 'UPC-LIST':null }; /* 리스트별 필드 목록 [{key,label}] */
   function setDirty(v){ dirty=v; $('dirty').textContent=v?'저장 안 된 변경':''; }
@@ -155,7 +157,8 @@ window.__CC_SEED={"bigs":[{"a":"1","name":"GROCERY","mids":[{"bb":"10","name":"K
       (b.mids||[]).forEach(function(m){ if(!m) return; var nm={ bb:pad2(m.bb), name:String(m.name||'').trim(), kor:String(m.kor||'').trim(), subs:[] }; (m.subs||[]).forEach(function(s){ if(!s) return; nm.subs.push({ cc:pad2(s.cc), name:String(s.name||'').trim(), kor:String(s.kor||'').trim() }); }); nb.mids.push(nm); });
       bigs.push(nb); });
     var link={ 'PLU-LIST':'CATEGORY_NUMBER', 'UPC-LIST':'CATEGORY_NUMBER' }; if(o&&o.link){ for(var k in link){ if(o.link[k]) link[k]=String(o.link[k]); } }
-    return { bigs:bigs, link:link }; }
+    var detect={ 'PLU-LIST':'CATEGORY_ENGLISH', 'UPC-LIST':'CATEGORY_ENGLISH' }; if(o&&o.detect){ for(var k2 in detect){ if(o.detect[k2]) detect[k2]=String(o.detect[k2]); } }
+    return { bigs:bigs, link:link, detect:detect }; }
 
   /* ── 검증 (저장 전) ── */
   function validate(){ var errs=[], seenA={};
@@ -177,7 +180,7 @@ window.__CC_SEED={"bigs":[{"a":"1","name":"GROCERY","mids":[{"bb":"10","name":"K
   function save(){
     var errs=validate(); if(errs.length){ ask('저장할 수 없음',errs.slice(0,12).join('\n')+(errs.length>12?'\n…':''),false); return Promise.resolve(false); }
     sortAll();
-    var payload={ bigs:D.bigs, link:D.link };
+    var payload={ bigs:D.bigs, link:D.link, detect:D.detect };
     var doc={ ver:1, savedAt:new Date().toISOString(), fmt:'GZ', d:gz(JSON.stringify(payload)) };
     return F.setDoc(F.doc(db,'CATEGORY','_CODE'),doc).then(function(){ savedAt=doc.savedAt; setDirty(false); try{ localStorage.setItem('egmmCatCode',JSON.stringify(payload)); }catch(e){}
       $('chipCloud').textContent='CLOUD 저장본 '+String(savedAt).slice(0,16).replace('T',' '); $('chipCloud').className='chip ok'; var c=counts(); toast('CLOUD 저장 — 대분류 '+c.a+' · 중분류 '+c.b+' · 소분류 '+c.c,'success'); render(); return true; })
@@ -192,10 +195,10 @@ window.__CC_SEED={"bigs":[{"a":"1","name":"GROCERY","mids":[{"bb":"10","name":"K
         return (m||[]).map(function(f){ return { key:String(f.key||''), label:String(f.label||f.key||''), group:String(f.group||'') }; }).filter(function(f){ return f.key; }); }); })
       .then(function(fs){ listFields[root]=fs; renderLink(); }).catch(function(){ listFields[root]=null; renderLink(); });
   }
-  function renderLink(){ [['PLU-LIST','linkPlu'],['UPC-LIST','linkUpc']].forEach(function(p){ var root=p[0], sel=$(p[1]), fs=listFields[root], cur=D.link[root]||'CATEGORY_NUMBER', h='', seen=false;
+  function renderLink(){ [['PLU-LIST','linkPlu','link','CATEGORY_NUMBER'],['UPC-LIST','linkUpc','link','CATEGORY_NUMBER'],['PLU-LIST','detPlu','detect','CATEGORY_ENGLISH'],['UPC-LIST','detUpc','detect','CATEGORY_ENGLISH']].forEach(function(p){ var root=p[0], sel=$(p[1]), bag=p[2], fs=listFields[root], cur=D[bag][root]||p[3], h='', seen=false;
       (fs||[]).forEach(function(f){ var on=f.key===cur; if(on) seen=true; h+='<option value="'+esc(f.key)+'"'+(on?' selected':'')+'>'+esc((f.group?f.group+' · ':'')+f.label)+'</option>'; });
       if(!seen) h='<option value="'+esc(cur)+'" selected>'+esc(cur)+(fs?' (리스트에 없는 필드)':'')+'</option>'+h;
-      sel.innerHTML=h; sel.onchange=function(){ D.link[root]=sel.value; setDirty(true); }; }); }
+      sel.innerHTML=h; sel.onchange=function(){ D[bag][root]=sel.value; setDirty(true); }; }); }
 
   /* ── 렌더 ── */
   function hitTxt(s){ if(!q) return esc(s); var k=nameKey(s), i=k.indexOf(q); if(i<0) return esc(s); return esc(s.slice(0,i))+'<span class="hit">'+esc(s.slice(i,i+q.length))+'</span>'+esc(s.slice(i+q.length)); }
@@ -291,7 +294,7 @@ window.__CC_SEED={"bigs":[{"a":"1","name":"GROCERY","mids":[{"bb":"10","name":"K
     '3. PLU · UPC MANAGER 자동 생성: 상품의 CATEGORY ENG 값이 등록된 소분류 이름과 같고, 그 이름이 전체 소분류 중 하나뿐이면 연결 필드(기본 CATEGORY NO)에 A-BB-CC 가 자동으로 들어갑니다. (소분류 목록의 「자동」 표시)',
     '4. 같은 이름이 여러 중분류에 있으면(예: RICE · ETC — 「중복명」 표시) 상품의 연결 필드 셀을 눌러 대분류 › 중분류 › 소분류 드롭다운에서 직접 고릅니다. 고르면 CATEGORY ENG 도 그 소분류 이름으로 맞춰집니다.',
     '5. 등록되지 않은 이름(오타, 예: RIEC)을 CATEGORY ENG 에 넣으면 가장 비슷한 소분류 이름(RICE)으로 고칠지 물어봅니다. 엑셀 불러오기 뒤에는 맞지 않은 이름 목록을 한 번에 보여줍니다.',
-    '6. 연결 필드는 리스트(PLU LIST · UPC LIST)별로 바꿀 수 있습니다. 감지(매칭)에 쓰는 값은 CATEGORY ENG 로 고정입니다.',
+    '6. 연결 필드(코드가 기록되는 필드)와 감지 필드(소분류 이름과 비교하는 필드)는 리스트(PLU LIST · UPC LIST)별로 바꿀 수 있습니다. 기본은 CATEGORY NO · CATEGORY ENG. 감지 필드 값은 소분류의 영문·한글 이름 어느 쪽과 같아도 됩니다.',
     '7. 엑셀 불러오기는 ITEM_CATEGORY.xlsx 원본 형식과, 「엑셀 내보내기」 평면 형식(A · 대분류 · 대분류(한글) · BB · 중분류 · 중분류(한글) · CC · 소분류 · 소분류(한글)) 둘 다 읽습니다. 불러오면 화면의 코드 전체가 파일 내용으로 바뀝니다.',
     '8. 삭제해도 상품에 이미 기록된 코드 값은 지워지지 않습니다.'
   ].join('\n');
