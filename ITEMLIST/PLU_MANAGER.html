@@ -1489,7 +1489,6 @@ function saveUi(){
 var __lsIdle=false, __lsSyncOnly=false;
 function saveState(){
   if(!S) return;
-  try{ catPosSync(S); }catch(e){} /* [카테고리 필드 규칙] 행 이동(청과 PLU 범위 · 드래그 · 불러오기 등) 뒤에도 CATEGORY_MAIN / SUB = 위치 */
   notifySaved();
   if(!__lsTimer) __lsTimer=setTimeout(__lsWriteNow,600);
   fbSyncTouch(); /* [MODULE 26] 수정 발생 → Firebase 자동 전송 예약 */
@@ -1801,7 +1800,6 @@ function migrate(st){
     S=__S0!==null?__S0:st;
   }
   try{ dedupeRowIds(st); }catch(e){}
-  try{ if(catPosSync(st)) st.dirtySinceSync=true; }catch(e){} /* [카테고리 필드 규칙] 위치 → CATEGORY_MAIN / CATEGORY_SUB */
   return st;
 }
 /* [디버깅 2026-10-06] 같은 id 를 가진 행이 2개 이상이면(이전 복제 버그) 뒤의 행에 새 id 부여.
@@ -7512,7 +7510,7 @@ try{
   window.__PLU.fbNameFor=fbNameFor; window.__PLU.fbItemId=fbItemId; window.__PLU.fbBuildPlan=fbBuildPlan;
   window.__PLU.fbTestInject=fbTestInject; window.__PLU.fbUploadStart=fbUploadStart;
   window.__PLU.fbRestoreStart=fbRestoreStart; window.__PLU.openFbCfg=openFbCfg; window.__PLU.fbPurgeCorruptAndPush=fbPurgeCorruptAndPush;
-  window.__PLU.catPosSync=catPosSync; window.__PLU.catMoveRow=catMoveRow; window.__PLU.catFindByName=catFindByName;
+  window.__PLU.catPosSync=catPosSync; window.__PLU.catFillNo=catFillNo; window.__PLU.catAfterPull=catAfterPull; window.__PLU.catMoveRow=catMoveRow; window.__PLU.catFindByName=catFindByName;
   window.__PLU.catCodeApply=catCodeApply; window.__PLU.ccAutoRow=ccAutoRow; window.__PLU.ccSuggest=ccSuggest; window.__PLU.ccAutoRows=ccAutoRows;
   window.__PLU.fbRulesText=FB_RULES; window.__PLU.fbConfigChunks=fbConfigChunks; window.__PLU.fbConfigJoin=fbConfigJoin;
 }catch(e){}
@@ -7776,6 +7774,7 @@ async function fbSyncRun(){
       /* [원칙 2026-10-01 확정] CLOUD 에 더 새 기록이 있으면 무조건 CLOUD 기준으로 반영 (충돌 팝업 없음). UPC: 이 컴퓨터에만 있던 행은 합쳐서 이어서 전송 */
       var rr=await fbPullApply(conn); fbLogSync('pull',rr.got,'CLOUD 에 새 기록 → 반영'+(rr.kept?' · 이 컴퓨터 추가분 '+rr.kept+'건 합침':'')); showToast('CLOUD 최신본 반영 — 상품 '+rr.got+'건','success'); return;
     }
+    try{ catPosSync(S); }catch(e){} /* [카테고리 필드 규칙] 전송 전 위치 → MAIN/SUB (행 이동 뒤 값 보정) */
     var plan=fbBuildPlan(S);
     if(plan.needNames.length){
       __fbState='names';
@@ -8031,6 +8030,7 @@ async function fbDeltaApply(conn,meta){
   } finally { __fbMuting=false; }
   renderAll();
   __fbLast=fbDocsMap(fbBuildPlan(S));
+  try{ if(!__fbBooting) catAfterPull('CLOUD 변경분'); else __catAfterBoot=true; }catch(e){}
   __fbState='ok'; renderSaveChip();
   return { got:got, del:dl.length, delta:true };
 }
@@ -8070,6 +8070,7 @@ function catReconcile(){
     }); });
   (__catTree.log||[]).forEach(function(e){ if(String(e.at||'')>newest) newest=String(e.at||''); });
   if(newest!==logAt){ S.catLogAt=newest; }
+  try{ var __m=catFillNo(); if(__m){ n+=__m; } }catch(e){} /* [2] 트리 반영 뒤 CATEGORY NO 자동 채움 */
   if(n){ S.tabs.forEach(function(t){ calcAll(t.label); }); saveState(); renderContent(); showToast('카테고리 트리 반영 — '+n+'건','success'); }
   else if(newest!==logAt){ __fbMuting=true; saveState(); __fbMuting=false; }
   return n;
@@ -8124,6 +8125,21 @@ function catPosSync(st){ st=st||S; if(!st||!st.data||!st.tabs) return 0; var n=0
       if(fm&&String(r.v[fm.key]==null?'':r.v[fm.key])!==big){ r.v[fm.key]=big; ch=true; }
       if(fsb&&String(r.v[fsb.key]==null?'':r.v[fsb.key])!==sb){ r.v[fsb.key]=sb; ch=true; }
       if(ch){ if(r.sv){ for(var s2 in r.sv){ var o=r.sv[s2]; if(o){ if(fm) delete o[fm.key]; if(fsb) delete o[fsb.key]; } } } n++; } } }); });
+  return n; }
+/* CLOUD 반영(전체·변경분) 뒤 · 시작 때: 위치 → MAIN/SUB 맞추고 CATEGORY NO 자동 채움 → 바뀐 행이 있으면 CLOUD 로 전송 (기준선 __fbLast 를 잡은 뒤에 호출해야 차이로 잡힘) */
+function catAfterPull(where){ if(!S) return 0; var n=0; try{ n=catPosSync(S); }catch(e){} var m=0; try{ m=catFillNo(); }catch(e){}
+  if(n||m){ __fbMuting=true; S.dirtySinceSync=true; S.dirtyAt=new Date().toISOString(); saveState(); __fbMuting=false; renderContent(); fbLogSync('merge',n+m,'카테고리 필드 맞춤 — MAIN/SUB '+n+'행 · CATEGORY NO 자동 '+m+'행'+(where?' ('+where+')':'')); fbSyncQueue(800); }
+  return n+m; }
+/* [2] CATEGORY NO 자동 채움: 비었거나 코드 형태(A-BB-CC)가 아닌 행 → ① 그 중간의 하위 목록(KOR/ENG 이름) ② CATEGORY CODE 소분류 이름(KOR/ENG, 전체에서 하나뿐) → 바뀐 행 수 */
+function catIsCodeForm(v){ return /^\d+-\d{2}-\d{2}$/.test(String(v==null?'':v).trim()); }
+function catFillNo(){ if(!S||!S.tabs) return 0; var n=0, hasCode=!!(__catCode&&ccIndex().list.length);
+  (S.tabs||[]).forEach(function(t){ var big=t.label, F=catFields(big); if(!F.no) return;
+    (t.subs||[]).forEach(function(sb){ var L=catSubsOf(big,sb); rowsFor(big,sb).forEach(function(r){ var cur=String(getCell(r,F.no,'')||'').trim(); if(catIsCodeForm(cur)) return;
+      var kor=F.kor?String(getCell(r,F.kor,'')||'').trim():'', eng=F.eng?String(getCell(r,F.eng,'')||'').trim():'';
+      var e=(L.length&&kor)?catFindByName(big,sb,kor):null; if(!e&&L.length&&eng) e=catFindByName(big,sb,eng);
+      if(e&&catIsCodeForm(e.no)){ if(catApplyEntry(big,r,e)) n++; return; }
+      if(!hasCode) return; var ix=ccIndex(), hits=(kor?ix.byName[normKey(kor)]:null)||[]; if(hits.length!==1&&eng) hits=ix.byName[normKey(eng)]||[];
+      if(hits.length===1&&hits[0].code!==cur){ setCell(r,F.no,hits[0].code,''); n++; } }); }); });
   return n; }
 function rowSubOfRow(r){ if(gsActive()&&r&&__gsMap[r.id]) return __gsMap[r.id].sub; return curSub(); }
 function catIsPosField(f){ var k=normKey(f&&f.key); return k===CAT_MAIN_KEY||k===CAT_SUB_KEY; }
@@ -8203,7 +8219,7 @@ function ccAfterEngEdit(big,row,td,fs){ var x=ccAutoRow(big,row);
     uiConfirm('"'+x.name+'" 은 등록된 소분류 이름이 아닙니다.\n"'+sg+'" 로 고칠까요? (코드 자동 생성)','CATEGORY CODE').then(function(ok){ if(!ok||!fd) return; setCell(row,fd,sg,''); var y=ccAutoRow(big,row); saveState(); renderContent(); showToast(y.st==='set'?('"'+sg+'" → CATEGORY CODE '+y.codes[0].code):('"'+sg+'" 로 고침'+(y.st==='multi'?' — 중분류 여러 곳: 셀에서 선택':'')),'success'); }); return false; }
   if(x.st==='nomatch'){ showToast('"'+x.name+'" 은 등록된 소분류 이름이 아닙니다 (CATEGORY CODE 미생성)','error'); }
   return false; }
-function catCodeApply(o){ __catCode=o; __ccIdx=null; try{ localStorage.setItem('egmmCatCode',JSON.stringify(o)); }catch(e){} }
+function catCodeApply(o){ __catCode=o; __ccIdx=null; try{ localStorage.setItem('egmmCatCode',JSON.stringify(o)); }catch(e){} if(!__fbBooting&&S){ try{ var m=catFillNo(); if(m){ saveState(); renderContent(); showToast('CATEGORY NO 자동 채움 '+m+'행','success'); } }catch(e){} } }
 function catCodeStart(conn){
   if(__catCodeWatchOff) return;
   var M=conn.M, db=conn.db;
@@ -8226,6 +8242,7 @@ async function fbPullApply(conn){
   __fbMuting=false;
   renderAll();
   __fbLast=(__kept>0&&__pre)?__pre:fbDocsMap(fbBuildPlan(S));
+  try{ if(!__fbBooting) catAfterPull('CLOUD 반영'); else __catAfterBoot=true; }catch(e){}
   if(__fbConfigCorrupt){ __fbConfigCorrupt=false; Object.keys(__fbLast).forEach(function(k){ if(k.indexOf(FB_ROOT+'/_CONFIG')===0) delete __fbLast[k]; }); fbLogSync('pull',0,'CLOUD 설정 문서(_CONFIG) 손상 — 이 컴퓨터 설정으로 다시 기록');
     __fbMuting=true; S.dirtySinceSync=true; S.dirtyAt=new Date().toISOString(); saveState(); __fbMuting=false; fbSyncQueue(800); }
   if(__fbCorruptPacks&&__fbCorruptPacks.length){ /* [확정 2026-10-08] 깨진 묶음은 복구본(CLOUD 복구행 + 이 컴퓨터·캐시·이전 문서 최신행)으로 다시 기록해 초기화 — 원본 조각은 _PACKRAW 에 보존 */
@@ -8261,7 +8278,7 @@ function fbConflictPopup(){
 }
 /* 시작 시 자동 접속·방향 결정 */
 async function fbAutoStart(){
-  if(!fbCfgCur()){ __fbState='off'; renderSaveChip(); return; }
+  if(!fbCfgCur()){ __fbState='off'; renderSaveChip(); try{ if(catPosSync(S)||catFillNo()){ saveState(); renderContent(); } }catch(e){} return; }
   try{
     var conn=await Promise.race([ fbConnect(),
       new Promise(function(_,rj){ setTimeout(function(){ rj(new Error('접속 시간 초과 — 인터넷 확인')); },15000); }) ]);
@@ -8294,7 +8311,9 @@ async function fbAutoStart(){
   __fbBooting=false; fbBootOverlay(false);
   renderSaveChip();
   try{ catReconcile(); }catch(e){}
+  try{ catAfterPull('시작'); }catch(e){} /* [카테고리 필드 규칙] 시작 때 위치 → MAIN/SUB · CATEGORY NO 자동 채움 (CLOUD 기준선 뒤 → 바뀐 행만 전송) */
 }
+var __catAfterBoot=false;
 /* 저장 칩 연동 */
 function fbSyncChipInfo(){
   var st=__fbState;
@@ -8324,7 +8343,7 @@ try{
   window.__PLU.saveState=saveState; window.__PLU.openDataEdit=openDataEdit; window.__PLU.fbPackMigrate=fbPackMigrate; window.__PLU.catSetTree=function(t){ __catTree=t; }; window.__PLU.catReconcile=catReconcile; window.__PLU.catSubsOf=catSubsOf; window.__PLU.fbLegacyCleanup=fbLegacyCleanup; window.__PLU.fbPackState=function(){ return __fbPack; }; window.__PLU.fbPackRead=fbPackRead; window.__PLU.openHistory=openHistory; window.__PLU.openRecovery=openRecovery; window.__PLU.histLog=histLog; window.__PLU.openDupList=openDupList; window.__PLU.dupGroups=dupGroups;
   window.__PLU.fbAutoStart=fbAutoStart; window.__PLU.fbSyncRun=fbSyncRun;
   window.__PLU.fbSyncState=function(){ return __fbState; };
-  window.__PLU.fbSetSyncMs=function(ms){ __fbSyncMs=ms; }; window.__PLU.fbConnect=fbConnect;
+  window.__PLU.fbSetSyncMs=function(ms){ __fbSyncMs=ms; }; window.__PLU.fbConnect=fbConnect; window.__PLU.fbPullApply=fbPullApply;
   window.__PLU.fbDocsMap=fbDocsMap; window.__PLU.fbRowsTotal=fbRowsTotal;
   window.__PLU.fbResetSync=function(){ __fbLast=null; __fbState='off'; __fbConflict=null; __fbNamesAsked=''; clearTimeout(__fbSyncTimer); };
 }catch(e){}
