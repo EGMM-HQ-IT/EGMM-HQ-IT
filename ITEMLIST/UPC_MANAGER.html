@@ -7209,7 +7209,7 @@ async function fbUploadStart(){
   try{
     var conn=await fbConnect(log), M=conn.M, db=conn.db;
     await fbPackFlag(conn,true);
-    if(__fbPack){ log('압축 묶음 방식 — 전체를 업체별 묶음으로 전송합니다…'); __fbLast=null; __fbMuting=true; S.dirtySinceSync=true; __fbMuting=false; await fbSyncRun(); log(__fbState==='ok'?('완료 — 상품 '+plan.total+'건'):('상태: '+__fbState+' '+(__fbErrMsg||''))); fbRunDone(); return; }
+    if(__fbPack){ log('압축 묶음 방식 — 전체를 업체별 묶음으로 전송합니다…'); __fbLast=null; __fbForceAll=true; __fbMuting=true; S.dirtySinceSync=true; __fbMuting=false; try{ await fbSyncRun(); }finally{ __fbForceAll=false; __fbProtectPacks=[]; } log(__fbState==='ok'?('완료 — 상품 '+plan.total+'건'):('상태: '+__fbState+' '+(__fbErrMsg||''))); fbRunDone(); return; }
     /* 이전 목차 → 삭제 대상 소분류 파악 (v3 META 만) */
     log('이전 목차 확인…');
     var oldTree=[], oldParts=1;
@@ -7351,7 +7351,8 @@ try{
 var __fbSyncMs=2500, __fbRetryMs=30000, FB_DELTA_MAX=3000; /* 변경분 목록 상한 — 넘으면 전체 반영 */
 var __fbLast=null;   /* path→json — 이 세션이 아는 Firebase 상태. null = 전체 전송 필요 */
 var __fbCorruptPacks=null; /* [2026-10-08] 읽기 때 손상으로 판정된 묶음 경로 — 다음 전송에서 무조건 다시 기록 */
-var __fbLegacyKept=false;  /* _PACKMETA.legacyKept — 압축 변환 이전의 행 문서가 CLOUD 에 남아 있음 (손상 묶음 보충용) */
+var __fbLegacyKept=false;
+var __fbProtectPacks=[], __fbForceAll=false;   /* [2026-10-08] 손상으로 판정된 묶음 — 사용자가 「CLOUD 업로드」로 확정하기 전까지 자동 전송에서 제외 (원본 보존) */  /* _PACKMETA.legacyKept — 압축 변환 이전의 행 문서가 CLOUD 에 남아 있음 (손상 묶음 보충용) */
 var __fbSyncTimer=0, __fbSyncRunning=false, __fbSyncPending=false, __fbRetryTimer=0;
 var __fbMuting=false;   /* 동기화 자신이 하는 저장(플래그·복원 적용)의 재큐잉 방지 */
 var __fbState='off';    /* off|wait|run|ok|err|conflict|names|hold */
@@ -7595,6 +7596,7 @@ async function fbSyncRun(){
     async function op(fn){ fn(batch); if(++n>=450) await flush(); }
     for(var di=0;di<dels.length;di++){ var rd=M.fs.doc.apply(null,[db].concat(dels[di].split('/'))); await op(function(b){ b.delete(rd); });
       if(fbIsPackPath(dels[di])){ for(var dp=2;dp<=(__packParts[dels[di]]||6);dp++){ var rdp=M.fs.doc.apply(null,[db].concat((dels[di]+'__P'+dp).split('/'))); await op((function(r3){ return function(b){ b.delete(r3); }; })(rdp)); } } }
+    if(__fbProtectPacks.length&&!__fbForceAll){ var __skipped=0; writes=writes.filter(function(pth){ if(__fbProtectPacks.indexOf(pth)>=0){ __skipped++; return false; } return true; }); if(__skipped) fbLogSync('push',0,'손상 묶음 '+__skipped+'개는 전송 제외 (CLOUD 원본 보존 — 복구 확정은 메뉴 > CLOUD 업로드)'); }
     for(var wi=0;wi<writes.length;wi++){ var rw=M.fs.doc.apply(null,[db].concat(writes[wi].split('/')));
       if(fbIsPackPath(writes[wi])){ /* 압축 묶음: gzip → 조각 문서 */
         var pj=m[writes[wi]], parts=fbPackEncode(pj), nrow=0; try{ nrow=JSON.parse(pj).length; }catch(e){}
@@ -7896,7 +7898,7 @@ async function fbPullApply(conn){
   __fbMuting=false;
   renderAll();
   __fbLast=(__kept>0&&__pre)?__pre:fbDocsMap(fbBuildPlan(S));
-  if(__fbCorruptPacks&&__fbCorruptPacks.length){ __fbCorruptPacks.forEach(function(pth){ delete __fbLast[pth]; }); fbLogSync('pull',0,'손상된 묶음 '+__fbCorruptPacks.length+'개 — 이 컴퓨터 사본으로 대체, 다음 전송 때 다시 기록'); __fbCorruptPacks=null; __fbMuting=true; S.dirtySinceSync=true; S.dirtyAt=new Date().toISOString(); saveState(); __fbMuting=false; fbSyncQueue(800); }
+  if(__fbCorruptPacks&&__fbCorruptPacks.length){ fbLogSync('pull',0,'손상된 묶음 '+__fbCorruptPacks.length+'개 — 복구본으로 표시 중. CLOUD 원본은 그대로 보존(자동 재기록 안 함)'); __fbProtectPacks=__fbCorruptPacks.slice(); __fbCorruptPacks=null; }
   __fbState='ok'; renderSaveChip();
   if(__kept>0){ r.kept=__kept; r.merge=__mg; fbLogSync('merge',__kept,'이 컴퓨터 기준 반영 — 추가 '+__mg.kept+' · 더 최근 편집 '+__mg.newer+' · 삭제 '+__mg.removed+' → CLOUD 로 전송'); fbSyncQueue(500); }
   return r;
