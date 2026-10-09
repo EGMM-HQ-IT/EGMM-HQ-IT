@@ -1291,6 +1291,8 @@ var DEFAULT_STORES=['TACOMA','FEDERALWAY','BELLEVUE','BALLARD','REDMOND','LYNNWO
 var VENDOR_BY_BIG={'STI':'STI-WA'};
 /* [UPC MANAGER 연계 2026-09] 로컬 전용 모드 — true 면 Firebase 자동 접속·동기화 전부 끔 (로컬 저장만) */
 var FB_LOCAL_ONLY=false;
+/* [복구 2026-10-08] 주소에 ?safe=1 을 붙여 열면 CLOUD 에 접속·전송하지 않고 이 컴퓨터 사본만 연다 (사본 보존·백업용) */
+try{ if(/[?&]safe=1/.test(location.search)) FB_LOCAL_ONLY=true; }catch(e){}
 var SYNC_LATEST_WINS=true; /* [2026-10-02] PLU · UPC 동일 */ /* [UPC 2026-10] 동기화: 가장 최근 수정본이 항상 우선(충돌 팝업 없음) + 실시간 반영 + 동기화 로그 */
 var TRASH_ENABLED=true;    /* [2026-10-02] PLU · UPC 동일 */
 var SYNC_NO_GATES=true;    /* [2026-10-02] PLU · UPC 동일 */    /* [UPC 2026-10] 전송 조건 없음 — 한글 이름은 자동 ID, 중복 이름은 자동 접미, 0건도 전송 (묻지 않음) */    /* [UPC 2026-10] 삭제 행 → TRASH(UPC·ITEM CODE·VENDER) 보관 · 불러오기 시 TRASH 와 UPC+ITEM CODE 일치 행 무시 */
@@ -3623,8 +3625,69 @@ function openExcelMenu(){
 function openBackupMenu(){
   __menuPopup('mpBak','백업 · 복원',[
     { label:'백업', desc:'전체 데이터 + 설정을 JSON 파일로 내려받기', run:function(){ backupJson(); } },
-    { label:'복원', desc:'백업 JSON 파일로 되돌리기', run:function(){ $('pluRestoreFile').value=''; $('pluRestoreFile').click(); } }
+    { label:'복원', desc:'백업 JSON 파일로 되돌리기', run:function(){ $('pluRestoreFile').value=''; $('pluRestoreFile').click(); } },
+    { label:'데이터 복구', desc:'CLOUD 묶음(손상분 포함) · 변환 이전 행 문서 · 이 컴퓨터 사본 · 백업 파일을 행별 최신 기준으로 합쳐 복구', run:function(){ openRecovery(); } }
   ]);
+}
+/* ═══ [데이터 복구 · 2026-10-08] 남아 있는 모든 사본을 행(id) 단위로 합쳐 가장 최근 편집본을 되살린다.
+   원천: ① CLOUD 압축 묶음(_PACK · 손상분은 복구 가능한 행까지) ② CLOUD 의 변환 이전 행 문서 ③ 이 컴퓨터 사본 ④ 백업 JSON 파일(선택)
+   규칙: 같은 id 는 편집 시각(m)이 가장 최근인 것 · 어느 한 곳에만 있는 행은 유지 · CLOUD 에는 사용자가 「CLOUD 업로드」를 눌러야만 기록 */
+var __rcBackup=null;
+async function openRecovery(){
+  var log=fbRunOpen('데이터 복구');
+  try{
+    var cur=fbCfgCur(); if(!cur) throw new Error('CLOUD 설정이 없습니다');
+    var conn=await fbConnect(log), M=conn.M, db=conn.db;
+    log('① CLOUD 목차(_META) 읽는 중…');
+    var ms=await M.fs.getDoc(M.fs.doc(db,FB_ROOT,'_META'));
+    var meta=(ms.exists()&&ms.data())?ms.data():{};
+    var tree=meta.tree||[];
+    await fbPackFlag(conn,true);
+    var bySub={}; /* big|sub → {name, rows:{id→{r,src}}, cnt:{pack,legacy,local,backup,sal}} */
+    function slot(big,sub){ var k=big+'|'+sub; if(!bySub[k]) bySub[k]={big:big,sub:sub,rows:{},cnt:{pack:0,sal:0,legacy:0,local:0,backup:0,bad:''}}; return bySub[k]; }
+    function put(sl,r,src){ if(!r||!r.id) return; var ex=sl.rows[r.id]; if(!ex||String(r.m||'')>String(ex.r.m||'')||(String(r.m||'')===String(ex.r.m||'')&&src==='pack')) sl.rows[r.id]={r:r,src:src}; }
+    /* ② CLOUD 묶음 + 변환 이전 행 문서 */
+    for(var bi=0;bi<tree.length;bi++){ var b=tree[bi]; for(var si=0;si<(b.subs||[]).length;si++){ var sb=b.subs[si], sl=slot(b.name,sb.name);
+      if(__fbPack){ try{ var rows=await fbPackRead(M,db,b.id,sb.id); (rows||[]).forEach(function(r){ put(sl,r,'pack'); }); sl.cnt.pack=(rows||[]).length; }
+        catch(e){ var sal=(e&&e.salvage)||[]; sal.forEach(function(r){ put(sl,r,'pack'); }); sl.cnt.sal=sal.length; sl.cnt.bad=String((e&&e.message)||e); } }
+      try{ var lsn=await M.fs.getDocs(M.fs.collection(db,FB_ROOT,b.id,sb.id)); var ln=0; lsn.forEach(function(d){ var dd=d.data(); if(dd&&dd.r&&dd.r.id){ put(sl,dd.r,'legacy'); ln++; } }); sl.cnt.legacy=ln; }catch(e){}
+      log('  '+b.name+' / '+sb.name+' — 묶음 '+(sl.cnt.bad?('손상 · 복구 '+sl.cnt.sal+'행'):(sl.cnt.pack+'행'))+(sl.cnt.legacy?' · 이전 행 문서 '+sl.cnt.legacy+'행':'')+(sb.count!=null?' (목차 '+sb.count+'행)':''));
+    } }
+    /* ③ 이 컴퓨터 사본 */
+    if(S&&S.data){ for(var bg in S.data){ for(var sb2 in S.data[bg]){ var sl2=slot(bg,sb2); (S.data[bg][sb2]||[]).forEach(function(r){ put(sl2,r,'local'); sl2.cnt.local++; }); } } }
+    /* ④ 백업 파일 */
+    if(__rcBackup&&__rcBackup.data){ for(var bg2 in __rcBackup.data){ for(var sb3 in __rcBackup.data[bg2]){ var sl3=slot(bg2,sb3); (__rcBackup.data[bg2][sb3]||[]).forEach(function(r){ put(sl3,r,'backup'); sl3.cnt.backup++; }); } } }
+    /* 결과표 */
+    var keys=Object.keys(bySub).sort(), tot=0, lines=[], srcTot={pack:0,legacy:0,local:0,backup:0};
+    keys.forEach(function(k){ var sl=bySub[k], n=0, bySrc={pack:0,legacy:0,local:0,backup:0}; for(var id in sl.rows){ n++; bySrc[sl.rows[id].src]++; } tot+=n; for(var q in bySrc) srcTot[q]+=bySrc[q];
+      lines.push(sl.big+' / '+sl.sub+' → 합친 결과 '+n+'행 (묶음 '+bySrc.pack+' · 이전문서 '+bySrc.legacy+' · 이 컴퓨터 '+bySrc.local+' · 백업 '+bySrc.backup+')'+(sl.cnt.bad?'  ⚠ 묶음 손상: '+sl.cnt.bad:'')); });
+    log(''); lines.forEach(function(l){ log(l); });
+    log(''); log('합계 '+tot+'행 — 출처별 채택: 묶음 '+srcTot.pack+' · 이전 행 문서 '+srcTot.legacy+' · 이 컴퓨터 사본 '+srcTot.local+' · 백업 파일 '+srcTot.backup+(__rcBackup?'':'  (백업 파일 없음 — 아래 버튼으로 추가 가능)'));
+    log('CLOUD 에는 아직 아무것도 쓰지 않았습니다.');
+    var box=$('fbRunLog').parentNode; var btns=document.createElement('div'); btns.style.cssText='display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 10px';
+    btns.innerHTML='<button class="plu-tool-btn" id="rcBak" type="button">백업 JSON 파일 추가 후 다시 계산</button><button class="plu-tool-btn" id="rcApply" type="button" style="font-weight:800">이 결과를 화면에 적용 (CLOUD 는 그대로)</button>';
+    box.insertBefore(btns,$('fbRunLog').nextSibling);
+    $('rcBak').onclick=function(){ var inp=document.createElement('input'); inp.type='file'; inp.accept='.json'; inp.onchange=function(){ var f=inp.files&&inp.files[0]; if(!f) return; var rd=new FileReader(); rd.onload=function(e){ try{ var o=JSON.parse(e.target.result); if(!o||!o.data) throw new Error('백업 형식 아님'); __rcBackup=o; __fbClose('fbRunOv'); openRecovery(); }catch(err){ uiAlert('백업 파일을 읽지 못했습니다: '+err.message,'데이터 복구'); } }; rd.readAsText(f); }; inp.click(); };
+    $('rcApply').onclick=async function(){
+      if(!(await uiConfirm('합친 결과 '+tot+'행을 이 화면(이 컴퓨터 사본)에 적용할까요?\nCLOUD 에는 기록하지 않습니다 — 확인 후 메뉴 > CLOUD 업로드로 확정하세요.','데이터 복구'))) return;
+      undoMark('데이터 복구',S.tabs.map(function(t){ return t.label; }));
+      __fbMuting=true;
+      keys.forEach(function(k){ var sl=bySub[k]; var tb=null; for(var i=0;i<S.tabs.length;i++){ if(S.tabs[i].label===sl.big) tb=S.tabs[i]; } if(!tb){ tb={label:sl.big,subs:[]}; S.tabs.push(tb); S.layouts[sl.big]=S.layouts[sl.big]||masterLayoutOf(S); S.data[sl.big]={}; } if(tb.subs.indexOf(sl.sub)<0) tb.subs.push(sl.sub); if(!S.data[sl.big]) S.data[sl.big]={};
+        var arr=[]; for(var id in sl.rows) arr.push(sl.rows[id].r); S.data[sl.big][sl.sub]=arr; });
+      unifyLayouts(S); S.tabs.forEach(function(t){ calcAll(t.label); });
+      S.dirtySinceSync=false; saveState(); __fbMuting=false;
+      __fbProtectPacks=[]; __fbLast=null; /* 다음 자동 전송 없음(dirty 아님) — 확정은 CLOUD 업로드 */
+      renderBigTabs(); renderSubTabs(); renderAll();
+      log('◎ 화면에 적용됨 — 내용을 확인한 뒤 [백업 파일 저장] → [CLOUD 에 확정 기록] 순서로 진행하세요.');
+      showToast('복구 결과 적용 — 상품 '+tot+'건 (CLOUD 미기록)','success');
+      var b2=document.createElement('div'); b2.style.cssText='display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px';
+      b2.innerHTML='<button class="plu-tool-btn" id="rcSave" type="button">백업 파일 저장</button><button class="plu-tool-btn" id="rcUp" type="button" style="font-weight:800;color:#b91c1c">CLOUD 에 확정 기록 (전체 업로드)</button>';
+      btns.parentNode.insertBefore(b2,btns.nextSibling);
+      $('rcSave').onclick=function(){ backupJson(); };
+      $('rcUp').onclick=function(){ __fbClose('fbRunOv'); fbUploadStart(); };
+    };
+  }catch(e){ log('✗ 실패: '+((e&&(e.code||e.message))||e)); var h=fbErrHelp(e); if(h) log('→ '+h); }
+  fbRunDone();
 }
 /* ═══ [되돌리기 · 2026-10-04] 바로 이전 데이터 작업을 원래대로 — 최근 5개까지, 최신부터 차례로 (메뉴 > 되돌리기 · Ctrl+Z).
    작업 직전 상태(대분류 데이터 + TRASH + 히스토리)를 메모리에 보관(이 창 안에서만, 새로고침하면 사라짐).
@@ -7988,7 +8051,7 @@ function fbSyncChipClick(){
 }
 /* [MODULE 26] 테스트/외부 공개 */
 try{
-  window.__PLU.saveState=saveState; window.__PLU.openDataEdit=openDataEdit; window.__PLU.fbPackMigrate=fbPackMigrate; window.__PLU.catSetTree=function(t){ __catTree=t; }; window.__PLU.catReconcile=catReconcile; window.__PLU.catSubsOf=catSubsOf; window.__PLU.fbLegacyCleanup=fbLegacyCleanup; window.__PLU.fbPackState=function(){ return __fbPack; }; window.__PLU.fbPackRead=fbPackRead; window.__PLU.openHistory=openHistory; window.__PLU.histLog=histLog; window.__PLU.openDupList=openDupList; window.__PLU.dupGroups=dupGroups;
+  window.__PLU.saveState=saveState; window.__PLU.openDataEdit=openDataEdit; window.__PLU.fbPackMigrate=fbPackMigrate; window.__PLU.catSetTree=function(t){ __catTree=t; }; window.__PLU.catReconcile=catReconcile; window.__PLU.catSubsOf=catSubsOf; window.__PLU.fbLegacyCleanup=fbLegacyCleanup; window.__PLU.fbPackState=function(){ return __fbPack; }; window.__PLU.fbPackRead=fbPackRead; window.__PLU.openHistory=openHistory; window.__PLU.openRecovery=openRecovery; window.__PLU.histLog=histLog; window.__PLU.openDupList=openDupList; window.__PLU.dupGroups=dupGroups;
   window.__PLU.fbAutoStart=fbAutoStart; window.__PLU.fbSyncRun=fbSyncRun;
   window.__PLU.fbSyncState=function(){ return __fbState; };
   window.__PLU.fbSetSyncMs=function(ms){ __fbSyncMs=ms; };
