@@ -3275,9 +3275,11 @@ function startCellEdit(td,id,fs){
   var raw=String(getCell(r,f));
   td.classList.add('editing'); __editBegin();
   var __catL=(normKey(f.key)==='CATEGORY_NUMBER'&&!gsActive())?catSubsOf(curBig(),curSub()):[];
-  if(f.type==='select'||__catL.length){ /* 드롭다운(데이터 유효성) 필드 · [2026-10-02] CATEGORY_NO = 공유 트리의 하위 카테고리 목록 */
+  var __ccSel=(ccIsLinkField(f)&&!gsActive()&&ccIndex().list.length>0); if(__ccSel) __catL=[]; /* [CATEGORY CODE] 연결 필드 = 코드 드롭다운 (코드가 등록돼 있을 때 우선) */
+  if(f.type==='select'||__catL.length||__ccSel){ /* 드롭다운(데이터 유효성) 필드 · [2026-10-02] CATEGORY_NO = 공유 트리의 하위 카테고리 목록 */
     var sh='<select class="plu-cell-input"><option value=""></option>';
-    if(__catL.length){ var __seen=false; __catL.forEach(function(c){ var on=(normKey(c.no)===normKey(raw)); if(on) __seen=true; sh+='<option value="'+escapeHtml(String(c.no))+'"'+(on?' selected':'')+'>'+escapeHtml(String(c.no)+' — '+String(c.kor||'')+(c.eng?' ('+c.eng+')':''))+'</option>'; }); if(raw&&!__seen) sh+='<option value="'+escapeHtml(raw)+'" selected>'+escapeHtml(raw)+' (트리에 없음)</option>'; }
+    if(__ccSel){ sh+=ccSelectHtml(raw); }
+    else if(__catL.length){ var __seen=false; __catL.forEach(function(c){ var on=(normKey(c.no)===normKey(raw)); if(on) __seen=true; sh+='<option value="'+escapeHtml(String(c.no))+'"'+(on?' selected':'')+'>'+escapeHtml(String(c.no)+' — '+String(c.kor||'')+(c.eng?' ('+c.eng+')':''))+'</option>'; }); if(raw&&!__seen) sh+='<option value="'+escapeHtml(raw)+'" selected>'+escapeHtml(raw)+' (트리에 없음)</option>'; }
     else (f.options||[]).forEach(function(o){ sh+='<option value="'+escapeHtml(o)+'"'+(o===raw?' selected':'')+'>'+escapeHtml(o)+'</option>'; });
     sh+='</select>';
     td.innerHTML=sh;
@@ -3288,6 +3290,7 @@ function startCellEdit(td,id,fs){
       if(sdone) return; sdone=true; __editEnd();
       var nv=sel.value;
       if(nv!==raw){ undoMarkRows('셀 수정 '+(f.label||f.key),rowBigOfRow(r),[r]); setCell(r,f,nv); refreshCalcCells(td,r,fs); histLog('edit',curBig(),curSub(),[r.id]);
+        if(__ccSel){ var __cce=ccIndex().byCode[String(nv).trim()]; if(__cce){ ccApplyCode(curBig(),r,nv); saveState(); renderContent(); showToast('CATEGORY CODE '+__cce.code+' — '+__cce.name+(__cce.mid?' ('+__cce.big+' › '+__cce.mid+')':''),'success'); return; } }
         if(__catL.length){ var __ce=catFind(curBig(),curSub(),nv); if(__ce&&catApplyRow(curBig(),r,__ce,true)){ saveState(); renderContent(); showToast('카테고리 '+nv+' — '+(__ce.kor||'')+' / '+(__ce.eng||'')+' 채움','success'); return; } }
         saveState();
         if(SUB_BY_VENDER&&normKey(f.key)==='VENDER_VENDER'&&!gsActive()){ if(syncSubsByVenderLive(curBig())){ saveState(); renderContent(); showToast('VENDER '+nv+' → "'+nv+'" 중간 카테고리로 이동됨','success'); return; } } }
@@ -3310,6 +3313,7 @@ function startCellEdit(td,id,fs){
     var nv=inp.value;
     if(nv!==raw){ undoMarkRows('셀 수정 '+(f.label||f.key),rowBigOfRow(r),[r]); setCell(r,f,nv); refreshCalcCells(td,r,fs); histLog('edit',curBig(),curSub(),[r.id]);
       if(normKey(f.key)==='CATEGORY_NUMBER'&&!gsActive()){ var __ce2=catFind(curBig(),curSub(),nv); if(__ce2&&catApplyRow(curBig(),r,__ce2,true)){ saveState(); renderContent(); showToast('카테고리 '+nv+' — '+(__ce2.kor||'')+' / '+(__ce2.eng||'')+' 채움','success'); return true; } }
+      if(__catCode&&normKey(f.key)==='CATEGORY_ENGLISH'&&!gsActive()){ if(ccAfterEngEdit(curBig(),r,td,fs)) return true; }
       saveState();
       /* [UPC] VENDER 수정 → 그 이름의 중간 카테고리로 이동 */
       if(SUB_BY_VENDER&&normKey(f.key)==='VENDER_VENDER'&&!gsActive()){ if(syncSubsByVenderLive(curBig())){ saveState(); renderContent(); showToast('VENDER '+nv+' → "'+String(nv).trim()+'" 중간 카테고리로 이동됨','success'); return true; } }
@@ -5170,6 +5174,7 @@ function runImport(){
   saveState(); $('impOv').classList.remove('show'); renderStoreBar(); renderContent();
   if(res.excl){ var __ex=[]; for(var __ek in res.excl) __ex.push(__ek+' '+res.excl[__ek]+'행'); uiAlert('규칙에 따라 제외된 행: '+__ex.join(' · ')+'\n(업데이트 '+res.upd+' · 추가 '+res.add+')','업체 리스트 파일 제외 행'); }
   showToast('불러오기 완료 — 업데이트 '+res.upd+(res.upcMulti?' (UPC 기준 중복 행 포함)':'')+' · 추가 '+res.add+(res.shortUpc?' · UPC 6자리 이하 제외 '+res.shortUpc:'')+(res.trashed?' · TRASH 일치 무시 '+res.trashed:'')+(res.skipped?' · 기준값 없음 건너뜀 '+res.skipped:'')+(res.moved?' · 소분류 이동 '+res.moved:'')+(res.dept?' · DEPARTMENT 라우팅 '+res.dept:'')+(res.unhid?' · 숨김 해제 '+res.unhid+'필드':'')+(res.fml?' · 엑셀 함수 적용 '+res.fml:'')+(res.storesAdded?' · 매장 추가 '+res.storesAdded:''),'success');
+  if(res.catCode) setTimeout(function(){ ccAutoReport(res.catCode,'엑셀 불러오기'); },50);
   if(res.fmlFail&&res.fmlFail.length) uiAlert('엑셀 함수를 적용하지 못한 열 '+res.fmlFail.length+'건 (기존 수식 유지):\n'+res.fmlFail.slice(0,20).join('\n')+(res.fmlFail.length>20?'\n…':''),'수식 변환 결과');
   /* [디버깅 지원] 매칭 기준을 지정했는데 기존 행 업데이트가 0건 = PLU 값이 하나도 일치하지 않음 */
   if(opts.matchKey&&res.upd===0&&res.add>0&&opts.allowDupUpc!==true){
@@ -5480,6 +5485,8 @@ function applyImport(opts){
   });
   for(var __bg in stats.bigs) sortAllByPlu(__bg); /* [MODULE 20] 손댄 대분류 전부 자릿수 정렬 */
   for(var __hk in __histIds){ var __hp=__hk.split('\u0000'); histLog('imp',__hp[0],__hp[1],__histIds[__hk],[],(opts.fname||'')); }
+  /* [CATEGORY CODE] 불러온(수정·추가) 행의 CATEGORY ENG 로 코드 자동 생성 */
+  if(__catCode){ var __ccRes={set:0,multi:{},nomatch:{}}; for(var __hk2 in __histIds){ var __hp2=__hk2.split('\u0000'), __ids={}; __histIds[__hk2].forEach(function(id){ __ids[id]=1; }); var __rr=rowsFor(__hp2[0],__hp2[1]).filter(function(r){ return __ids[r.id]; }); var __x=ccAutoRows(__hp2[0],__rr); __ccRes.set+=__x.set; for(var __m in __x.multi) __ccRes.multi[__m]=1; for(var __n in __x.nomatch) __ccRes.nomatch[__n]=__x.nomatch[__n]; } stats.catCode=__ccRes; }
   return stats;
 }
 
@@ -7492,6 +7499,7 @@ try{
   window.__PLU.fbNameFor=fbNameFor; window.__PLU.fbItemId=fbItemId; window.__PLU.fbBuildPlan=fbBuildPlan;
   window.__PLU.fbTestInject=fbTestInject; window.__PLU.fbUploadStart=fbUploadStart;
   window.__PLU.fbRestoreStart=fbRestoreStart; window.__PLU.openFbCfg=openFbCfg; window.__PLU.fbPurgeCorruptAndPush=fbPurgeCorruptAndPush;
+  window.__PLU.catCodeApply=catCodeApply; window.__PLU.ccAutoRow=ccAutoRow; window.__PLU.ccSuggest=ccSuggest; window.__PLU.ccAutoRows=ccAutoRows;
   window.__PLU.fbRulesText=FB_RULES; window.__PLU.fbConfigChunks=fbConfigChunks; window.__PLU.fbConfigJoin=fbConfigJoin;
 }catch(e){}
 
@@ -8086,6 +8094,72 @@ function catTreeStart(conn){
     if(!__fbBooting) catReconcile();
   },function(){}); }catch(e){}
 }
+/* ═══ [CATEGORY CODE · 2026-10-08] CATEGORY/_CODE — 매장 공통 분류 코드 A-BB-CC (EGMM > MART > CATEGORY CODE 에서 관리)
+   · 상품의 CATEGORY ENG 값이 등록된 소분류 이름과 같고 그 이름이 전체에서 하나뿐이면 연결 필드(기본 CATEGORY NO · 리스트별 설정)에 A-BB-CC 자동 생성
+   · 같은 이름이 여러 중분류에 있으면 연결 필드 셀의 드롭다운(대분류 › 중분류 › 소분류)에서 직접 선택 → 선택 시 CATEGORY ENG 도 그 이름으로 맞춤
+   · 등록되지 않은 이름(오타)은 가장 비슷한 소분류 이름으로 고치도록 유도 (셀 수정: 확인 팝업 · 엑셀 불러오기: 목록 알림) */
+var __catCode=null, __catCodeWatchOff=null, __ccIdx=null;
+function ccPad2(v){ v=String(v==null?'':v).replace(/[^0-9]/g,''); return v.length>=2?v:('00'+v).slice(-2); }
+function ccFormat(a,bb,cc){ return String(a)+'-'+ccPad2(bb)+'-'+ccPad2(cc); }
+function ccIndex(){ if(__ccIdx) return __ccIdx; var byName={}, byCode={}, list=[];
+  ((__catCode&&__catCode.bigs)||[]).forEach(function(b){ (b.mids||[]).forEach(function(m){ (m.subs||[]).forEach(function(sb){ var e={ code:ccFormat(b.a,m.bb,sb.cc), a:String(b.a), bb:ccPad2(m.bb), cc:ccPad2(sb.cc), name:String(sb.name||'').trim(), big:String(b.name||''), mid:String(m.name||'') }; var k=normKey(e.name); if(!k) return; (byName[k]=byName[k]||[]).push(e); byCode[e.code]=e; list.push(e); }); }); });
+  __ccIdx={ byName:byName, byCode:byCode, list:list }; return __ccIdx; }
+function ccLinkKey(){ var l=(__catCode&&__catCode.link)||{}; return String(l[FB_ROOT]||'CATEGORY_NUMBER'); }
+function ccLinkField(big){ return __catCode?fieldByKey(big,ccLinkKey()):null; }
+function ccDetectField(big){ return fieldByKey(big,'CATEGORY_ENGLISH'); }
+function ccIsLinkField(f){ return !!(__catCode&&f&&normKey(f.key)===normKey(ccLinkKey())); }
+function ccIsValid(v){ return !!(v&&ccIndex().byCode[String(v).trim()]); }
+function __ccLev(a,b){ /* 편집 거리 (인접 글자 바꿈 = 1 · 최적 문자열 정렬) */ var m=a.length, n=b.length; if(!m) return n; if(!n) return m; var d=[], i, j; for(i=0;i<=m;i++){ d[i]=[i]; } for(j=1;j<=n;j++) d[0][j]=j;
+  for(i=1;i<=m;i++){ for(j=1;j<=n;j++){ var c=a.charCodeAt(i-1)===b.charCodeAt(j-1)?0:1; d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+c); if(i>1&&j>1&&a.charCodeAt(i-1)===b.charCodeAt(j-2)&&a.charCodeAt(i-2)===b.charCodeAt(j-1)) d[i][j]=Math.min(d[i][j],d[i-2][j-2]+1); } } return d[m][n]; }
+/* 가장 비슷한 소분류 이름 (편집 거리 — 글자 수에 따라 허용 폭) → 이름 문자열 | null */
+function ccSuggest(name){ var k=normKey(name); if(!k||!__catCode) return null; var ix=ccIndex(), best=null, bd=99, bl=99, names={}; Object.keys(ix.byName).forEach(function(nk){ names[nk]=ix.byName[nk][0].name; });
+  Object.keys(names).forEach(function(nk){ var d=__ccLev(k,nk), ld=Math.abs(nk.length-k.length); if(d<bd||(d===bd&&ld<bl)){ bd=d; bl=ld; best=names[nk]; } });
+  var lim=k.length<=3?1:(k.length<=6?2:3); return (best&&bd>0&&bd<=lim)?best:null; }
+/* 행 한 개 자동 생성 → {st:'set'|'keep'|'multi'|'nomatch'|'none', name, codes, suggest} */
+function ccAutoRow(big,row){ if(!__catCode) return {st:'none'}; var fd=ccDetectField(big), fl=ccLinkField(big); if(!fd||!fl) return {st:'none'};
+  var name=String(getCell(row,fd,'')||'').trim(); if(!name) return {st:'none'};
+  var hits=ccIndex().byName[normKey(name)]||[]; var cur=String(getCell(row,fl,'')||'').trim();
+  if(!hits.length) return {st:'nomatch',name:name,suggest:ccSuggest(name)};
+  if(hits.length>1){ for(var i=0;i<hits.length;i++){ if(hits[i].code===cur) return {st:'keep',name:name,codes:hits}; } return {st:'multi',name:name,codes:hits}; }
+  if(cur===hits[0].code) return {st:'keep',name:name,codes:hits};
+  setCell(row,fl,hits[0].code,''); return {st:'set',name:name,codes:hits}; }
+/* 코드 선택 → 연결 필드 + CATEGORY ENG 맞춤 → 바뀐 값 있으면 true */
+function ccApplyCode(big,row,codeStr){ var e=ccIndex().byCode[String(codeStr||'').trim()]; if(!e) return false; var fl=ccLinkField(big), fd=ccDetectField(big), ch=false;
+  if(fl&&String(getCell(row,fl,'')||'').trim()!==e.code){ setCell(row,fl,e.code,''); ch=true; }
+  if(fd&&normKey(getCell(row,fd,''))!==normKey(e.name)){ setCell(row,fd,e.name,''); ch=true; }
+  return ch; }
+/* 연결 필드 셀 드롭다운 HTML (대분류 › 중분류 묶음) */
+function ccSelectHtml(raw){ var ix=ccIndex(), h='<option value=""></option>', g='', seen=false;
+  ((__catCode&&__catCode.bigs)||[]).forEach(function(b){ (b.mids||[]).forEach(function(m){ var gl=String(b.a)+' '+String(b.name||'')+' › '+ccPad2(m.bb)+' '+String(m.name||''); if(!(m.subs||[]).length) return; h+='<optgroup label="'+escapeHtml(gl)+'">';
+    (m.subs||[]).forEach(function(sb){ var c=ccFormat(b.a,m.bb,sb.cc), on=(c===String(raw||'').trim()); if(on) seen=true; h+='<option value="'+escapeHtml(c)+'"'+(on?' selected':'')+'>'+escapeHtml(c+' '+String(sb.name||''))+'</option>'; }); h+='</optgroup>'; }); });
+  if(raw&&!seen) h='<option value="'+escapeHtml(String(raw))+'" selected>'+escapeHtml(String(raw))+' (등록되지 않은 값)</option>'+h;
+  return h; }
+/* 여러 행 자동 생성 (불러오기 뒤) → {set, multi:[name…], nomatch:[{name,suggest}…]} */
+function ccAutoRows(big,rows){ var out={set:0,multi:{},nomatch:{}}; if(!__catCode) return out; (rows||[]).forEach(function(r){ var x=ccAutoRow(big,r); if(x.st==='set') out.set++; else if(x.st==='multi') out.multi[x.name]=1; else if(x.st==='nomatch') out.nomatch[x.name]=x.suggest||''; }); return out; }
+function ccAutoReport(res,where){ var lines=[]; var mk=Object.keys(res.multi), nk=Object.keys(res.nomatch);
+  if(res.set) lines.push('CATEGORY CODE 자동 생성 '+res.set+'건');
+  if(mk.length) lines.push('같은 이름이 여러 중분류에 있어 직접 선택 필요 ('+mk.length+'종): '+mk.slice(0,15).join(', ')+(mk.length>15?' …':''));
+  if(nk.length) lines.push('등록되지 않은 소분류 이름 ('+nk.length+'종): '+nk.slice(0,20).map(function(n){ return res.nomatch[n]?(n+' → '+res.nomatch[n]+'?'):n; }).join(', ')+(nk.length>20?' …':''));
+  if(mk.length||nk.length) uiAlert(lines.join('\n\n')+'\n\n연결 필드('+ccLinkKey()+') 셀을 누르면 대분류 › 중분류 › 소분류 드롭다운에서 고를 수 있습니다.','CATEGORY CODE — '+(where||'')); else if(res.set) showToast('CATEGORY CODE 자동 생성 '+res.set+'건','success'); }
+/* 셀 수정 뒤 처리 (CATEGORY ENG 입력) */
+function ccAfterEngEdit(big,row,td,fs){ var x=ccAutoRow(big,row);
+  if(x.st==='set'){ saveState(); renderContent(); showToast('CATEGORY CODE '+x.codes[0].code+' 자동 생성 ('+x.name+')','success'); return true; }
+  if(x.st==='multi'){ showToast('"'+x.name+'" 은 중분류 '+x.codes.length+'곳에 있음 — '+ccLinkKey()+' 셀에서 선택','error'); return false; }
+  if(x.st==='nomatch'&&x.suggest){ var fd=ccDetectField(big), sg=x.suggest;
+    uiConfirm('"'+x.name+'" 은 등록된 소분류 이름이 아닙니다.\n"'+sg+'" 로 고칠까요? (코드 자동 생성)','CATEGORY CODE').then(function(ok){ if(!ok||!fd) return; setCell(row,fd,sg,''); var y=ccAutoRow(big,row); saveState(); renderContent(); showToast(y.st==='set'?('"'+sg+'" → CATEGORY CODE '+y.codes[0].code):('"'+sg+'" 로 고침'+(y.st==='multi'?' — 중분류 여러 곳: 셀에서 선택':'')),'success'); }); return false; }
+  if(x.st==='nomatch'){ showToast('"'+x.name+'" 은 등록된 소분류 이름이 아닙니다 (CATEGORY CODE 미생성)','error'); }
+  return false; }
+function catCodeApply(o){ __catCode=o; __ccIdx=null; try{ localStorage.setItem('egmmCatCode',JSON.stringify(o)); }catch(e){} }
+function catCodeStart(conn){
+  if(__catCodeWatchOff) return;
+  var M=conn.M, db=conn.db;
+  try{ var c=JSON.parse(localStorage.getItem('egmmCatCode')||'null'); if(c&&c.bigs){ __catCode=c; __ccIdx=null; } }catch(e){}
+  try{ __catCodeWatchOff=M.fs.onSnapshot(M.fs.doc(db,CAT_ROOT,'_CODE'),function(sn){
+    var d=(sn.exists()&&sn.data())?sn.data():null; if(!d) return;
+    var o=d; if(d.fmt==='GZ'&&d.d){ try{ o=JSON.parse(new TextDecoder().decode(pako.ungzip(__b64ToU8(String(d.d))))); }catch(e){ return; } }
+    if(!o||!Array.isArray(o.bigs)) return; catCodeApply(o);
+  },function(){}); }catch(e){}
+}
 async function fbPullApply(conn){
   var r=await fbReadAll(conn);
   var __pre=null; try{ if(S&&fbRowsTotal(S)>0) __pre=fbDocsMap(fbBuildPlan(r.st)); }catch(e){ __pre=null; } /* 합치기 전 CLOUD 기준선 — 합친 행만 diff 로 전송되도록 */
@@ -8160,7 +8234,7 @@ async function fbAutoStart(){
           if(r0.mismatch&&r0.mismatch.length) showToast('CLOUD 묶음 확인: '+r0.mismatch.slice(0,3).join(' · ')+(r0.mismatch.length>3?' …':''),'error'); }
       }
     }
-    fbWatchStart(conn); catTreeStart(conn); deptListStart(conn);
+    fbWatchStart(conn); catTreeStart(conn); deptListStart(conn); catCodeStart(conn);
   }catch(e){ __fbState='err'; __fbErrMsg=String((e&&(e.code||e.message))||e); if(__fbBooting) showToast('CLOUD 불러오기 실패 — '+__fbErrMsg+' (이 컴퓨터 사본으로 표시, 저장 칩 클릭으로 재시도)','error'); }
   __fbBooting=false; fbBootOverlay(false);
   renderSaveChip();

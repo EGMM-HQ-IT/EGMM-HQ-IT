@@ -2778,7 +2778,7 @@
     var MENU_CODES={
       egmmPluListBtn:'MENU-PLU-LIST', egmmUpcListBtn:'MENU-UPC-LIST', egmmCalendarBtn:'MENU-CALENDAR',
       egmmPurchaseBtn:'MENU-DAILY-PURCHASE-VIEW', egmmOcrBtn:'MENU-OCR', egmmToolsBtn:'MENU-TOOLS',
-      egmmItemAnalyzeBtn:'MENU-ITEM-ANALYZE', egmmItemAnalyzeMartBtn:'MENU-ITEM-ANALYZE', egmmCategoryMgrBtn:'MENU-CATEGORY-MANAGER', egmmShawnMgrBtn:'MENU-SHAWN-CLOUD', egmmDeliReqBtn:'MENU-REQUEST-CONFIRM',
+      egmmItemAnalyzeBtn:'MENU-ITEM-ANALYZE', egmmItemAnalyzeMartBtn:'MENU-ITEM-ANALYZE', egmmCategoryMgrBtn:'MENU-CATEGORY-MANAGER', egmmCategoryCodeBtn:'MENU-CATEGORY-CODE', egmmShawnMgrBtn:'MENU-SHAWN-CLOUD', egmmDeliReqBtn:'MENU-REQUEST-CONFIRM',
       egmmHanaBtn:'MENU-HANA', egmmTaxBtn:'MENU-TAX', egmmEbtBtn:'MENU-EBT', egmmHardLiquorBtn:'MENU-HARD-LIQUOR',
       egmmProductNameMakerBtn:'MENU-PRODUCT-NAME-MAKER', egmmDeliMgmtBtn:'MENU-DELI-MGMT',
       egmmAdListBtn:'MENU-AD-LIST', egmmWeeklyAdBtn:'MENU-WEEKLY-AD',
@@ -2938,6 +2938,7 @@
     <div class="eg-submenu" id="egmmUpcSub" hidden></div>
     <button class="egmm-menu-btn" id="egmmItemAnalyzeMartBtn"><span class="egmm-menu-label mlab">ITEM ANALYZE</span></button>
     <button class="egmm-menu-btn" id="egmmCategoryMgrBtn"><span class="egmm-menu-label mlab">CATEGORY MANAGER</span></button>
+    <button class="egmm-menu-btn" id="egmmCategoryCodeBtn"><span class="egmm-menu-label mlab">CATEGORY CODE</span></button>
 
 
     <button class="egmm-menu-btn" id="egmmCalendarBtn"><span class="egmm-menu-label mlab">CALENDAR</span></button>
@@ -3628,6 +3629,7 @@
   var __iaMart=$('egmmItemAnalyzeMartBtn'); if(__iaMart) __iaMart.onclick = function(){ openInFrame('../ITEMLIST/ITEM-ANALYZE.html', this); };
   // MART · CATEGORY MANAGER (2026-10-02) — PLU · UPC 카테고리 통합 관리
   var __cmMart=$('egmmCategoryMgrBtn'); if(__cmMart) __cmMart.onclick = function(){ openInFrame('../ITEMLIST/CATEGORY-MANAGER.html', this); };
+  var __ccMart=$('egmmCategoryCodeBtn'); if(__ccMart) __ccMart.onclick = function(){ openInFrame('../ITEMLIST/CATEGORY-CODE.html', this); };
   // 공용 대형 팝업 (도구 모음 등에서 사용)
   (function(){
     var big=document.createElement('div');

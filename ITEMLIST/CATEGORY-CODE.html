@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<!--
+  CATEGORY-CODE.html — CATEGORY CODE · EGMM > MART   (2026-10-08)
+  ---------------------------------------------------------------------
+  · 매장 공통 상품 분류 코드 A-BB-CC 를 만들고 관리 (추가 · 수정 · 삭제)
+      A  = 대분류 번호 (1 GROCERY · 2 ALCOHOL · 3 ETC · 4 PRODUCE · 5 FISH · 6 MEAT · 7 DELI · 8 HOUSEWARE …)
+      BB = 중분류 코드 (KOREA FOOD · JAPAN FOOD · BEER …)  CC = 소분류 코드 (RICE · NOODLE · CHIP …, 00 = 전체)
+  · 저장: CATEGORY/_CODE = { ver:1, savedAt, fmt:'GZ', d:gzip+base64( { bigs:[{a,name,mids:[{bb,name,subs:[{cc,name}]}]}], link:{ 'PLU-LIST':필드키, 'UPC-LIST':필드키 } } ) }
+      PLU/UPC MANAGER 가 이 문서를 실시간 구독 →
+        · 상품의 CATEGORY ENG 값이 등록된 소분류 이름과 같고 그 이름이 전체에서 하나뿐이면 연결 필드(기본 CATEGORY NO)에 A-BB-CC 자동 생성
+        · 같은 이름이 여러 중분류에 있으면 연결 필드 셀의 드롭다운(대분류 › 중분류 › 소분류)에서 직접 선택
+        · 등록되지 않은 이름(오타)은 가장 비슷한 소분류 이름으로 고치도록 유도
+  · 초기 데이터: ITEM_CATEGORY.xlsx (2026-10-08) — CLOUD 에 문서가 없을 때 한 번 불러와 저장
+  · Firestore 규칙: match /CATEGORY/{document=**} { allow read, write: if request.auth != null; }
+-->
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CATEGORY CODE</title>
+<script>try{ document.documentElement.setAttribute('data-theme', localStorage.getItem('pluLocalTheme')==='night'?'night':'day'); }catch(e){}</script>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<style>
+  :root{
+    --bg:#EDEAE3; --bg-elev:#FFFDFA; --bg-elev-2:#F7F4ED; --border:#E4DFD4; --border-bright:#D6CFC0;
+    --text:#1E1B16; --text-dim:#4C463C; --text-faint:#8C8578; --accent-soft:#E9EFEA; --accent-warm:#2F5D46; --accent:#2E4A6E;
+    --danger:#9C3327; --danger-soft:#F5EAE7; --ok-bg:#eef8f1; --ok-bd:#bfe0cc; --ok-tx:#1e7a46; --sel:#dde8f7; --on-accent:#fff;
+    --font:'Pretendard','Malgun Gothic','맑은 고딕',system-ui,sans-serif;
+  }
+  html[data-theme=night]{ color-scheme:dark; --bg:#12151c; --bg-elev:#1a1f2a; --bg-elev-2:#161a23; --border:#2a3140; --border-bright:#3c4557;
+    --text:#e7eaf2; --text-dim:#a3acbf; --text-faint:#6d7689; --accent:#3b62c4; --accent-soft:#222a3a; --accent-warm:#d4af6a;
+    --danger:#e05b5b; --danger-soft:#3a2426; --ok-bg:#1c2b22; --ok-bd:#2e5a3e; --ok-tx:#6fd39a; --sel:#223050; --on-accent:#12151c; }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ background:var(--bg); color:var(--text); font-family:var(--font); min-height:100vh; font-size:13px; }
+  .wrap{ width:100%; padding:14px 18px 40px; }
+  .topbar{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding-bottom:10px; border-bottom:1px solid var(--border); margin-bottom:14px; }
+  .topbar h1{ font-size:19px; font-weight:800; }
+  .chips{ margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+  .chip{ font-size:11.5px; font-weight:800; padding:6px 11px; border-radius:999px; border:1.5px solid var(--border); background:var(--bg-elev); color:var(--text-dim); }
+  .chip.ok{ border-color:var(--ok-bd); color:var(--ok-tx); background:var(--ok-bg); } .chip.err{ border-color:var(--danger); color:var(--danger); background:var(--danger-soft); }
+  .btn{ border:none; border-radius:9px; padding:8px 13px; font:inherit; font-size:12.5px; font-weight:800; cursor:pointer; background:var(--accent-warm); color:var(--on-accent); }
+  .btn.ghost{ background:var(--bg-elev); color:var(--text-dim); border:1.5px solid var(--border); } .btn.danger{ background:var(--danger); color:#fff; } .btn.sm{ padding:4px 9px; font-size:11.5px; border-radius:7px; }
+  .btn:disabled{ opacity:.45; cursor:default; }
+  .grid{ display:grid; grid-template-columns:minmax(230px,300px) minmax(260px,340px) 1fr; gap:14px; align-items:start; }
+  .panel{ background:var(--bg-elev); border:1.5px solid var(--border); border-radius:14px; padding:12px 14px; }
+  .panel h2{ font-size:13.5px; font-weight:800; margin-bottom:8px; display:flex; align-items:center; gap:8px; }
+  .panel h2 .cnt{ font-size:11px; color:var(--text-faint); font-weight:700; }
+  .list{ max-height:66vh; overflow:auto; }
+  .it{ display:flex; align-items:center; gap:6px; padding:5px 7px; border:1px solid var(--border); border-radius:9px; margin-bottom:5px; background:var(--bg-elev-2); cursor:pointer; }
+  .it.on{ background:var(--sel); border-color:var(--accent); }
+  .it input{ font:inherit; font-size:12.5px; font-weight:700; padding:4px 7px; border:1.5px solid transparent; border-radius:7px; background:transparent; color:var(--text); min-width:0; }
+  .it input:hover,.it input:focus{ border-color:var(--border-bright); background:var(--bg-elev); outline:none; }
+  .it input.code{ width:46px; text-align:center; font-variant-numeric:tabular-nums; color:var(--accent); } .it input.code.a{ width:36px; }
+  .it input.name{ flex:1; }
+  .it .full{ font-size:11px; color:var(--text-faint); font-weight:700; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .it .sub{ font-size:11px; color:var(--text-faint); font-weight:700; white-space:nowrap; }
+  .ico{ border:none; background:transparent; cursor:pointer; font-size:12px; color:var(--text-faint); padding:2px 5px; border-radius:5px; } .ico:hover{ background:var(--bg); color:var(--danger); }
+  .hint{ font-size:11.5px; color:var(--text-faint); margin:6px 0 10px; line-height:1.5; }
+  .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .toast{ position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:#1f2a1f; color:#fff; padding:9px 16px; border-radius:10px; font-weight:800; opacity:0; pointer-events:none; transition:opacity .2s; z-index:50; }
+  .toast.show{ opacity:1; } .toast.error{ background:var(--danger); } .toast.success{ background:var(--accent-warm); }
+  .modal-bg{ position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; z-index:40; padding:16px; }
+  .modal-bg.show{ display:flex; }
+  .modal{ background:var(--bg-elev); color:var(--text); border-radius:14px; padding:18px 20px; width:100%; max-width:440px; box-shadow:0 12px 40px rgba(0,0,0,.3); }
+  .modal h3{ font-size:15px; margin-bottom:8px; } .modal p{ white-space:pre-line; line-height:1.55; margin-bottom:14px; color:var(--text-dim); }
+  .modal input{ width:100%; font:inherit; padding:8px 10px; border:1.5px solid var(--border); border-radius:8px; background:var(--bg-elev-2); color:var(--text); margin-bottom:12px; }
+  .modal .row{ justify-content:flex-end; }
+  .dirty{ color:var(--danger); font-weight:800; font-size:11.5px; }
+  .setbox{ margin-top:14px; } .setbox select{ font:inherit; font-size:12px; padding:5px 8px; border:1.5px solid var(--border); border-radius:7px; background:var(--bg-elev); color:var(--text); }
+  .setbox label{ font-size:12px; font-weight:700; color:var(--text-dim); }
+  .search{ font:inherit; font-size:12px; padding:6px 9px; border:1.5px solid var(--border); border-radius:8px; background:var(--bg-elev); color:var(--text); width:200px; }
+  .hit{ background:rgba(255,200,0,.25); }
+  @media (max-width:1000px){ .grid{ grid-template-columns:1fr; } .list{ max-height:40vh; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <h1>🏷 CATEGORY CODE</h1>
+    <span class="chip" id="chipCloud">CLOUD …</span><span class="chip" id="chipCnt"></span>
+    <input class="search" id="q" type="text" placeholder="이름 · 코드 검색" autocomplete="off">
+    <div class="chips">
+      <span class="dirty" id="dirty"></span>
+      <button class="btn ghost" id="btnGuide" type="button">규칙 가이드</button>
+      <button class="btn ghost" id="btnImport" type="button">엑셀 불러오기</button>
+      <button class="btn ghost" id="btnExport" type="button">엑셀 내보내기</button>
+      <button class="btn ghost" id="btnReload" type="button">새로고침</button>
+      <button class="btn" id="btnSave" type="button">CLOUD 저장</button>
+      <input type="file" id="impFile" accept=".xlsx,.xls,.csv" style="display:none">
+    </div>
+  </div>
+  <div class="grid">
+    <div class="panel">
+      <h2>대분류 <span style="font-size:11px;color:var(--text-faint)">A</span> <span class="cnt" id="cntA"></span><button class="btn sm ghost" id="btnAddA" type="button" style="margin-left:auto">＋ 추가</button></h2>
+      <div class="list" id="listA"></div>
+    </div>
+    <div class="panel">
+      <h2 id="titleB">중분류 <span style="font-size:11px;color:var(--text-faint)">BB</span> <span class="cnt" id="cntB"></span><button class="btn sm ghost" id="btnAddB" type="button" style="margin-left:auto">＋ 추가</button></h2>
+      <div class="hint" id="hintB" style="margin:0 0 8px">왼쪽에서 대분류를 선택하세요.</div>
+      <div class="list" id="listB"></div>
+    </div>
+    <div class="panel">
+      <h2 id="titleC">소분류 <span style="font-size:11px;color:var(--text-faint)">CC</span> <span class="cnt" id="cntC"></span><button class="btn sm ghost" id="btnAddC" type="button" style="margin-left:auto">＋ 추가</button></h2>
+      <div class="hint" id="hintC" style="margin:0 0 8px">가운데에서 중분류를 선택하세요. 소분류 이름이 상품의 CATEGORY ENG 값과 같으면 코드 A-BB-CC 가 자동 생성됩니다 (00 = 전체).</div>
+      <div class="list" id="listC"></div>
+      <div class="setbox">
+        <h2>연결 필드 <span class="cnt">코드가 기록되는 상품 필드 (리스트별)</span></h2>
+        <div class="row"><label>PLU LIST</label><select id="linkPlu"></select><label>UPC LIST</label><select id="linkUpc"></select></div>
+        <div class="hint">기본은 CATEGORY NO. 감지(매칭)하는 이름은 CATEGORY ENG 값입니다. 바꾸면 「CLOUD 저장」으로 함께 저장됩니다.</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<div class="modal-bg" id="modalBg"><div class="modal"><h3 id="mTitle"></h3><p id="mText"></p><input type="text" id="mInput" style="display:none" autocomplete="off"><div class="row"><button class="btn ghost" id="mCancel" type="button">취소</button><button class="btn" id="mOk" type="button">확인</button></div></div></div>
+<div class="modal-bg" id="guideBg"><div class="modal" style="max-width:640px"><h3>CATEGORY CODE 규칙 가이드</h3><p id="guideText"></p><div class="row"><button class="btn" id="guideX" type="button">닫기</button></div></div></div>
+
+<script src="../FUNCTION-FIREBASE-EGMM.js"></script>
+<script src="../FUNCTION-ACCESS-GATE.js"></script>
+<script>
+window.__CC_SEED={"bigs":[{"a":"1","name":"GROCERY","mids":[{"bb":"10","name":"KOREA FOOD","subs":[{"cc":"00","name":"전체"},{"cc":"01","name":"RICE"},{"cc":"02","name":"NOODLE"},{"cc":"03","name":"CHIP"}]},{"bb":"11","name":"JAPAN FOOD","subs":[{"cc":"00","name":"전체"},{"cc":"01","name":"RICE"},{"cc":"02","name":"NOODLE"},{"cc":"03","name":"CHIP"}]},{"bb":"12","name":"CHINA FOOD","subs":[{"cc":"00","name":"전체"},{"cc":"01","name":"RICE"},{"cc":"02","name":"NOODLE"},{"cc":"03","name":"CHIP"}]},{"bb":"13","name":"ASIAN FOOD","subs":[{"cc":"00","name":"전체"},{"cc":"01","name":"RICE"},{"cc":"02","name":"NOODLE"},{"cc":"03","name":"CHIP"}]},{"bb":"14","name":"WESTERN FOOD","subs":[{"cc":"00","name":"전체"},{"cc":"01","name":"RICE"},{"cc":"02","name":"NOODLE"},{"cc":"03","name":"CHIP"}]},{"bb":"15","name":"EGP FOOD","subs":[{"cc":"00","name":"전체"},{"cc":"01","name":"RICE"},{"cc":"02","name":"NOODLE"},{"cc":"03","name":"CHIP"}]},{"bb":"16","name":"ETC FOOD","subs":[{"cc":"00","name":"전체"},{"cc":"01","name":"RICE"},{"cc":"02","name":"NOODLE"},{"cc":"03","name":"CHIP"}]},{"bb":"20","name":"KOREA COLD","subs":[{"cc":"00","name":"전체"}]},{"bb":"21","name":"JAPAN COLD","subs":[{"cc":"00","name":"전체"}]},{"bb":"22","name":"CHINA COLD","subs":[{"cc":"00","name":"전체"}]},{"bb":"23","name":"ASIAN COLD","subs":[{"cc":"00","name":"전체"}]},{"bb":"24","name":"WESTERN COLD","subs":[{"cc":"00","name":"전체"},{"cc":"01","name":"MILK"},{"cc":"02","name":"YOGURT"},{"cc":"03","name":"EGG"}]},{"bb":"25","name":"EGP COLD","subs":[{"cc":"00","name":"전체"},{"cc":"01","name":"MILK"},{"cc":"02","name":"YOGURT"},{"cc":"03","name":"EGG"}]},{"bb":"26","name":"ETC COLD","subs":[{"cc":"00","name":"전체"}]},{"bb":"30","name":"KOREA FREEZER","subs":[{"cc":"00","name":"전체"}]},{"bb":"31","name":"JAPAN FREEZER","subs":[{"cc":"00","name":"전체"}]},{"bb":"32","name":"CHINA FREEZER","subs":[{"cc":"00","name":"전체"}]},{"bb":"33","name":"ASIAN FREEZER","subs":[{"cc":"00","name":"전체"}]},{"bb":"34","name":"WESTERN FREEZER","subs":[{"cc":"00","name":"전체"}]},{"bb":"35","name":"EGP FREZZER","subs":[{"cc":"00","name":"전체"}]},{"bb":"36","name":"ETC FREEZER","subs":[{"cc":"00","name":"전체"}]},{"bb":"40","name":"KOREA DRINK(TAX)","subs":[{"cc":"00","name":"전체"}]},{"bb":"41","name":"JAPAN DRINK(TAX)","subs":[{"cc":"00","name":"전체"}]},{"bb":"42","name":"CHINA DRINK(TAX)","subs":[{"cc":"00","name":"전체"}]},{"bb":"43","name":"ASIAN DRINK(TAX)","subs":[{"cc":"00","name":"전체"}]},{"bb":"44","name":"WESTERN DRINK(TAX)","subs":[{"cc":"00","name":"전체"}]},{"bb":"45","name":"EGP DRINK(TAX)","subs":[{"cc":"00","name":"전체"}]},{"bb":"46","name":"ETC DRINK(TAX)","subs":[{"cc":"00","name":"전체"}]},{"bb":"50","name":"KOREA DRINK(NO TAX)","subs":[{"cc":"00","name":"전체"}]},{"bb":"51","name":"JAPAN DRINK(NO TAX)","subs":[{"cc":"00","name":"전체"}]},{"bb":"52","name":"CHINA DRINK(NO TAX)","subs":[{"cc":"00","name":"전체"}]},{"bb":"53","name":"ASIAN DRINK(NO TAX)","subs":[{"cc":"00","name":"전체"}]},{"bb":"54","name":"WESTERN DRINK(NO TAX)","subs":[{"cc":"00","name":"전체"}]},{"bb":"55","name":"EGP DRINK(NO TAX)","subs":[{"cc":"00","name":"전체"}]},{"bb":"56","name":"ETC DRINK(NO TAX)","subs":[{"cc":"00","name":"전체"}]}]},{"a":"2","name":"ALCOHOL","mids":[{"bb":"10","name":"BEER","subs":[{"cc":"00","name":"전체"},{"cc":"01","name":"ALCOHOL"},{"cc":"02","name":"NON-ALCOHOL"}]},{"bb":"20","name":"SAKE","subs":[{"cc":"00","name":"전체"}]},{"bb":"30","name":"WINE","subs":[{"cc":"00","name":"전체"}]},{"bb":"90","name":"LIQUOR","subs":[{"cc":"00","name":"전체"},{"cc":"01","name":"SOJU"},{"cc":"02","name":"WHISKEY"},{"cc":"03","name":"VODKA"},{"cc":"04","name":"COCKTAIL"}]}]},{"a":"3","name":"ETC","mids":[{"bb":"10","name":"MEDICAL","subs":[{"cc":"00","name":"전체"}]},{"bb":"20","name":"TOBACCO","subs":[{"cc":"00","name":"전체"}]},{"bb":"30","name":"PHONE CARD","subs":[{"cc":"00","name":"전체"}]},{"bb":"99","name":"H-MART","subs":[{"cc":"00","name":"전체"}]}]},{"a":"4","name":"PRODUCE","mids":[{"bb":"10","name":"VEGETABLE","subs":[{"cc":"00","name":"전체"},{"cc":"01","name":"NAPA CABBAGE"},{"cc":"02","name":"CABBAGE"},{"cc":"03","name":"CHOY"},{"cc":"04","name":"LETTUCE"},{"cc":"05","name":"SESAME LEAF"},{"cc":"06","name":"SCALLION"},{"cc":"07","name":"LEEK"},{"cc":"08","name":"CHIVE"},{"cc":"09","name":"MUSTARD"},{"cc":"10","name":"CHARD"},{"cc":"11","name":"COLLARD"},{"cc":"12","name":"KALE"},{"cc":"13","name":"SPINACH"},{"cc":"14","name":"CROWN DAISY"},{"cc":"15","name":"CHICORY"},{"cc":"16","name":"PARSLEY"},{"cc":"17","name":"BASIL"},{"cc":"18","name":"HERB"},{"cc":"19","name":"LEAF VEGETABLE"},{"cc":"20","name":"ETC"},{"cc":"21","name":"ONION"},{"cc":"22","name":"GARLIC"},{"cc":"23","name":"GINGER"},{"cc":"24","name":"CELERY"},{"cc":"25","name":"POTATO"},{"cc":"26","name":"STEM VEGETABLE"},{"cc":"27","name":"ETC"},{"cc":"28","name":"SWEET POTATO"},{"cc":"29","name":"YAM"},{"cc":"30","name":"NAGAIMO"},{"cc":"31","name":"CARROT"},{"cc":"32","name":"GOBO"},{"cc":"33","name":"RADISH"},{"cc":"34","name":"BEET"},{"cc":"35","name":"KOHLRABI"},{"cc":"36","name":"TURNIP"},{"cc":"37","name":"ROOT VEGETABLE"},{"cc":"38","name":"ETC"},{"cc":"39","name":"EGGPLANT"},{"cc":"40","name":"CUCUMBER"},{"cc":"41","name":"TOMATO"},{"cc":"42","name":"SQUASH"},{"cc":"43","name":"KOREAN PEPPER"},{"cc":"44","name":"JALAPENO"},{"cc":"45","name":"HABANERO"},{"cc":"46","name":"BELLPEPPER"},{"cc":"47","name":"PEPPER"},{"cc":"48","name":"CORN"},{"cc":"49","name":"CHAYOTE"},{"cc":"50","name":"OKRA"},{"cc":"51","name":"BITTERMELON"},{"cc":"52","name":"OLIVE"},{"cc":"53","name":"BEAN"},{"cc":"54","name":"PEA"},{"cc":"55","name":"FRUIT VEGETABLE"},{"cc":"56","name":"ETC"},{"cc":"57","name":"MUSHROOM"},{"cc":"58","name":"BROCCOLI"},{"cc":"59","name":"CAULIFLOWER"},{"cc":"60","name":"ARTICHOKE"},{"cc":"61","name":"SUGAR CANE"},{"cc":"62","name":"ETC VEGETABLE"},{"cc":"63","name":"ETC"},{"cc":"64","name":"DRIED VEGETABLE"},{"cc":"65","name":"SEED"},{"cc":"66","name":"FLOWER POT"},{"cc":"67","name":"ETC"}]},{"bb":"20","name":"FRUIT","subs":[{"cc":"00","name":"전체"},{"cc":"01","name":"APPLE"},{"cc":"02","name":"KOREAN PEAR"},{"cc":"03","name":"PEAR"},{"cc":"04","name":"ETC"},{"cc":"05","name":"ETC"},{"cc":"06","name":"PERSIMMON"},{"cc":"07","name":"MANDARIN"},{"cc":"08","name":"TANGERINE"},{"cc":"09","name":"ORANGE"},{"cc":"10","name":"GRAPEFRUIT"},{"cc":"11","name":"POMELO"},{"cc":"12","name":"LEMON"},{"cc":"13","name":"LIME"},{"cc":"14","name":"ETC"},{"cc":"15","name":"ETC"},{"cc":"16","name":"PEACH"},{"cc":"17","name":"NECTARINE"},{"cc":"18","name":"ASIAN PLUM"},{"cc":"19","name":"PLUM"},{"cc":"20","name":"APRICOT"},{"cc":"21","name":"PLUOT"},{"cc":"22","name":"ETC"},{"cc":"23","name":"ETC"},{"cc":"24","name":"WATERMELON"},{"cc":"25","name":"ASIAN MELON"},{"cc":"26","name":"MELON"},{"cc":"27","name":"ETC"},{"cc":"28","name":"ETC"},{"cc":"29","name":"KOREAN GRAPE"},{"cc":"30","name":"GRAPE"},{"cc":"31","name":"MUSCAT"},{"cc":"32","name":"BERRY"},{"cc":"33","name":"CHERRY"},{"cc":"34","name":"KIWI"},{"cc":"35","name":"FIGS"},{"cc":"36","name":"JUJUBE"},{"cc":"37","name":"AVOCADO"},{"cc":"38","name":"ETC"},{"cc":"39","name":"ETC"},{"cc":"40","name":"MANGO"},{"cc":"41","name":"DURIAN"},{"cc":"42","name":"GUAVA"},{"cc":"43","name":"COCONUT"},{"cc":"44","name":"PAPAYA"},{"cc":"45","name":"PINEAPPLE"},{"cc":"46","name":"CACTUS"},{"cc":"47","name":"DRAGON FRUIT"},{"cc":"48","name":"BANANA"},{"cc":"49","name":"PLANTIAN"},{"cc":"50","name":"TAMARIND"},{"cc":"51","name":"SAPOTE"},{"cc":"52","name":"TROPICAL"},{"cc":"53","name":"ETC"},{"cc":"54","name":"ETC"},{"cc":"55","name":"ETC FRUIT"},{"cc":"56","name":"DRIED NUT"},{"cc":"57","name":"DRIED FRUIT"},{"cc":"58","name":"FRUIT PACK"},{"cc":"59","name":"SLICED FRUIT"},{"cc":"60","name":"CUTTED FRUIT"},{"cc":"61","name":"ETC"}]},{"bb":"30","name":"GLOBAL","subs":[{"cc":"00","name":"전체"}]},{"bb":"40","name":"GLOBAL","subs":[{"cc":"00","name":"전체"}]},{"bb":"50","name":"LOCAL - VEGETABLE","subs":[{"cc":"00","name":"전체"}]},{"bb":"60","name":"LOCAL - FRUIT","subs":[{"cc":"00","name":"전체"}]},{"bb":"70","name":"ORGANIC - VEGETABLE","subs":[{"cc":"00","name":"전체"}]},{"bb":"80","name":"ORGANIC - FRUIT","subs":[{"cc":"00","name":"전체"}]},{"bb":"90","name":"GMO","subs":[{"cc":"00","name":"전체"}]}]},{"a":"5","name":"FISH","mids":[{"bb":"10","name":"LIVE","subs":[{"cc":"00","name":"전체"},{"cc":"01","name":"FISH"},{"cc":"02","name":"SQUID"},{"cc":"03","name":"CRAB"},{"cc":"04","name":"SHRIMP"},{"cc":"05","name":"CLAM"},{"cc":"06","name":"ROE"},{"cc":"07","name":"SEAWEED"},{"cc":"99","name":"ETC"}]},{"bb":"20","name":"FRESH","subs":[{"cc":"00","name":"전체"},{"cc":"01","name":"FISH"},{"cc":"02","name":"SQUID"},{"cc":"03","name":"CRAB"},{"cc":"04","name":"SHRIMP"},{"cc":"05","name":"CLAM"},{"cc":"06","name":"ROE"},{"cc":"07","name":"SEAWEED"},{"cc":"99","name":"ETC"}]},{"bb":"30","name":"FREEZER","subs":[{"cc":"00","name":"전체"},{"cc":"01","name":"FISH"},{"cc":"02","name":"SQUID"},{"cc":"03","name":"CRAB"},{"cc":"04","name":"SHRIMP"},{"cc":"05","name":"CLAM"},{"cc":"06","name":"ROE"},{"cc":"07","name":"SEAWEED"},{"cc":"99","name":"ETC"}]},{"bb":"40","name":"CLEANED","subs":[{"cc":"00","name":"전체"},{"cc":"01","name":"FISH"},{"cc":"02","name":"SQUID"},{"cc":"03","name":"CRAB"},{"cc":"04","name":"SHRIMP"},{"cc":"05","name":"CLAM"},{"cc":"06","name":"ROE"},{"cc":"07","name":"SEAWEED"},{"cc":"99","name":"ETC"}]},{"bb":"50","name":"SALTED","subs":[{"cc":"00","name":"전체"},{"cc":"01","name":"FISH"},{"cc":"02","name":"SQUID"},{"cc":"03","name":"CRAB"},{"cc":"04","name":"SHRIMP"},{"cc":"05","name":"CLAM"},{"cc":"06","name":"ROE"},{"cc":"07","name":"SEAWEED"},{"cc":"99","name":"ETC"}]},{"bb":"60","name":"CUTTED","subs":[{"cc":"00","name":"전체"},{"cc":"01","name":"FILLET"},{"cc":"02","name":"STEAK"},{"cc":"03","name":"SASHIMI"},{"cc":"04","name":"NIGIRI"},{"cc":"05","name":"SUSHI"},{"cc":"99","name":"ETC"}]},{"bb":"70","name":"DRIED","subs":[{"cc":"00","name":"전체"},{"cc":"01","name":"DRIED"},{"cc":"02","name":"HALF DRIED"},{"cc":"99","name":"ETC"}]},{"bb":"80","name":"DELI","subs":[{"cc":"00","name":"전체"},{"cc":"01","name":"SEASONED"},{"cc":"02","name":"MARINATED"},{"cc":"03","name":"PICKLED"},{"cc":"04","name":"SALAD"},{"cc":"05","name":"STEAMED"},{"cc":"06","name":"STEW"},{"cc":"07","name":"BRAISED"},{"cc":"08","name":"SAUCE"},{"cc":"99","name":"ETC"}]},{"bb":"90","name":"ETC","subs":[{"cc":"00","name":"전체"},{"cc":"01","name":"PACKAGE"},{"cc":"02","name":"GIFT SET"},{"cc":"70","name":"KOREAN"},{"cc":"80","name":"BANDI"},{"cc":"99","name":"ETC"}]}]},{"a":"6","name":"MEAT","mids":[{"bb":"10","name":"BEEF","subs":[{"cc":"01","name":"불고기"},{"cc":"02","name":"갈비"},{"cc":"03","name":"소샤브샤브"},{"cc":"04","name":"소구이"},{"cc":"05","name":"앵거스"},{"cc":"06","name":"스테이크"},{"cc":"07","name":"국거리/탕용"},{"cc":"08","name":"소부산물"},{"cc":"09","name":"와규"},{"cc":"10","name":"프라임/초이스"}]},{"bb":"20","name":"PORK","subs":[{"cc":"01","name":"돈육/구이"},{"cc":"02","name":"흑돈"},{"cc":"03","name":"돈갈비/덩어리"},{"cc":"04","name":"돼지샤브샤브"},{"cc":"05","name":"돈부산물"}]},{"bb":"30","name":"CHICKEN/DUCK","subs":[{"cc":"01","name":"닭"},{"cc":"02","name":"칠면조"},{"cc":"03","name":"오리"}]},{"bb":"40","name":"GOAT/LAMB/OTHER","subs":[{"cc":"01","name":"양고기"},{"cc":"02","name":"흑염소"},{"cc":"03","name":"특수육류"}]},{"bb":"50","name":"WHOLESALE","subs":[{"cc":"01","name":"식당용소"},{"cc":"02","name":"식당용돼지"},{"cc":"03","name":"식당용닭"}]},{"bb":"60","name":"MARINATED","subs":[{"cc":"01","name":"소"},{"cc":"02","name":"돼지"},{"cc":"03","name":"닭"}]},{"bb":"70","name":"HOT POT","subs":[]},{"bb":"80","name":"GIFT SET","subs":[{"cc":"01","name":"소"},{"cc":"02","name":"돼지"},{"cc":"03","name":"닭"}]},{"bb":"90","name":"ETC","subs":[]}]},{"a":"7","name":"DELI","mids":[{"bb":"10","name":"KOREA DELI","subs":[{"cc":"00","name":"전체"}]},{"bb":"11","name":"JAPAN DELI","subs":[{"cc":"00","name":"전체"}]},{"bb":"12","name":"CHINA DELI","subs":[{"cc":"00","name":"전체"}]},{"bb":"13","name":"ETC DELI","subs":[{"cc":"00","name":"전체"}]},{"bb":"70","name":"DRINK","subs":[{"cc":"00","name":"전체"}]},{"bb":"80","name":"LEMONLAND","subs":[{"cc":"00","name":"전체"},{"cc":"01","name":"김치(UPC)"},{"cc":"02","name":"반찬(UPC)"},{"cc":"20","name":"김치"},{"cc":"21","name":"나물"},{"cc":"22","name":"무침"},{"cc":"23","name":"볶음"},{"cc":"24","name":"분식반찬"},{"cc":"25","name":"절임"},{"cc":"26","name":"젓갈"},{"cc":"27","name":"조림"},{"cc":"60","name":"자체생산"},{"cc":"80","name":"떡류"},{"cc":"99","name":"ETC"}]},{"bb":"90","name":"BAKERY","subs":[{"cc":"00","name":"전체"}]}]},{"a":"8","name":"HOUSEWARE","mids":[{"bb":"10","name":"HOUSEWARE","subs":[{"cc":"00","name":"전체"}]},{"bb":"20","name":"FEMININE","subs":[{"cc":"00","name":"전체"}]},{"bb":"30","name":"ELECTRONICS","subs":[{"cc":"00","name":"전체"},{"cc":"01","name":"RICE COOKER"},{"cc":"02","name":"FRIDGE"}]},{"bb":"40","name":"FURNITURE","subs":[{"cc":"00","name":"전체"}]},{"bb":"90","name":"ARTBOX","subs":[{"cc":"00","name":"전체"}]},{"bb":"91","name":"K-BEAUTY","subs":[{"cc":"00","name":"전체"}]}]}]};
+</script>
+<script>
+(function(){
+  'use strict';
+  var $=function(id){ return document.getElementById(id); };
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+  var toastTimer; function toast(m,t){ var el=$('toast'); clearTimeout(toastTimer); el.textContent=m; el.className='toast show '+(t||''); toastTimer=setTimeout(function(){ el.className='toast '+(t||''); },2600); }
+  function ask(title,text,withInput,def){ return new Promise(function(res){ $('mTitle').textContent=title; $('mText').textContent=text||''; var inp=$('mInput'); inp.style.display=withInput?'':'none'; inp.value=def||''; $('modalBg').classList.add('show'); if(withInput) setTimeout(function(){ inp.focus(); inp.select(); },30);
+    function done(ok){ $('modalBg').classList.remove('show'); $('mOk').onclick=null; $('mCancel').onclick=null; inp.onkeydown=null; res(ok?(withInput?inp.value:true):(withInput?null:false)); }
+    $('mOk').onclick=function(){ done(true); }; $('mCancel').onclick=function(){ done(false); }; inp.onkeydown=function(ev){ if(ev.key==='Enter') done(true); if(ev.key==='Escape') done(false); }; }); }
+  function u8ToB64(u8){ var s=''; for(var i=0;i<u8.length;i+=0x8000){ s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000)); } return btoa(s); }
+  function b64ToU8(b64){ var bin=atob(b64), u8=new Uint8Array(bin.length); for(var i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i); return u8; }
+  function gz(txt){ return u8ToB64(pako.gzip(new TextEncoder().encode(txt))); }
+  function ungz(b64){ return new TextDecoder().decode(pako.ungzip(b64ToU8(b64))); }
+  function pad2(v){ v=String(v==null?'':v).replace(/[^0-9]/g,''); return v.length>=2?v:('00'+v).slice(-2); }
+  function nameKey(s){ return String(s==null?'':s).replace(/\s+/g,' ').trim().toUpperCase(); }
+
+  /* ── 상태 ── */
+  var F=null, db=null;
+  var D={ bigs:[], link:{ 'PLU-LIST':'CATEGORY_NUMBER', 'UPC-LIST':'CATEGORY_NUMBER' } };
+  var savedAt='', dirty=false, selA=-1, selB=-1, q='';
+  var listFields={ 'PLU-LIST':null, 'UPC-LIST':null }; /* 리스트별 필드 목록 [{key,label}] */
+  function setDirty(v){ dirty=v; $('dirty').textContent=v?'저장 안 된 변경':''; }
+  function code(a,bb,cc){ return String(a)+'-'+pad2(bb)+'-'+pad2(cc); }
+  function counts(){ var m=0,c=0; D.bigs.forEach(function(b){ m+=b.mids.length; b.mids.forEach(function(x){ c+=x.subs.length; }); }); return {a:D.bigs.length,b:m,c:c}; }
+  function sortAll(){ D.bigs.sort(function(x,y){ return (parseInt(x.a,10)||0)-(parseInt(y.a,10)||0); }); D.bigs.forEach(function(b){ b.mids.sort(function(x,y){ return x.bb<y.bb?-1:x.bb>y.bb?1:0; }); b.mids.forEach(function(m){ m.subs.sort(function(x,y){ return x.cc<y.cc?-1:x.cc>y.cc?1:0; }); }); }); }
+  function normalize(o){ var bigs=[]; (o&&o.bigs||[]).forEach(function(b){ if(!b) return; var nb={ a:String(b.a==null?'':b.a).replace(/[^0-9]/g,''), name:String(b.name||'').trim(), mids:[] };
+      (b.mids||[]).forEach(function(m){ if(!m) return; var nm={ bb:pad2(m.bb), name:String(m.name||'').trim(), subs:[] }; (m.subs||[]).forEach(function(s){ if(!s) return; nm.subs.push({ cc:pad2(s.cc), name:String(s.name||'').trim() }); }); nb.mids.push(nm); });
+      bigs.push(nb); });
+    var link={ 'PLU-LIST':'CATEGORY_NUMBER', 'UPC-LIST':'CATEGORY_NUMBER' }; if(o&&o.link){ for(var k in link){ if(o.link[k]) link[k]=String(o.link[k]); } }
+    return { bigs:bigs, link:link }; }
+
+  /* ── 검증 (저장 전) ── */
+  function validate(){ var errs=[], seenA={};
+    D.bigs.forEach(function(b){ if(!b.a) errs.push('대분류 번호 없음: '+(b.name||'(이름 없음)')); if(!b.name) errs.push('대분류 이름 없음: '+b.a); if(seenA[b.a]) errs.push('대분류 번호 중복: '+b.a); seenA[b.a]=1; var seenB={};
+      b.mids.forEach(function(m){ if(!m.name) errs.push(b.name+' › 중분류 이름 없음 ('+m.bb+')'); if(seenB[m.bb]) errs.push(b.name+' › 중분류 코드 중복: '+m.bb); seenB[m.bb]=1; var seenC={};
+        m.subs.forEach(function(s){ if(!s.name) errs.push(b.name+' › '+m.name+' › 소분류 이름 없음 ('+s.cc+')'); if(seenC[s.cc]) errs.push(b.name+' › '+m.name+' › 소분류 코드 중복: '+s.cc); seenC[s.cc]=1; }); }); });
+    return errs; }
+
+  /* ── 읽기 / 저장 ── */
+  function load(){
+    return F.getDoc(F.doc(db,'CATEGORY','_CODE')).then(function(sn){
+      var d=(sn.exists()&&sn.data())?sn.data():null;
+      if(!d){ D=normalize(window.__CC_SEED); sortAll(); savedAt=''; setDirty(true); $('chipCloud').textContent='CLOUD 에 코드 없음 — 기본 데이터(ITEM_CATEGORY.xlsx) 불러옴 · 「CLOUD 저장」을 누르세요'; $('chipCloud').className='chip'; return; }
+      var t=d; if(d.fmt==='GZ'&&d.d){ t=JSON.parse(ungz(String(d.d))); }
+      D=normalize(t); sortAll(); savedAt=d.savedAt||''; setDirty(false);
+      $('chipCloud').textContent='CLOUD 저장본 '+(savedAt?String(savedAt).slice(0,16).replace('T',' '):''); $('chipCloud').className='chip ok';
+    }).catch(function(e){ $('chipCloud').textContent='CLOUD 읽기 실패 — Firestore 규칙(CATEGORY) 확인: '+String(e&&e.message||e); $('chipCloud').className='chip err'; });
+  }
+  function save(){
+    var errs=validate(); if(errs.length){ ask('저장할 수 없음',errs.slice(0,12).join('\n')+(errs.length>12?'\n…':''),false); return Promise.resolve(false); }
+    sortAll();
+    var payload={ bigs:D.bigs, link:D.link };
+    var doc={ ver:1, savedAt:new Date().toISOString(), fmt:'GZ', d:gz(JSON.stringify(payload)) };
+    return F.setDoc(F.doc(db,'CATEGORY','_CODE'),doc).then(function(){ savedAt=doc.savedAt; setDirty(false); try{ localStorage.setItem('egmmCatCode',JSON.stringify(payload)); }catch(e){}
+      $('chipCloud').textContent='CLOUD 저장본 '+String(savedAt).slice(0,16).replace('T',' '); $('chipCloud').className='chip ok'; var c=counts(); toast('CLOUD 저장 — 대분류 '+c.a+' · 중분류 '+c.b+' · 소분류 '+c.c,'success'); render(); return true; })
+      .catch(function(e){ toast('저장 실패: '+String(e&&e.message||e),'error'); return false; });
+  }
+  /* 리스트별 필드 목록 (_CONFIG) — 연결 필드 선택용 */
+  function loadFields(root){
+    return F.getDoc(F.doc(db,root,'_META')).then(function(ms){ var meta=(ms.exists()&&ms.data())?ms.data():null; if(!meta) return null; var ps=[];
+      for(var p=0;p<(meta.configParts||1);p++){ var id=p===0?'_CONFIG':('_CONFIG__P'+(p+1)); ps.push(F.getDoc(F.doc(db,root,id)).then(function(sn){ return sn.exists()?sn.data():null; })); }
+      return Promise.all(ps).then(function(ds){ if(ds.some(function(d){ return !d; })) return null; var fmt=ds[0].fmt||'JS', payload=ds.map(function(d){ return d.d||''; }).join(''); var st=JSON.parse(fmt==='GZ'?ungz(payload):payload);
+        var L=(st&&st.layouts)||{}, m=L['델리']; if(!m||!m.length){ for(var k in L){ if(L[k]&&L[k].length){ m=L[k]; break; } } }
+        return (m||[]).map(function(f){ return { key:String(f.key||''), label:String(f.label||f.key||''), group:String(f.group||'') }; }).filter(function(f){ return f.key; }); }); })
+      .then(function(fs){ listFields[root]=fs; renderLink(); }).catch(function(){ listFields[root]=null; renderLink(); });
+  }
+  function renderLink(){ [['PLU-LIST','linkPlu'],['UPC-LIST','linkUpc']].forEach(function(p){ var root=p[0], sel=$(p[1]), fs=listFields[root], cur=D.link[root]||'CATEGORY_NUMBER', h='', seen=false;
+      (fs||[]).forEach(function(f){ var on=f.key===cur; if(on) seen=true; h+='<option value="'+esc(f.key)+'"'+(on?' selected':'')+'>'+esc((f.group?f.group+' · ':'')+f.label)+'</option>'; });
+      if(!seen) h='<option value="'+esc(cur)+'" selected>'+esc(cur)+(fs?' (리스트에 없는 필드)':'')+'</option>'+h;
+      sel.innerHTML=h; sel.onchange=function(){ D.link[root]=sel.value; setDirty(true); }; }); }
+
+  /* ── 렌더 ── */
+  function hitTxt(s){ if(!q) return esc(s); var k=nameKey(s), i=k.indexOf(q); if(i<0) return esc(s); return esc(s.slice(0,i))+'<span class="hit">'+esc(s.slice(i,i+q.length))+'</span>'+esc(s.slice(i+q.length)); }
+  function matchB(b){ if(!q) return true; if(nameKey(b.name).indexOf(q)>=0||String(b.a)===q) return true; return b.mids.some(matchM.bind(null,b)); }
+  function matchM(b,m){ if(!q) return true; if(nameKey(m.name).indexOf(q)>=0||(String(b.a)+'-'+m.bb).indexOf(q)===0) return true; return m.subs.some(function(s){ return matchS(b,m,s); }); }
+  function matchS(b,m,s){ if(!q) return true; return nameKey(s.name).indexOf(q)>=0||code(b.a,m.bb,s.cc).indexOf(q)===0; }
+  function render(){ var c=counts(); $('chipCnt').textContent='대분류 '+c.a+' · 중분류 '+c.b+' · 소분류 '+c.c; renderA(); renderB(); renderC(); }
+  function bindIt(el,arr,i,onCode,onName){ var ci=el.querySelector('input.code'), ni=el.querySelector('input.name');
+    [ci,ni].forEach(function(inp){ if(!inp) return; inp.onclick=function(ev){ ev.stopPropagation(); }; inp.onmousedown=function(ev){ ev.stopPropagation(); };
+      inp.onkeydown=function(ev){ if(ev.key==='Enter'){ ev.preventDefault(); inp.blur(); } if(ev.key==='Escape'){ inp.value=inp.getAttribute('data-v'); inp.blur(); } }; });
+    if(ci) ci.onchange=function(){ onCode(ci.value); }; if(ni) ni.onchange=function(){ onName(ni.value); }; }
+  function renderA(){ var h=''; D.bigs.forEach(function(b,i){ if(!matchB(b)) return; var n=0; b.mids.forEach(function(m){ n+=m.subs.length; });
+      h+='<div class="it'+(i===selA?' on':'')+'" data-i="'+i+'"><input class="code a" data-v="'+esc(b.a)+'" value="'+esc(b.a)+'" title="대분류 번호"><input class="name" data-v="'+esc(b.name)+'" value="'+esc(b.name)+'" placeholder="이름"><span class="sub">'+b.mids.length+' · '+n+'</span><button class="ico" data-act="del" title="삭제">✕</button></div>'; });
+    $('listA').innerHTML=h||'<div class="hint">대분류 없음 — ＋ 추가</div>'; $('cntA').textContent=D.bigs.length?D.bigs.length+'개':'';
+    Array.prototype.forEach.call($('listA').querySelectorAll('.it'),function(el){ var i=parseInt(el.getAttribute('data-i'),10), b=D.bigs[i];
+      el.onclick=function(ev){ if(ev.target.closest('button')) return; selA=i; selB=-1; render(); };
+      el.querySelector('[data-act=del]').onclick=function(ev){ ev.stopPropagation(); var n=0; b.mids.forEach(function(m){ n+=m.subs.length; });
+        ask('대분류 삭제','"'+b.a+' '+b.name+'" 과 그 안의 중분류 '+b.mids.length+'개 · 소분류 '+n+'개를 삭제할까요?\n(상품에 이미 기록된 코드는 그대로 남습니다)').then(function(ok){ if(!ok) return; D.bigs.splice(i,1); if(selA===i){ selA=-1; selB=-1; } else if(selA>i) selA--; setDirty(true); render(); }); };
+      bindIt(el,D.bigs,i,function(v){ v=String(v).replace(/[^0-9]/g,''); if(!v){ toast('번호는 숫자','error'); render(); return; } if(D.bigs.some(function(x,j){ return j!==i&&x.a===v; })){ toast('대분류 번호 '+v+' 이미 있음','error'); render(); return; } b.a=v; setDirty(true); sortAll(); selA=D.bigs.indexOf(b); render(); },
+        function(v){ b.name=String(v).trim(); setDirty(true); render(); }); }); }
+  function renderB(){ var b=D.bigs[selA], h=''; $('titleB').firstChild.textContent=b?('중분류 — '+b.a+' '+b.name+' '):'중분류 '; $('hintB').style.display=b?'none':''; $('btnAddB').disabled=!b;
+    if(b) b.mids.forEach(function(m,i){ if(!matchM(b,m)) return; h+='<div class="it'+(i===selB?' on':'')+'" data-i="'+i+'"><span class="full">'+esc(b.a)+'-</span><input class="code" data-v="'+esc(m.bb)+'" value="'+esc(m.bb)+'" title="중분류 코드 BB"><input class="name" data-v="'+esc(m.name)+'" value="'+esc(m.name)+'" placeholder="이름"><span class="sub">'+m.subs.length+'</span><button class="ico" data-act="del" title="삭제">✕</button></div>'; });
+    $('listB').innerHTML=h||(b?'<div class="hint">중분류 없음 — ＋ 추가</div>':''); $('cntB').textContent=b&&b.mids.length?b.mids.length+'개':'';
+    if(!b) return;
+    Array.prototype.forEach.call($('listB').querySelectorAll('.it'),function(el){ var i=parseInt(el.getAttribute('data-i'),10), m=b.mids[i];
+      el.onclick=function(ev){ if(ev.target.closest('button')) return; selB=i; renderB(); renderC(); };
+      el.querySelector('[data-act=del]').onclick=function(ev){ ev.stopPropagation(); ask('중분류 삭제','"'+code(b.a,m.bb,'00').slice(0,-3)+' '+m.name+'" 과 소분류 '+m.subs.length+'개를 삭제할까요?').then(function(ok){ if(!ok) return; b.mids.splice(i,1); if(selB===i) selB=-1; else if(selB>i) selB--; setDirty(true); render(); }); };
+      bindIt(el,b.mids,i,function(v){ v=pad2(v); if(v==='00'&&!String(v).length){ render(); return; } if(b.mids.some(function(x,j){ return j!==i&&x.bb===v; })){ toast('중분류 코드 '+v+' 이미 있음','error'); renderB(); return; } m.bb=v; setDirty(true); sortAll(); selB=b.mids.indexOf(m); renderB(); renderC(); },
+        function(v){ m.name=String(v).trim(); setDirty(true); renderB(); renderC(); }); }); }
+  function dupNames(){ var cnt={}; D.bigs.forEach(function(b){ b.mids.forEach(function(m){ m.subs.forEach(function(s){ var k=nameKey(s.name); if(k) cnt[k]=(cnt[k]||0)+1; }); }); }); return cnt; }
+  function renderC(){ var b=D.bigs[selA], m=b&&b.mids[selB], h=''; $('titleC').firstChild.textContent=m?('소분류 — '+b.a+'-'+m.bb+' '+m.name+' '):'소분류 '; $('hintC').style.display=m?'none':''; $('btnAddC').disabled=!m;
+    if(m){ var dn=dupNames(); m.subs.forEach(function(s,i){ if(!matchS(b,m,s)) return; var multi=(dn[nameKey(s.name)]||0)>1; h+='<div class="it" data-i="'+i+'"><span class="full">'+esc(b.a)+'-'+esc(m.bb)+'-</span><input class="code" data-v="'+esc(s.cc)+'" value="'+esc(s.cc)+'" title="소분류 코드 CC"><input class="name" data-v="'+esc(s.name)+'" value="'+esc(s.name)+'" placeholder="이름"><span class="sub" title="'+(multi?'같은 이름이 다른 중분류에도 있음 — 상품에서는 직접 선택':'전체에서 하나뿐인 이름 — CATEGORY ENG 가 같으면 자동 생성')+'">'+(multi?'중복명':'자동')+'</span><button class="ico" data-act="del" title="삭제">✕</button></div>'; }); }
+    $('listC').innerHTML=h||(m?'<div class="hint">소분류 없음 — ＋ 추가</div>':''); $('cntC').textContent=m&&m.subs.length?m.subs.length+'개':'';
+    if(!m) return;
+    Array.prototype.forEach.call($('listC').querySelectorAll('.it'),function(el){ var i=parseInt(el.getAttribute('data-i'),10), s=m.subs[i];
+      el.querySelector('[data-act=del]').onclick=function(ev){ ev.stopPropagation(); ask('소분류 삭제','"'+code(b.a,m.bb,s.cc)+' '+s.name+'" 을 삭제할까요?').then(function(ok){ if(!ok) return; m.subs.splice(i,1); setDirty(true); renderC(); $('chipCnt').textContent=''; render(); }); };
+      bindIt(el,m.subs,i,function(v){ v=pad2(v); if(m.subs.some(function(x,j){ return j!==i&&x.cc===v; })){ toast('소분류 코드 '+v+' 이미 있음','error'); renderC(); return; } s.cc=v; setDirty(true); sortAll(); renderC(); },
+        function(v){ s.name=String(v).trim(); setDirty(true); renderC(); }); }); }
+
+  /* ── 추가 ── */
+  function nextNum(arr,key,start,width){ var used={}; arr.forEach(function(x){ used[String(parseInt(x[key],10))]=1; }); var n=start; while(used[String(n)]) n++; return width?pad2(n):String(n); }
+  $('btnAddA').onclick=function(){ ask('대분류 추가','이름 (번호는 비어 있는 다음 번호 '+nextNum(D.bigs,'a',1)+' — 저장 전 수정 가능)',true,'').then(function(v){ if(v==null) return; v=String(v).trim(); if(!v) return; D.bigs.push({ a:nextNum(D.bigs,'a',1), name:v, mids:[] }); sortAll(); selA=D.bigs.findIndex(function(x){ return x.name===v; }); selB=-1; setDirty(true); render(); }); };
+  $('btnAddB').onclick=function(){ var b=D.bigs[selA]; if(!b) return; ask('중분류 추가 — '+b.a+' '+b.name,'이름 (코드는 비어 있는 다음 번호 '+nextNum(b.mids,'bb',10,true)+' — 수정 가능). 「전체 00」 소분류가 함께 만들어집니다.',true,'').then(function(v){ if(v==null) return; v=String(v).trim(); if(!v) return; var m={ bb:nextNum(b.mids,'bb',10,true), name:v, subs:[{cc:'00',name:'전체'}] }; b.mids.push(m); sortAll(); selB=b.mids.indexOf(m); setDirty(true); render(); }); };
+  $('btnAddC').onclick=function(){ var b=D.bigs[selA], m=b&&b.mids[selB]; if(!m) return; ask('소분류 추가 — '+b.a+'-'+m.bb+' '+m.name,'이름 (코드는 비어 있는 다음 번호 '+nextNum(m.subs,'cc',1,true)+' — 수정 가능)',true,'').then(function(v){ if(v==null) return; v=String(v).trim(); if(!v) return; m.subs.push({ cc:nextNum(m.subs,'cc',1,true), name:v }); sortAll(); setDirty(true); render(); }); };
+
+  /* ── 엑셀 ── */
+  function parseWorkbook(wb){ var ws=wb.Sheets[wb.SheetNames[0]]; var rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:''}).map(function(r){ return r.map(function(v){ return String(v==null?'':v).trim(); }); });
+    if(!rows.length) throw new Error('빈 시트');
+    var head=rows[0].map(nameKey);
+    /* 형식 ② 평면: A | 대분류 | BB | 중분류 | CC | 소분류 (내보내기 형식) */
+    var iA=head.indexOf('A'), iBB=head.indexOf('BB'), iCC=head.indexOf('CC');
+    if(iA>=0&&iBB>=0&&iCC>=0){ var iAN=head.indexOf('대분류'), iBN=head.indexOf('중분류'), iCN=head.indexOf('소분류'); var bigs=[], byA={};
+      rows.slice(1).forEach(function(r){ var a=String(r[iA]||'').replace(/[^0-9]/g,''); if(!a) return; var b=byA[a]; if(!b){ b={a:a,name:iAN>=0?r[iAN]:'',mids:[]}; byA[a]=b; bigs.push(b); } if(iAN>=0&&r[iAN]&&!b.name) b.name=r[iAN];
+        var bb=r[iBB]; if(bb==='') return; bb=pad2(bb); var m=null; for(var i=0;i<b.mids.length;i++){ if(b.mids[i].bb===bb){ m=b.mids[i]; break; } } if(!m){ m={bb:bb,name:iBN>=0?r[iBN]:'',subs:[]}; b.mids.push(m); } if(iBN>=0&&r[iBN]&&!m.name) m.name=r[iBN];
+        var cc=r[iCC]; if(cc==='') return; cc=pad2(cc); if(m.subs.some(function(s){ return s.cc===cc; })) return; m.subs.push({cc:cc,name:iCN>=0?r[iCN]:''}); });
+      return {bigs:bigs}; }
+    /* 형식 ① ITEM_CATEGORY.xlsx 원본: '대분류' 블록(번호·이름) → '중분류' 블록("N - 이름" 줄 아래 번호·이름·코드 + E열부터 (소분류명, 코드) 3열 간격, 이어지는 줄은 A열 비움) */
+    var mode='big', bigs2=[], byA2={}, curBig=null, curMid=null;
+    rows.forEach(function(r){ var a=r[0]||'', b=r[1]||'', c=r[2]||'';
+      if(a==='대분류'){ mode='big'; return; } if(a==='중분류'){ mode='mid'; return; }
+      if(mode==='big'){ if(/^\d+$/.test(a)&&b){ var o={a:a,name:b,mids:[]}; bigs2.push(o); byA2[a]=o; } return; }
+      var mm=a.match(/^(\d+)\s*-\s*(.+)$/); if(mm&&!b){ curBig=byA2[mm[1]]||null; if(!curBig){ curBig={a:mm[1],name:mm[2].trim(),mids:[]}; bigs2.push(curBig); byA2[mm[1]]=curBig; } curMid=null; return; }
+      if(!curBig) return;
+      if(/^\d+$/.test(a)&&b){ curMid={bb:pad2(c||a),name:b,subs:[]}; curBig.mids.push(curMid); }
+      if(!curMid) return;
+      for(var i=4;i+1<r.length;i+=3){ var nm=r[i]||'', cd=r[i+1]||''; if(nm&&cd!==''&&/^\d+$/.test(cd)){ if(!curMid.subs.some(function(s){ return s.cc===pad2(cd); })) curMid.subs.push({cc:pad2(cd),name:nm}); } } });
+    if(!bigs2.length) throw new Error('인식할 수 없는 형식 — 1행에 A·BB·CC 열이 있는 평면 형식이거나 ITEM_CATEGORY.xlsx 원본 형식이어야 합니다');
+    return {bigs:bigs2}; }
+  $('btnImport').onclick=function(){ $('impFile').value=''; $('impFile').click(); };
+  $('impFile').onchange=function(){ var f=this.files&&this.files[0]; if(!f) return; var rd=new FileReader();
+    rd.onload=function(){ try{ var wb=XLSX.read(new Uint8Array(rd.result),{type:'array'}); var o=normalize(parseWorkbook(wb)); var n=0,c=0; o.bigs.forEach(function(b){ n+=b.mids.length; b.mids.forEach(function(m){ c+=m.subs.length; }); });
+        ask('엑셀 불러오기','"'+f.name+'" — 대분류 '+o.bigs.length+' · 중분류 '+n+' · 소분류 '+c+'\n\n현재 화면의 코드 전체를 이 파일 내용으로 바꿉니다 (CLOUD 는 「CLOUD 저장」을 눌러야 기록). 진행할까요?').then(function(ok){ if(!ok) return; D.bigs=o.bigs; sortAll(); selA=-1; selB=-1; setDirty(true); render(); toast('불러옴 — 저장을 누르세요','success'); }); }
+      catch(e){ ask('불러오기 실패',String(e&&e.message||e),false); } };
+    rd.readAsArrayBuffer(f); };
+  $('btnExport').onclick=function(){ var aoa=[['A','대분류','BB','중분류','CC','소분류','CODE']]; D.bigs.forEach(function(b){ if(!b.mids.length) aoa.push([b.a,b.name,'','','','','']); b.mids.forEach(function(m){ if(!m.subs.length) aoa.push([b.a,b.name,m.bb,m.name,'','','']); m.subs.forEach(function(s){ aoa.push([b.a,b.name,m.bb,m.name,s.cc,s.name,code(b.a,m.bb,s.cc)]); }); }); });
+    var ws=XLSX.utils.aoa_to_sheet(aoa); ws['!cols']=[{wch:4},{wch:14},{wch:5},{wch:22},{wch:5},{wch:22},{wch:10}]; var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'CATEGORY CODE'); XLSX.writeFile(wb,'CATEGORY_CODE_'+new Date().toISOString().slice(0,10)+'.xlsx'); };
+
+  /* ── 기타 ── */
+  $('q').oninput=function(){ q=nameKey(this.value); render(); };
+  $('btnSave').onclick=function(){ if(!F){ toast('CLOUD 연결 준비 중','error'); return; } save(); };
+  $('btnReload').onclick=function(){ if(dirty&&!confirm('저장 안 된 변경이 있습니다. 버리고 새로고침할까요?')) return; reloadAll(); };
+  window.addEventListener('beforeunload',function(e){ if(dirty){ e.preventDefault(); e.returnValue=''; } });
+  $('guideText').textContent=[
+    '1. 코드 형태는 A-BB-CC 입니다. A = 대분류 번호(1 GROCERY · 2 ALCOHOL · 3 ETC · 4 PRODUCE · 5 FISH · 6 MEAT · 7 DELI · 8 HOUSEWARE …), BB = 중분류 코드(KOREA FOOD · JAPAN FOOD · BEER …), CC = 소분류 코드(RICE · NOODLE · CHIP …). 00 은 「전체」입니다.',
+    '2. 각 단계에서 ＋ 추가 / 칸을 눌러 번호·이름 수정 / ✕ 삭제. 번호·코드는 같은 단계 안에서 겹칠 수 없습니다. 변경은 「CLOUD 저장」을 눌러야 기록됩니다.',
+    '3. PLU · UPC MANAGER 자동 생성: 상품의 CATEGORY ENG 값이 등록된 소분류 이름과 같고, 그 이름이 전체 소분류 중 하나뿐이면 연결 필드(기본 CATEGORY NO)에 A-BB-CC 가 자동으로 들어갑니다. (소분류 목록의 「자동」 표시)',
+    '4. 같은 이름이 여러 중분류에 있으면(예: RICE · ETC — 「중복명」 표시) 상품의 연결 필드 셀을 눌러 대분류 › 중분류 › 소분류 드롭다운에서 직접 고릅니다. 고르면 CATEGORY ENG 도 그 소분류 이름으로 맞춰집니다.',
+    '5. 등록되지 않은 이름(오타, 예: RIEC)을 CATEGORY ENG 에 넣으면 가장 비슷한 소분류 이름(RICE)으로 고칠지 물어봅니다. 엑셀 불러오기 뒤에는 맞지 않은 이름 목록을 한 번에 보여줍니다.',
+    '6. 연결 필드는 리스트(PLU LIST · UPC LIST)별로 바꿀 수 있습니다. 감지(매칭)에 쓰는 값은 CATEGORY ENG 로 고정입니다.',
+    '7. 엑셀 불러오기는 ITEM_CATEGORY.xlsx 원본 형식과, 「엑셀 내보내기」 평면 형식(A · 대분류 · BB · 중분류 · CC · 소분류) 둘 다 읽습니다. 불러오면 화면의 코드 전체가 파일 내용으로 바뀝니다.',
+    '8. 삭제해도 상품에 이미 기록된 코드 값은 지워지지 않습니다.'
+  ].join('\n');
+  $('btnGuide').onclick=function(){ $('guideBg').classList.add('show'); }; $('guideX').onclick=function(){ $('guideBg').classList.remove('show'); };
+  function reloadAll(){ return Promise.all([load(),loadFields('PLU-LIST'),loadFields('UPC-LIST')]).then(function(){ selA=D.bigs.length?0:-1; selB=-1; render(); renderLink(); }); }
+
+  if(!window.EgmmFB||!window.AccessGate){ $('chipCloud').textContent='공용 모듈 로드 실패'; $('chipCloud').className='chip err'; return; }
+  window.AccessGate.require({ title:'CATEGORY CODE' }).then(function(){
+    window.EgmmFB.ready.then(function(f){ F=f; db=f.db; reloadAll(); }).catch(function(){ $('chipCloud').textContent='CLOUD 설정 없음'; $('chipCloud').className='chip err'; });
+  });
+  window.__CC={ setFb:function(f){ F=f; db=f.db||{}; return reloadAll(); }, state:function(){ return {D:D,selA:selA,selB:selB,dirty:dirty,savedAt:savedAt}; }, select:function(a,b){ selA=a; selB=b; render(); }, save:save, parseWorkbook:parseWorkbook, code:code, render:render };
+})();
+</script>
+</body>
+</html>
