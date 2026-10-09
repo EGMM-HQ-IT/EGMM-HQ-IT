@@ -309,7 +309,7 @@
         if(!res) return loadProductsLegacy(meta);
         var list=[], store={};
         Object.keys(res.parts).forEach(function(k){ var pt=res.parts[k]; store[k]={pv:pt.pv,rows:pt.rows}; (pt.rows||[]).forEach(function(r){ var v=(r&&r.v)||{}; var pl=(v.ITEM_PLU!=null&&v.ITEM_PLU!=='')?v.ITEM_PLU:v.PLU; list.push({upc:String(pl==null?'':pl),eng:String(v.ITEM_ENGLISH||''),kor:String(v.ITEM_KOREA||''),vender:String(v.VENDER_VENDER||pt.sub.name||'').trim(),code:String(v.VENDER_ITEM_CODE||'')}); }); });
-        try{ localStorage.setItem(CACHE_KEY+':pack',JSON.stringify({parts:store})); localStorage.setItem(CACHE_KEY,JSON.stringify({savedAt:meta.savedAt,list:list})); }catch(e){}
+        if(!(res.errors&&res.errors.length)){ try{ localStorage.setItem(CACHE_KEY+':pack',JSON.stringify({parts:store})); localStorage.setItem(CACHE_KEY,JSON.stringify({savedAt:meta.savedAt,list:list})); }catch(e){} } /* [복구 2026-10-08] 손상 묶음이 있으면 이전 캐시(온전한 사본) 보존 */
         applyProducts(list);
       });
     });

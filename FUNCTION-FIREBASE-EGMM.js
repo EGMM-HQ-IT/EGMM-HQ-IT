@@ -62,26 +62,54 @@
     return Promise.reject(new Error('gzip 해제 불가 (브라우저가 오래됨)'));
   }
   function packOn(F,db,root){ return F.getDoc(F.doc(db,root,'_PACKMETA')).then(function(sn){ return !!(sn.exists()&&sn.data()&&sn.data().on); }).catch(function(){ return false; }); }
+  /* [복구 2026-10-08] 손상된 묶음(incorrect data check 등)은 압축을 오류 직전까지 풀어 완전한 행까지 살린다 (pako 필요) */
+  function b64u8(b64){ var bin=atob(b64), u8=new Uint8Array(bin.length); for(var i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i); return u8; }
+  function salvageRowsText(text){
+    text=String(text||''); var st=text.indexOf('['); if(st<0) return []; text=text.slice(st);
+    try{ var o=JSON.parse(text); return Array.isArray(o)?o:((o&&Array.isArray(o.rows))?o.rows:[]); }catch(e){}
+    var re=/\},\{"id":/g, bounds=[], mm; while((mm=re.exec(text))) bounds.push(mm.index+1);
+    for(var k=bounds.length-1,t=0;k>=0&&t<80;k--,t++){ try{ var o2=JSON.parse(text.slice(0,bounds[k])+']'); if(Array.isArray(o2)) return o2; }catch(e){} }
+    return [];
+  }
+  function salvagePack(d0,partsData){
+    var payload=String(d0.d||'');
+    for(var i=0;i<partsData.length;i++){ var pd=partsData[i]; if(!pd||pd.d==null) break; if(d0.at&&pd.at&&pd.at!==d0.at) break; payload+=String(pd.d||''); }
+    if(d0.fmt!=='GZ') return salvageRowsText(payload);
+    if(typeof pako==='undefined'||!pako.Inflate) return [];
+    var u8; try{ u8=b64u8(payload); }catch(e){ try{ u8=b64u8(payload.slice(0,payload.length-(payload.length%4))); }catch(e2){ return []; } }
+    var chunks=[], total=0; try{ var inf=new pako.Inflate(); inf.onData=function(c){ chunks.push(c); total+=c.length; }; inf.onEnd=function(){}; inf.push(u8,true);
+      if(inf.strm&&inf.strm.output&&inf.strm.next_out>0){ var rest=inf.strm.output.slice(0,inf.strm.next_out); chunks.push(rest); total+=rest.length; } }catch(e){}
+    if(!total) return [];
+    var all=new Uint8Array(total), off=0; chunks.forEach(function(c){ all.set(c,off); off+=c.length; });
+    return salvageRowsText(new TextDecoder().decode(all));
+  }
   function packReadSub(F,db,root,bigId,subId){
     return F.getDoc(F.doc(db,root,'_PACK',bigId,subId)).then(function(sn){
       if(!sn.exists()) return null;
       var d0=sn.data()||{}, n=parseInt(d0.parts||1,10)||1, ps=[];
-      for(var p=2;p<=n;p++) ps.push(F.getDoc(F.doc(db,root,'_PACK',bigId,subId+'__P'+p)).then(function(x){ return x.exists()?String((x.data()||{}).d||''):''; }));
-      return Promise.all(ps).then(function(parts){ var payload=String(d0.d||'')+parts.join('');
+      for(var p=2;p<=n;p++) ps.push(F.getDoc(F.doc(db,root,'_PACK',bigId,subId+'__P'+p)).then(function(x){ return x.exists()?(x.data()||{}):null; }));
+      return Promise.all(ps).then(function(partsData){
+        var bad=''; var payload=String(d0.d||'');
+        partsData.forEach(function(pd,i){ if(bad) return; if(!pd||pd.d==null){ bad='조각 '+(i+2)+' 없음'; return; } if(d0.at&&pd.at&&pd.at!==d0.at){ bad='조각 '+(i+2)+' 기록 시각 불일치'; return; } payload+=String(pd.d||''); });
+        if(bad){ var sal0=salvagePack(d0,partsData); var e0=new Error('PACK_CORRUPT '+bad); e0.salvage=sal0; throw e0; }
         var txt=(d0.fmt==='GZ')?gunzipB64(payload):Promise.resolve(payload);
-        return txt.then(function(json){ var o=JSON.parse(json); return Array.isArray(o)?o:((o&&Array.isArray(o.rows))?o.rows:[]); }); });
+        return txt.then(function(json){ var o=JSON.parse(json); return Array.isArray(o)?o:((o&&Array.isArray(o.rows))?o.rows:[]); })
+          .catch(function(e){ var sal=salvagePack(d0,partsData); var e1=new Error('PACK_CORRUPT '+((e&&e.message)||e)); e1.salvage=sal; throw e1; });
+      });
     });
   }
   function loadProductRows(F,db,root,meta,cache){
     return packOn(F,db,root).then(function(on){
       if(!on) return null;
-      var old=(cache&&cache.parts)||{}, parts={}, changed=[], jobs=[];
+      var old=(cache&&cache.parts)||{}, parts={}, changed=[], jobs=[], errors=[];
       (meta.tree||[]).forEach(function(b){ (b.subs||[]).forEach(function(sb){
         var key=b.id+'/'+sb.id, pv=sb.pv||meta.savedAt||'';
         if(old[key]&&old[key].pv===pv&&Array.isArray(old[key].rows)){ parts[key]={pv:pv,rows:old[key].rows,big:b,sub:sb}; return; }
-        jobs.push(packReadSub(F,db,root,b.id,sb.id).then(function(rows){ parts[key]={pv:pv,rows:rows||[],big:b,sub:sb}; changed.push(key); }));
+        jobs.push(packReadSub(F,db,root,b.id,sb.id).then(function(rows){ parts[key]={pv:pv,rows:rows||[],big:b,sub:sb}; changed.push(key); })
+          .catch(function(e){ /* [복구 2026-10-08] 손상 묶음: 살린 행만 표시하고 나머지 묶음은 정상 로드 */
+            var sal=(e&&e.salvage)||[]; parts[key]={pv:'',rows:sal,big:b,sub:sb,corrupt:String((e&&e.message)||e)}; changed.push(key); errors.push({key:key,big:b.name,sub:sb.name,rows:sal.length,count:sb.count,err:String((e&&e.message)||e)}); }));
       }); });
-      return Promise.all(jobs).then(function(){ return { parts:parts, changed:changed }; });
+      return Promise.all(jobs).then(function(){ return { parts:parts, changed:changed, errors:errors }; });
     });
   }
   window.EgmmFB.gunzipB64=gunzipB64; window.EgmmFB.packOn=packOn; window.EgmmFB.packReadSub=packReadSub; window.EgmmFB.loadProductRows=loadProductRows;

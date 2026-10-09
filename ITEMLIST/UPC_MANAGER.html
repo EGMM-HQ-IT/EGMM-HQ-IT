@@ -1499,10 +1499,25 @@ function saveState(){
   if(!__lsTimer) __lsTimer=setTimeout(__lsWriteNow,600);
   fbSyncTouch(); /* [MODULE 26] 수정 발생 → Firebase 자동 전송 예약 */
 }
+var __lsSalvaged=null; /* [복구 2026-10-08] 이 컴퓨터 사본이 손상돼 있을 때 살린 행 {rows:[...], err} — 빈 상태로 조용히 시작하지 않도록 */
+function __salvageRowsFromText(text){ /* 손상된 상태 JSON 텍스트에서 완전한 행 객체({"id":…,"v":{…}…})만 추출 */
+  var out=[], i=0, L=text.length;
+  while((i=text.indexOf('{"id":"',i))>=0){
+    var d=0, q=false, esc=false, j=i;
+    for(;j<L;j++){ var c=text.charAt(j);
+      if(q){ if(esc) esc=false; else if(c==='\\') esc=true; else if(c==='"') q=false; continue; }
+      if(c==='"') q=true; else if(c==='{') d++; else if(c==='}'){ d--; if(d===0){ j++; break; } } }
+    if(d!==0) break;
+    try{ var o=JSON.parse(text.slice(i,j)); if(o&&o.id&&o.v&&typeof o.v==='object') out.push(o); }catch(e){}
+    i=j;
+  }
+  return out;
+}
 function loadState(){
+  var raw=null;
+  try{ raw=localStorage.getItem(LS_KEY); }catch(e){ return null; }
+  if(!raw) return null;
   try{
-    var raw=localStorage.getItem(LS_KEY);
-    if(!raw) return null;
     var json;
     if(raw.slice(0,3)==='GZ:'){ json=new TextDecoder().decode(pako.ungzip(__b64ToU8(raw.slice(3)))); }
     else if(raw.slice(0,3)==='JS:'){ json=raw.slice(3); }
@@ -1511,7 +1526,20 @@ function loadState(){
     if(!st||!st.tabs||!st.layouts||!st.data) return null;
     try{ var ui=JSON.parse(localStorage.getItem(LS_KEY+':ui')||'null'); if(ui&&typeof ui==='object') st.ui=Object.assign({}, st.ui||{}, ui); }catch(e){}
     return st;
-  }catch(e){ return null; }
+  }catch(e){
+    /* 사본 손상: 압축을 오류 직전까지 풀어 완전한 행만 살려 둔다 (시작 후 안내 + 데이터 복구에서 합침) */
+    try{
+      var text='';
+      if(raw.slice(0,3)==='GZ:'){ var u8=__b64ToU8(raw.slice(3)); var chunks=[], total=0; var inf=new pako.Inflate(); inf.onData=function(c){ chunks.push(c); total+=c.length; }; inf.onEnd=function(){}; try{ inf.push(u8,true); }catch(e4){}
+        if(inf.strm&&inf.strm.output&&inf.strm.next_out>0){ var rest=inf.strm.output.slice(0,inf.strm.next_out); chunks.push(rest); total+=rest.length; }
+        if(total){ var all=new Uint8Array(total), off=0; chunks.forEach(function(c){ all.set(c,off); off+=c.length; }); text=new TextDecoder().decode(all); } }
+      else text=(raw.slice(0,3)==='JS:')?raw.slice(3):raw;
+      var rows=__salvageRowsFromText(text);
+      __lsSalvaged={ rows:rows, err:String((e&&e.message)||e), size:raw.length };
+      try{ localStorage.setItem(LS_KEY+':damaged-'+Date.now(), raw.slice(0,4000000)); }catch(e2){} /* 원본 조각 보존(최대 4MB) */
+    }catch(e3){ __lsSalvaged={ rows:[], err:String((e&&e.message)||e), size:raw.length }; }
+    return null;
+  }
 }
 /* [MODULE 07 연계] 매장 원천 필드: 묶음 STORE 또는 필드명 LOCATION
    — 엑셀 업로드/기존 데이터의 이 필드 값("3. BELLEVUE")으로 매장 리스트 자동 구성,
@@ -3633,6 +3661,9 @@ function openBackupMenu(){
    원천: ① CLOUD 압축 묶음(_PACK · 손상분은 복구 가능한 행까지) ② CLOUD 의 변환 이전 행 문서 ③ 이 컴퓨터 사본 ④ 백업 JSON 파일(선택)
    규칙: 같은 id 는 편집 시각(m)이 가장 최근인 것 · 어느 한 곳에만 있는 행은 유지 · CLOUD 에는 사용자가 「CLOUD 업로드」를 눌러야만 기록 */
 var __rcBackup=null;
+function __lsSalvageNotice(){ if(!__lsSalvaged) return; var n=__lsSalvaged.rows.length;
+  uiAlert('이 컴퓨터에 저장된 사본이 손상되어 있습니다 ('+__lsSalvaged.err+').\n사본에서 완전한 상품 행 '+n+'건을 살려 두었습니다 — 메뉴 > 백업·복원 > 데이터 복구에서 CLOUD 와 합쳐 복구할 수 있습니다.\n(손상된 원본 조각은 브라우저에 보존됨)','사본 손상');
+}
 async function openRecovery(){
   var log=fbRunOpen('데이터 복구');
   try{
@@ -3655,14 +3686,21 @@ async function openRecovery(){
     } }
     /* ③ 이 컴퓨터 사본 */
     if(S&&S.data){ for(var bg in S.data){ for(var sb2 in S.data[bg]){ var sl2=slot(bg,sb2); (S.data[bg][sb2]||[]).forEach(function(r){ put(sl2,r,'local'); sl2.cnt.local++; }); } } }
+    /* ③-2 손상된 이 컴퓨터 사본에서 살린 행 (VENDER 값 → 중간 카테고리, 없으면 첫 중간) */
+    if(__lsSalvaged&&__lsSalvaged.rows.length){ var __fb=(S.tabs[0]&&S.tabs[0].label)||'', __fs=(S.tabs[0]&&S.tabs[0].subs&&S.tabs[0].subs[0])||'';
+      __lsSalvaged.rows.forEach(function(r){ var sub=SUB_BY_VENDER?String((r.v&&r.v.VENDER_VENDER)||'').trim():''; var sl4=slot(__fb,sub||__fs); put(sl4,r,'local'); sl4.cnt.local++; }); log('③-2 손상 사본에서 살린 행 '+__lsSalvaged.rows.length+'건 포함'); }
+    /* ③-3 ITEM ANALYZE 캐시 — 같은 도메인의 localStorage 'iaProdCache:pack' 에 UPC 전체 행 사본(마지막으로 정상 읽힌 시점) */
+    if(FB_ROOT==='UPC-LIST'){ try{ var iac=JSON.parse(localStorage.getItem('iaProdCache:pack')||'null'); var idName={}; tree.forEach(function(b){ (b.subs||[]).forEach(function(sb){ idName[b.id+'/'+sb.id]={big:b.name,sub:sb.name}; }); });
+      if(iac&&iac.parts){ var iaN=0; Object.keys(iac.parts).forEach(function(k){ var pt=iac.parts[k]; var nm=idName[k]||{big:(S.tabs[0]&&S.tabs[0].label)||'',sub:k.split('/').pop()}; var sl5=slot(nm.big,nm.sub); (pt.rows||[]).forEach(function(r){ put(sl5,r,'iacache'); sl5.cnt.local++; iaN++; }); });
+        log('③-3 ITEM ANALYZE 캐시 '+iaN+'행 포함 (이 컴퓨터가 ITEM ANALYZE 를 마지막으로 정상 연 시점의 전체 사본)'); } }catch(e){} }
     /* ④ 백업 파일 */
     if(__rcBackup&&__rcBackup.data){ for(var bg2 in __rcBackup.data){ for(var sb3 in __rcBackup.data[bg2]){ var sl3=slot(bg2,sb3); (__rcBackup.data[bg2][sb3]||[]).forEach(function(r){ put(sl3,r,'backup'); sl3.cnt.backup++; }); } } }
     /* 결과표 */
-    var keys=Object.keys(bySub).sort(), tot=0, lines=[], srcTot={pack:0,legacy:0,local:0,backup:0};
-    keys.forEach(function(k){ var sl=bySub[k], n=0, bySrc={pack:0,legacy:0,local:0,backup:0}; for(var id in sl.rows){ n++; bySrc[sl.rows[id].src]++; } tot+=n; for(var q in bySrc) srcTot[q]+=bySrc[q];
+    var keys=Object.keys(bySub).sort(), tot=0, lines=[], srcTot={pack:0,legacy:0,local:0,backup:0,iacache:0};
+    keys.forEach(function(k){ var sl=bySub[k], n=0, bySrc={pack:0,legacy:0,local:0,backup:0,iacache:0}; for(var id in sl.rows){ n++; bySrc[sl.rows[id].src]++; } tot+=n; for(var q in bySrc) srcTot[q]+=bySrc[q];
       lines.push(sl.big+' / '+sl.sub+' → 합친 결과 '+n+'행 (묶음 '+bySrc.pack+' · 이전문서 '+bySrc.legacy+' · 이 컴퓨터 '+bySrc.local+' · 백업 '+bySrc.backup+')'+(sl.cnt.bad?'  ⚠ 묶음 손상: '+sl.cnt.bad:'')); });
     log(''); lines.forEach(function(l){ log(l); });
-    log(''); log('합계 '+tot+'행 — 출처별 채택: 묶음 '+srcTot.pack+' · 이전 행 문서 '+srcTot.legacy+' · 이 컴퓨터 사본 '+srcTot.local+' · 백업 파일 '+srcTot.backup+(__rcBackup?'':'  (백업 파일 없음 — 아래 버튼으로 추가 가능)'));
+    log(''); log('합계 '+tot+'행 — 출처별 채택: 묶음 '+srcTot.pack+' · 이전 행 문서 '+srcTot.legacy+' · 이 컴퓨터 사본 '+srcTot.local+' · ITEM ANALYZE 캐시 '+srcTot.iacache+' · 백업 파일 '+srcTot.backup+(__rcBackup?'':'  (백업 파일 없음 — 아래 버튼으로 추가 가능)'));
     log('CLOUD 에는 아직 아무것도 쓰지 않았습니다.');
     var box=$('fbRunLog').parentNode; var btns=document.createElement('div'); btns.style.cssText='display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 10px';
     btns.innerHTML='<button class="plu-tool-btn" id="rcBak" type="button">백업 JSON 파일 추가 후 다시 계산</button><button class="plu-tool-btn" id="rcApply" type="button" style="font-weight:800">이 결과를 화면에 적용 (CLOUD 는 그대로)</button>';
@@ -6758,6 +6796,7 @@ function init(){
   pluSub=Math.min(Math.max(0,S.ui.sub|0),(S.tabs[pluBig].subs||[]).length-1); if(pluSub<0) pluSub=0;
   if(S.curStore&&S.stores.indexOf(S.curStore)<0) S.curStore='';
   sortAllByPlu(); /* [MODULE 20] 시작 시 전 카테고리 PLU 자릿수 정렬 */
+  if(__lsSalvaged) setTimeout(__lsSalvageNotice,1200); /* [복구 2026-10-08] 손상 사본 안내 */
 
   var q=null;
   /* [요구 2026-09] 검색은 Enter 를 쳐야 실행 — 글자마다 전 카테고리 검색이 돌면 느려짐.
@@ -7532,7 +7571,8 @@ function fbPackSalvage(baseData,partDatas){
   if(baseData.fmt==='GZ'){
     var u8; try{ u8=__b64ToU8(payload); }catch(e){ try{ u8=__b64ToU8(payload.slice(0,payload.length-(payload.length%4))); }catch(e2){ return []; } }
     var chunks=[], total=0;
-    try{ var inf=new pako.Inflate(); inf.onData=function(c){ chunks.push(c); total+=c.length; }; inf.onEnd=function(){}; inf.push(u8,true); }catch(e){}
+    try{ var inf=new pako.Inflate(); inf.onData=function(c){ chunks.push(c); total+=c.length; }; inf.onEnd=function(){}; inf.push(u8,true);
+      if(inf.strm&&inf.strm.output&&inf.strm.next_out>0){ var rest=inf.strm.output.slice(0,inf.strm.next_out); chunks.push(rest); total+=rest.length; } /* 오류 직전까지 풀린 마지막 조각 */ }catch(e){}
     if(!total) return [];
     var all=new Uint8Array(total), off=0; chunks.forEach(function(c){ all.set(c,off); off+=c.length; });
     text=new TextDecoder().decode(all);

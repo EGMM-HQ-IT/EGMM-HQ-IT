@@ -159,7 +159,7 @@
         parts=res.parts;
         tabs=(m.tree||[]).slice().sort(function(a,b){ return (a.order||0)-(b.order||0); }).map(function(b){ return { id:b.id, name:b.name||b.id, subs:(b.subs||[]).slice().sort(function(x,y){ return (x.order||0)-(y.order||0); }) }; });
         if(!cur||!tabs.some(function(t){ return t.id===cur; })) cur=tabs.length?tabs[0].id:'';
-        loading=false; chip('CLOUD 최신 · '+(m.total||0)+'행','ok'); renderTabs(); render();
+        loading=false; var __errs=(res&&res.errors)||[]; if(__errs.length){ chip('CLOUD 일부 묶음 손상 — 복구본 표시 ('+__errs.map(function(x){ return x.big+'/'+x.sub+' '+x.rows+'행'+(x.count!=null?'/'+x.count:''); }).join(' · ')+')','err'); } else chip('CLOUD 최신 · '+(m.total||0)+'행','ok'); renderTabs(); render();
       });
     }).catch(function(e){ loading=false; console.error(e); chip('CLOUD 오류','err'); $('vlWrap').innerHTML='<div class="vl-empty vl-err">'+esc(e&&e.message||e)+'</div>'; });
   }
