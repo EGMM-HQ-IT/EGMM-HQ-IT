@@ -3684,7 +3684,10 @@ async function fbPurgeCorruptAndPush(){
     var conn=await fbConnect(log), M=conn.M, db=conn.db;
     await fbPackFlag(conn,true); if(!__fbPack) throw new Error('압축 묶음 방식이 아닙니다');
     var ms=await M.fs.getDoc(M.fs.doc(db,FB_ROOT,'_META')); var meta=(ms.exists()&&ms.data())?ms.data():null; if(!meta) throw new Error('CLOUD 목차 없음');
-    var bad=[], okN=0;
+    var bad=[], okN=0, cfgBad='';
+    try{ var cch=[], cfm='JS'; for(var cp=0;cp<(meta.configParts||1);cp++){ var cs=await M.fs.getDoc(M.fs.doc(db,FB_ROOT,cp===0?'_CONFIG':('_CONFIG__P'+(cp+1)))); if(!cs.exists()) throw new Error('조각 누락'); cfm=cs.data().fmt||'JS'; cch.push(cs.data().d||''); } fbConfigJoin(cch,cfm); }
+    catch(e){ cfgBad=String((e&&e.message)||e); }
+    log('설정 문서(_CONFIG) — '+(cfgBad?('손상: '+cfgBad+' → 이 화면 설정으로 다시 기록'):'정상'));
     for(var bi=0;bi<(meta.tree||[]).length;bi++){ var b=meta.tree[bi]; for(var si=0;si<(b.subs||[]).length;si++){ var sb=b.subs[si];
       try{ var sn=await M.fs.getDoc(M.fs.doc(db,FB_ROOT,'_PACK',b.id,sb.id)); if(!sn.exists()){ continue; } var d0=sn.data()||{}, n=parseInt(d0.parts||1,10)||1, ps=[];
         for(var p=2;p<=n;p++) ps.push(M.fs.getDoc(M.fs.doc(db,FB_ROOT,'_PACK',b.id,sb.id+'__P'+p)).then(function(x){ return x.exists()?x.data():null; }));
@@ -3703,7 +3706,8 @@ async function fbPurgeCorruptAndPush(){
       if(n2) await batch.commit();
       log('손상 묶음 '+bad.length+'개 삭제 완료 (원본 조각 _PACKRAW 보존)'); }
     log('전체 푸시 — 상품 '+localN+'건 (기록 후 검증)…');
-    __fbLast=null; __fbForceAll=true; __fbMuting=true; S.dirtySinceSync=true; __fbMuting=false;
+    /* 이 화면 전체를 그대로 기록 — CLOUD 가져오기(pull)로 되돌아가지 않도록 계보(savedAt)를 승계 */
+    __fbLast=null; __fbForceAll=true; __fbMuting=true; S.fbLastSync=meta.savedAt||S.fbLastSync; S.seeded=false; S.dirtySinceSync=true; saveState(); __fbMuting=false;
     try{ await fbSyncRun(); }finally{ __fbForceAll=false; __fbProtectPacks=[]; }
     log(__fbState==='ok'?('◎ 완료 — 상품 '+localN+'건 기록·검증됨'):('✗ 상태: '+__fbState+' '+(__fbErrMsg||'')));
     showToast(__fbState==='ok'?'깨진 묶음 삭제 후 전체 푸시 완료':'전체 푸시 실패 — '+(__fbErrMsg||''),__fbState==='ok'?'success':'error');
@@ -7530,6 +7534,7 @@ async function fbPackBackup(M,db,bigId,subId,op){
   return {rows:rows};
 }   /* [2026-10-08] 손상으로 판정된 묶음 — 사용자가 「CLOUD 업로드」로 확정하기 전까지 자동 전송에서 제외 (원본 보존) */  /* _PACKMETA.legacyKept — 압축 변환 이전의 행 문서가 CLOUD 에 남아 있음 (손상 묶음 보충용) */
 var __fbSyncTimer=0, __fbSyncRunning=false, __fbSyncPending=false, __fbRetryTimer=0;
+var __fbConfigCorrupt=false; /* [2026-10-08] CLOUD _CONFIG 손상 → 다음 전송 때 다시 기록 */
 var __fbMuting=false;   /* 동기화 자신이 하는 저장(플래그·복원 적용)의 재큐잉 방지 */
 var __fbState='off';    /* off|wait|run|ok|err|conflict|names|hold */
 var __fbBooting=false;  /* [UPC 2026-10] 시작 시 Firebase 불러오기 완료 전 — 전송·수정 금지 */
@@ -7839,7 +7844,11 @@ async function fbReadAll(conn){
     if(!cs.exists()) throw new Error('CONFIG 조각 누락('+id+') — 중단된 업로드입니다');
     fmt=cs.data().fmt||'JS'; chunks.push(cs.data().d||'');
   }
-  var st=fbConfigJoin(chunks,fmt), got=0, mismatch=[];
+  var st=null, got=0, mismatch=[];
+  try{ st=fbConfigJoin(chunks,fmt); }
+  catch(e){ /* [2026-10-08] _CONFIG(설정 문서) 손상(incorrect data check 등): 읽기를 중단하지 않고 이 컴퓨터의 설정(탭·필드·업체)으로 대체 → 다음 전송 때 _CONFIG 를 다시 기록 */
+    if(S&&S.tabs&&S.tabs.length){ st=JSON.parse(JSON.stringify(S)); st.data={}; __fbConfigCorrupt=true; mismatch.push('CONFIG(설정 문서) 손상 → 이 컴퓨터 설정으로 대체 ('+((e&&e.message)||e)+')'); }
+    else throw new Error('CONFIG 해석 실패 — CLOUD 설정 문서가 손상됨 ('+((e&&e.message)||e)+') · 이 컴퓨터에 설정 사본이 없어 대체 불가'); }
   if(!st||typeof st!=='object') throw new Error('CONFIG 해석 실패 — CLOUD 설정 문서가 손상됨');
   if(!st.data||typeof st.data!=='object') st.data={}; /* [2026-10-08] CONFIG 에 data 틀이 없어도 읽기 중단 없음 */
   await fbPackFlag(conn);
@@ -8089,6 +8098,8 @@ async function fbPullApply(conn){
   __fbMuting=false;
   renderAll();
   __fbLast=(__kept>0&&__pre)?__pre:fbDocsMap(fbBuildPlan(S));
+  if(__fbConfigCorrupt){ __fbConfigCorrupt=false; Object.keys(__fbLast).forEach(function(k){ if(k.indexOf(FB_ROOT+'/_CONFIG')===0) delete __fbLast[k]; }); fbLogSync('pull',0,'CLOUD 설정 문서(_CONFIG) 손상 — 이 컴퓨터 설정으로 다시 기록');
+    __fbMuting=true; S.dirtySinceSync=true; S.dirtyAt=new Date().toISOString(); saveState(); __fbMuting=false; fbSyncQueue(800); }
   if(__fbCorruptPacks&&__fbCorruptPacks.length){ /* [확정 2026-10-08] 깨진 묶음은 복구본(CLOUD 복구행 + 이 컴퓨터·캐시·이전 문서 최신행)으로 다시 기록해 초기화 — 원본 조각은 _PACKRAW 에 보존 */
     __fbCorruptPacks.forEach(function(pth){ delete __fbLast[pth]; }); fbLogSync('pull',0,'손상된 묶음 '+__fbCorruptPacks.length+'개 — 복구본으로 다시 기록 (원본 조각은 _PACKRAW 보존)'); __fbCorruptPacks=null;
     __fbMuting=true; S.dirtySinceSync=true; S.dirtyAt=new Date().toISOString(); saveState(); __fbMuting=false; fbSyncQueue(800); }
