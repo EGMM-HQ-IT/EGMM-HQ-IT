@@ -3664,7 +3664,43 @@ function openBackupMenu(){
     { label:'복원', desc:'백업 JSON 파일로 되돌리기', run:function(){ $('pluRestoreFile').value=''; $('pluRestoreFile').click(); } },
     { label:'데이터 복구', desc:'CLOUD 묶음(손상분 포함) · 변환 이전 행 문서 · 이 컴퓨터 사본 · 백업 파일을 행별 최신 기준으로 합쳐 복구', run:function(){ openRecovery(); } },
     { label:'CLOUD 업로드 (전체 확정)', desc:'이 화면의 전체 내용으로 CLOUD 를 교체 — 행 수 축소 보호를 넘어 확정할 때만', run:function(){ fbUploadStart(); } }
-  ]);
+  ].concat(APP_MODE==='UPC'?[{ label:'깨진 묶음 삭제 후 전체 푸시 (1회)', desc:'CLOUD 의 손상된 묶음을 지우고(원본 조각은 _PACKRAW 보존) 이 화면 전체를 CLOUD 에 기록', run:function(){ fbPurgeCorruptAndPush(); } }]:[]));
+}
+/* ═══ [1회 조치 · 2026-10-08 · UPC 전용] 깨진 묶음 삭제 후 전체 푸시 — 손상 묶음을 식별해 원본 조각을 _PACKRAW 에 보존하고 삭제한 뒤, 이 화면 전체를 CLOUD 에 기록(검증 포함) */
+async function fbPurgeCorruptAndPush(){
+  if(APP_MODE!=='UPC'){ uiAlert('UPC LIST 에서만 사용합니다.','깨진 묶음 삭제'); return; }
+  var plan=fbBuildPlan(S);
+  if(plan.err==='EMPTY'||!plan.total){ uiAlert('이 화면에 상품이 0건입니다 — 먼저 데이터 복구(백업·복원 > 데이터 복구)로 내용을 채운 뒤 실행하세요.','깨진 묶음 삭제'); return; }
+  var log=fbRunOpen('깨진 묶음 삭제 후 전체 푸시');
+  try{
+    var conn=await fbConnect(log), M=conn.M, db=conn.db;
+    await fbPackFlag(conn,true); if(!__fbPack) throw new Error('압축 묶음 방식이 아닙니다');
+    var ms=await M.fs.getDoc(M.fs.doc(db,FB_ROOT,'_META')); var meta=(ms.exists()&&ms.data())?ms.data():null; if(!meta) throw new Error('CLOUD 목차 없음');
+    var bad=[], okN=0;
+    for(var bi=0;bi<(meta.tree||[]).length;bi++){ var b=meta.tree[bi]; for(var si=0;si<(b.subs||[]).length;si++){ var sb=b.subs[si];
+      try{ var sn=await M.fs.getDoc(M.fs.doc(db,FB_ROOT,'_PACK',b.id,sb.id)); if(!sn.exists()){ continue; } var d0=sn.data()||{}, n=parseInt(d0.parts||1,10)||1, ps=[];
+        for(var p=2;p<=n;p++) ps.push(M.fs.getDoc(M.fs.doc(db,FB_ROOT,'_PACK',b.id,sb.id+'__P'+p)).then(function(x){ return x.exists()?x.data():null; }));
+        var pds=await Promise.all(ps); fbPackDecode(d0,pds); okN++; }
+      catch(e){ bad.push({b:b,sb:sb,d0:d0,pds:pds,err:String((e&&e.message)||e)}); } } }
+    log('묶음 점검 — 정상 '+okN+'개 · 손상 '+bad.length+'개'+(bad.length?': '+bad.map(function(x){ return x.b.name+'/'+x.sb.name; }).join(', '):''));
+    var localN=fbRowsTotal(S);
+    if(!(await uiConfirm('손상 묶음 '+bad.length+'개를 삭제(원본 조각은 _PACKRAW 에 보존)하고, 이 화면의 상품 '+localN+'건 전체를 CLOUD 에 기록합니다.\n\n'+(bad.length?bad.map(function(x){ return '· '+x.b.name+'/'+x.sb.name+' — '+x.err; }).join('\n')+'\n\n':'')+'진행할까요?','깨진 묶음 삭제 후 전체 푸시'))){ log('취소됨'); fbRunDone(); return; }
+    if(bad.length){ var batch=M.fs.writeBatch(db), n2=0;
+      for(var k=0;k<bad.length;k++){ var x=bad[k];
+        batch.set(M.fs.doc(db,FB_ROOT,'_PACKRAW',x.b.id,x.sb.id),Object.assign({},x.d0||{},{rawAt:new Date().toISOString()})); n2++;
+        (x.pds||[]).forEach(function(pd,i){ if(pd){ batch.set(M.fs.doc(db,FB_ROOT,'_PACKRAW',x.b.id,x.sb.id+'__P'+(i+2)),pd); n2++; } });
+        batch.delete(M.fs.doc(db,FB_ROOT,'_PACK',x.b.id,x.sb.id)); n2++;
+        for(var q=2;q<=6;q++){ batch.delete(M.fs.doc(db,FB_ROOT,'_PACK',x.b.id,x.sb.id+'__P'+q)); n2++; }
+        if(n2>=400){ await batch.commit(); batch=M.fs.writeBatch(db); n2=0; } }
+      if(n2) await batch.commit();
+      log('손상 묶음 '+bad.length+'개 삭제 완료 (원본 조각 _PACKRAW 보존)'); }
+    log('전체 푸시 — 상품 '+localN+'건 (기록 후 검증)…');
+    __fbLast=null; __fbForceAll=true; __fbMuting=true; S.dirtySinceSync=true; __fbMuting=false;
+    try{ await fbSyncRun(); }finally{ __fbForceAll=false; __fbProtectPacks=[]; }
+    log(__fbState==='ok'?('◎ 완료 — 상품 '+localN+'건 기록·검증됨'):('✗ 상태: '+__fbState+' '+(__fbErrMsg||'')));
+    showToast(__fbState==='ok'?'깨진 묶음 삭제 후 전체 푸시 완료':'전체 푸시 실패 — '+(__fbErrMsg||''),__fbState==='ok'?'success':'error');
+  }catch(e){ log('✗ 실패: '+((e&&(e.code||e.message))||e)); }
+  fbRunDone();
 }
 /* ═══ [데이터 복구 · 2026-10-08] 남아 있는 모든 사본을 행(id) 단위로 합쳐 가장 최근 편집본을 되살린다.
    원천: ① CLOUD 압축 묶음(_PACK · 손상분은 복구 가능한 행까지) ② CLOUD 의 변환 이전 행 문서 ③ 이 컴퓨터 사본 ④ 백업 JSON 파일(선택)
@@ -7292,6 +7328,9 @@ async function fbLegacyCleanup(){
     if(!__fbPack){ uiAlert('아직 압축 묶음 방식이 아닙니다 — 먼저 「CLOUD 압축 변환」을 실행하세요.','CLOUD 이전 문서 정리'); return; }
     var ms=await M.fs.getDoc(M.fs.doc(db,FB_ROOT,'_META')); var meta=(ms.exists()&&ms.data())?ms.data():null; if(!meta){ uiAlert('CLOUD 목차 없음','CLOUD 이전 문서 정리'); return; }
     var subs=[]; (meta.tree||[]).forEach(function(b){ (b.subs||[]).forEach(function(sb){ subs.push([b.id,sb.id]); }); });
+    /* [보호 2026-10-08] 이전 행 문서는 복구 원천 — 모든 묶음이 정상 해독되고 행 수가 목차와 맞을 때만 정리 허용 */
+    var __badPk=[]; for(var ci=0;ci<subs.length;ci++){ try{ var sn0=await M.fs.getDoc(M.fs.doc(db,FB_ROOT,'_PACK',subs[ci][0],subs[ci][1])); if(!sn0.exists()){ __badPk.push(subs[ci].join('/')+' 없음'); continue; } var d00=sn0.data()||{}, nn=parseInt(d00.parts||1,10)||1, pp0=[]; for(var q=2;q<=nn;q++) pp0.push(M.fs.getDoc(M.fs.doc(db,FB_ROOT,'_PACK',subs[ci][0],subs[ci][1]+'__P'+q)).then(function(x){ return x.exists()?x.data():null; })); var rr0=fbPackDecode(d00,await Promise.all(pp0)); var sbm=null; (meta.tree||[]).forEach(function(b){ (b.subs||[]).forEach(function(sb){ if(b.id===subs[ci][0]&&sb.id===subs[ci][1]) sbm=sb; }); }); if(sbm&&sbm.count!=null&&rr0.length!==sbm.count) __badPk.push(subs[ci].join('/')+' '+rr0.length+'/'+sbm.count); }catch(e){ __badPk.push(subs[ci].join('/')+' 손상'); } }
+    if(__badPk.length){ uiAlert('정리를 중단했습니다 — 묶음이 온전하지 않아 이전 행 문서를 지우면 복구 원천이 사라집니다:\n'+__badPk.slice(0,20).join('\n'),'CLOUD 이전 문서 정리'); return; }
     var refs=[];
     for(var i=0;i<subs.length;i++){ var snap=await M.fs.getDocs(M.fs.collection(db,FB_ROOT,subs[i][0],subs[i][1])); snap.forEach(function(d){ refs.push(d.ref||M.fs.doc(db,FB_ROOT,subs[i][0],subs[i][1],d.id)); });
       try{ var os=await M.fs.getDoc(M.fs.doc(db,FB_ROOT,'_ORDERS',subs[i][0],subs[i][1])); if(os.exists()) refs.push(M.fs.doc(db,FB_ROOT,'_ORDERS',subs[i][0],subs[i][1])); }catch(e){} }
@@ -7440,7 +7479,7 @@ try{
   window.__PLU.fbParseCfg=fbParseCfg; window.__PLU.fbCfgCur=fbCfgCur; window.__PLU.fbNorm=fbNorm;
   window.__PLU.fbNameFor=fbNameFor; window.__PLU.fbItemId=fbItemId; window.__PLU.fbBuildPlan=fbBuildPlan;
   window.__PLU.fbTestInject=fbTestInject; window.__PLU.fbUploadStart=fbUploadStart;
-  window.__PLU.fbRestoreStart=fbRestoreStart; window.__PLU.openFbCfg=openFbCfg;
+  window.__PLU.fbRestoreStart=fbRestoreStart; window.__PLU.openFbCfg=openFbCfg; window.__PLU.fbPurgeCorruptAndPush=fbPurgeCorruptAndPush;
   window.__PLU.fbRulesText=FB_RULES; window.__PLU.fbConfigChunks=fbConfigChunks; window.__PLU.fbConfigJoin=fbConfigJoin;
 }catch(e){}
 

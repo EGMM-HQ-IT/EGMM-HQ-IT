@@ -168,7 +168,7 @@
         var pr=on?window.EgmmFB.loadProductRows(F,db,root,meta,null):Promise.resolve(null);
         var pc=readConfig(root,meta).then(function(c){ o.cfg=c; }).catch(function(){ o.cfg=null; });
         return Promise.all([pr,pc]).then(function(rr){ var res=rr[0];
-          if(res){ Object.keys(res.parts).forEach(function(k){ var pt=res.parts[k]; o.rows[pt.big.name+'|'+pt.sub.name]=pt.rows||[]; }); }
+          if(res){ Object.keys(res.parts).forEach(function(k){ var pt=res.parts[k]; o.rows[pt.big.name+'|'+pt.sub.name]=pt.rows||[]; }); o.corrupt=(res.errors||[]).map(function(e){ return e.big+'/'+e.sub; }); } /* [보호 2026-10-08] 손상 묶음 목록 */
           L[src]=o; var n=(meta.tree||[]).reduce(function(a,b){ return a+(b.subs||[]).length; },0);
           chip.textContent=SRC[src].label+' · 상위 '+(meta.tree||[]).length+' · 중간 '+n+(on?' · 상품 '+(meta.total||0)+' (압축 묶음)':' · 행 문서 방식'); chip.className='chip ok';
         });
@@ -268,7 +268,7 @@
   };
 
   /* ── 상위 · 중간 편집 → 리스트 CLOUD 반영 ── */
-  function needPack(){ if(!L[curSrc]||!L[curSrc].meta){ toast('CLOUD 데이터 없음','error'); return false; } if(!L[curSrc].pack){ toast(SRC[curSrc].label+' 가 아직 행 문서 방식입니다 — '+(curSrc==='UPC'?'UPC':'PLU')+' LIST 서브메뉴에 보이는 「CLOUD 압축 변환」을 먼저 실행하세요','error'); return false; } return true; }
+  function needPack(){ if(!L[curSrc]||!L[curSrc].meta){ toast('CLOUD 데이터 없음','error'); return false; } if(L[curSrc].corrupt&&L[curSrc].corrupt.length){ toast(SRC[curSrc].label+' 에 손상된 묶음이 있습니다 ('+L[curSrc].corrupt.join(', ')+') — 먼저 '+(curSrc==='UPC'?'UPC':'PLU')+' MANAGER 를 열어 복구(자동)한 뒤 다시 시도하세요','error'); return false; } if(!L[curSrc].pack){ toast(SRC[curSrc].label+' 가 아직 행 문서 방식입니다 — '+(curSrc==='UPC'?'UPC':'PLU')+' LIST 서브메뉴에 보이는 「CLOUD 압축 변환」을 먼저 실행하세요','error'); return false; } return true; }
   function treeAction(act,btn){
     var big=btn.getAttribute('data-big'), mid=btn.getAttribute('data-mid'), i=parseInt(btn.getAttribute('data-i'),10);
     if(act==='bren') return renameBig(big);
