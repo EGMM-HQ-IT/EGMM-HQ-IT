@@ -2855,6 +2855,10 @@
             <div class="portal-name">PLU MEMORIZE</div>
             <span class="pc-arrow" aria-hidden="true">&rarr;</span>
           </div>
+          <div class="portal-card" id="toUpcConvBtn" role="button" tabindex="0" aria-label="UPC CONVERTER">
+            <div class="portal-name">UPC CONVERTER</div>
+            <span class="pc-arrow" aria-hidden="true">&rarr;</span>
+          </div>
         </div>
       </div>
       <!-- WHOLESALE -->
@@ -3269,6 +3273,12 @@
     const openNewViewer = () => { ppOpen('newitem-viewer.html'); };
     $('toNewViewerBtn').onclick = openNewViewer;
     $('toNewViewerBtn').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openNewViewer(); } });
+  }
+  // UPC CONVERTER 박스 → SUPPORT 폴더 · 누구나 바로 보기 (2026-10-09)
+  if($('toUpcConvBtn')){
+    const openUpcConv = () => { ppOpen('SUPPORT/UPC_CONVERTER.html'); };
+    $('toUpcConvBtn').onclick = openUpcConv;
+    $('toUpcConvBtn').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openUpcConv(); } });
   }
   // PLU MEMORIZE 박스 → TOOLS 폴더 · 퀴즈 내 매장 선택 사용
   if($('toPluQuizBtn')){

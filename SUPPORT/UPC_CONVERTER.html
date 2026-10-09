@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<!--
+  SUPPORT/UPC_CONVERTER.html — UPC 변환 · 바코드 판별 (INDEX > SUPPORT)   (2026-10-09)
+  · 누구나 접속 (로그인 없음) · CLOUD 연결 없음 — 입력한 번호를 EAN-8 / UPC-E / UPC-A / EAN-13 / GTIN-14 / CODE128 으로 판별하고 변환
+  · 디자인: Paper & Pine (INDEX · 광고뷰어 · 엑셀 내보내기 팝업과 같은 톤) — 기능 모듈(FunctionUpc)은 그대로
+-->
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UPC CONVERTER</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+  :root{
+    --bg:#EDEAE3; --bg-elev:#FFFDFA; --bg-elev-2:#F7F4ED; --border:#E4DFD4; --border-bright:#D6CFC0;
+    --text:#1E1B16; --text-dim:#4C463C; --text-faint:#8C8578;
+    --accent:#1E1B16; --accent-warm:#2F5D46; --accent-soft:#E9EFEA; --brass:#A98A55; --brass-soft:#F6EFDD;
+    --danger:#9C3327; --danger-soft:#F5EAE7; --ok:#1e7a46; --ok-bg:#eef8f1; --warn:#8a6414; --warn-bg:#FBF3DD;
+    --sh-1:0 1px 2px rgba(30,27,22,.05); --sh-2:0 1px 2px rgba(30,27,22,.05), 0 14px 30px -20px rgba(30,27,22,.42);
+    --font:'Pretendard','Malgun Gothic','맑은 고딕',system-ui,sans-serif; --monof:'JetBrains Mono','Consolas','Pretendard',monospace;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ height:100%; }
+  body{ background:var(--bg); color:var(--text); font-family:var(--font); overflow:hidden; -webkit-font-smoothing:antialiased; }
+
+  /* ── 크기 토큰 (S/M/L) ── */
+  body.sz-s{ --fs:11.5px; --fs-sm:10px;  --pad:10px; --gap:7px;  --btn-h:28px; --rad:12px; --rad-in:9px;  --left-w:clamp(320px, 27vw, 440px); --mono:12px; }
+  body.sz-m{ --fs:13px;   --fs-sm:11px;  --pad:14px; --gap:9px;  --btn-h:34px; --rad:16px; --rad-in:11px; --left-w:clamp(360px, 31vw, 540px); --mono:13.5px; }
+  body.sz-l{ --fs:14.5px; --fs-sm:12px;  --pad:18px; --gap:11px; --btn-h:40px; --rad:18px; --rad-in:12px; --left-w:clamp(420px, 35vw, 640px); --mono:15px; }
+
+  #card{ width:100vw; height:100vh; overflow:hidden; display:flex; flex-direction:column; font-size:var(--fs); }
+
+  /* ── 헤더 ── */
+  #head{ flex:none; display:flex; align-items:center; gap:12px; padding:calc(var(--pad)*.9) calc(var(--pad)*1.6);
+    background:linear-gradient(135deg,#1E1B16 0%,#2F5D46 100%); color:#fff; box-shadow:var(--sh-1); }
+  #head .tick{ width:4px; height:1.3em; border-radius:2px; background:var(--brass); flex:none; }
+  #head .tt{ font-weight:900; font-size:calc(var(--fs) + 5px); letter-spacing:.12em; text-transform:uppercase; white-space:nowrap; }
+  #head .ko{ font-size:var(--fs); font-weight:800; color:rgba(255,255,255,.78); white-space:nowrap; }
+  #head .sub{ color:#D8C9A6; font-size:var(--fs-sm); font-weight:700; letter-spacing:.12em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #head .sp{ flex:1; }
+  .sml{ display:flex; gap:3px; background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.18); border-radius:10px; padding:3px; flex:none; }
+  .sml button{ border:0; background:transparent; color:rgba(255,255,255,.7); font-family:var(--font); font-size:var(--fs-sm); font-weight:900; width:2.3em; height:2em;
+    border-radius:7px; cursor:pointer; line-height:1; transition:background .13s,color .13s; }
+  .sml button.on{ background:var(--brass); color:#1E1B16; }
+  .pv-btn{ display:inline-flex; align-items:center; gap:7px; background:rgba(255,255,255,.08); border:1.5px solid rgba(255,255,255,.22); color:#fff;
+    padding:6px 13px; font-family:var(--font); font-size:var(--fs-sm); font-weight:800; border-radius:10px; cursor:pointer; white-space:nowrap; letter-spacing:.04em; }
+  .pv-btn:hover{ border-color:var(--brass); color:#F6EFDD; }
+
+  /* ── 본문 ── */
+  #bodyc{ flex:1; min-height:0; padding:var(--pad) calc(var(--pad)*1.3) calc(var(--pad)*1.1); display:flex; gap:var(--pad); }
+  .pane{ background:var(--bg-elev); border:1.5px solid var(--border); border-radius:var(--rad); box-shadow:var(--sh-2); padding:var(--pad); display:flex; flex-direction:column; gap:var(--gap); min-height:0; }
+  #left{ flex:none; width:var(--left-w); }
+  #right{ flex:1; min-width:0; }
+  .lbl{ flex:none; display:flex; align-items:center; justify-content:space-between; font-size:var(--fs-sm); color:var(--text-faint); font-weight:900; letter-spacing:.14em; text-transform:uppercase; }
+  .lbl .ko{ color:var(--accent-warm); letter-spacing:.02em; text-transform:none; margin-left:8px; font-size:calc(var(--fs-sm) + 1px); }
+  .lbl .st{ font-weight:800; color:var(--brass); letter-spacing:.02em; text-transform:none; }
+  .ta{ flex:1; min-height:0; width:100%; resize:none; border:1.5px solid var(--border); border-radius:var(--rad-in); padding:calc(var(--pad)*.6);
+    font-size:var(--mono); font-family:var(--monof); line-height:1.55; background:var(--bg-elev-2); color:var(--text); outline:none; }
+  .ta:focus{ border-color:var(--accent-warm); background:#fff; box-shadow:0 0 0 3px rgba(47,93,70,.14); }
+  .ta::placeholder{ color:var(--text-faint); }
+  .row{ flex:none; display:flex; gap:var(--gap); flex-wrap:nowrap; }
+  .row .grow{ flex:1; }
+  .btn{ height:var(--btn-h); padding:0 calc(var(--pad)*.8); border:1.5px solid var(--border); border-radius:var(--rad-in); background:var(--bg-elev); color:var(--text-dim);
+    font-family:var(--font); font-size:var(--fs); font-weight:800; cursor:pointer; transition:border-color .13s, color .13s, background .13s, transform .08s; white-space:nowrap; }
+  .btn:hover{ border-color:var(--accent-warm); color:var(--text); } .btn:active{ transform:scale(.97); }
+  .btn.gold{ background:var(--accent-warm); color:#fff; border-color:var(--accent-warm); }
+  .btn.gold:hover{ filter:brightness(1.07); color:#fff; }
+  .btn.ghost{ background:transparent; }
+  .btn.ghost:hover{ border-color:var(--danger); color:var(--danger); background:var(--danger-soft); }
+  .btn.tog.on{ background:var(--brass-soft); border-color:var(--brass); color:#6b5424; }
+
+  @media (max-width: 900px){
+    #bodyc{ flex-direction:column; }
+    #left{ width:auto; flex:none; max-height:48vh; }
+    .dual{ min-height:110px; }
+  }
+  /* ── 요약 칩 ── */
+  #sum{ flex:none; display:flex; gap:6px; flex-wrap:wrap; min-height:1.6em; }
+  .chip{ display:inline-flex; align-items:center; gap:5px; font-size:var(--fs-sm); font-weight:800; padding:3px 10px; border-radius:20px; border:1.5px solid var(--border); background:var(--bg-elev-2); color:var(--text-dim); }
+  .chip b{ color:var(--accent-warm); }
+
+  /* ── 판별 표 ── */
+  #tblwrap{ flex:1; min-height:0; overflow:auto; border:1.5px solid var(--border); border-radius:var(--rad-in); background:var(--bg-elev); }
+  table{ width:100%; border-collapse:separate; border-spacing:0; font-size:var(--fs); }
+  thead th{ position:sticky; top:0; background:var(--accent-warm); color:#fff; font-size:var(--fs-sm); font-weight:800; letter-spacing:.05em; text-align:left; padding:8px 12px;
+    border-bottom:1px solid var(--border); white-space:nowrap; z-index:1; }
+  thead th.hana{ color:#F6EFDD; }
+  tbody td{ padding:8px 12px; border-bottom:1px solid var(--border); vertical-align:middle; white-space:nowrap; }
+  tbody tr:nth-child(even) td{ background:var(--bg-elev-2); }
+  tbody tr:hover td{ background:var(--accent-soft); }
+  td.num{ color:var(--text-faint); text-align:right; width:1%; }
+  td.mono{ font-family:var(--monof); font-size:var(--mono); letter-spacing:.02em; }
+  td.res{ font-family:var(--monof); font-size:var(--mono); font-weight:800; color:var(--accent-warm); }
+  td.note{ color:var(--text-dim); font-size:var(--fs-sm); white-space:normal; min-width:220px; max-width:520px; }
+  td.mono.std{ white-space:normal; min-width:200px; }
+  .badge{ display:inline-block; font-size:var(--fs-sm); font-weight:800; letter-spacing:.03em; padding:2px 8px; border-radius:6px; border:1px solid transparent; white-space:nowrap; }
+  .b-ean8  { background:#E6EEF8; color:#1d4f91; border-color:#c5d8f2; }
+  .b-upce  { background:#E9EFEA; color:#22633b; border-color:#c8e3cf; }
+  .b-upca  { background:#eef8f1; color:#1e7a46; border-color:#bfe0cc; }
+  .b-ean13 { background:#F0EAF8; color:#5b3d9e; border-color:#d9cdf1; }
+  .b-gtin14{ background:#F6EFDD; color:#6b5424; border-color:#E6D6AE; }
+  .b-c128  { background:#ECEAE4; color:#4C463C; border-color:#D6CFC0; }
+  .b-amb   { background:var(--warn-bg); color:var(--warn); border-color:#EAD9A8; }
+  .b-bad   { background:var(--danger-soft); color:var(--danger); border-color:#DBB6AE; }
+  .b-none  { background:#F1EDE2; color:#8C8578; border-color:#E4DFD4; }
+  .ck{ font-size:var(--fs-sm); font-weight:700; }
+  .ck.ok{ color:var(--ok); } .ck.no{ color:var(--danger); } .ck.na{ color:#999; }
+  .empty{ padding:28px; color:var(--text-faint); font-size:var(--fs-sm); font-weight:700; text-align:center; }
+  .conf{ display:inline-block; font-size:var(--fs-sm); font-weight:800; padding:1px 8px; border-radius:20px; }
+  .c-sure{ background:var(--ok-bg); color:var(--ok); } .c-guess{ background:var(--warn-bg); color:var(--warn); } .c-no{ background:var(--danger-soft); color:var(--danger); }
+  .c-master{ background:#E6EEF8; color:#1d4f91; }
+  td.cks{ font-family:var(--monof); font-size:var(--fs-sm); color:var(--text-dim); line-height:1.3; }
+  td.cks b{ color:var(--text); }
+  td.cks .hit{ color:var(--ok); font-weight:800; } td.cks .miss{ color:var(--danger); }
+  #master{ flex:none; height:calc(var(--btn-h)*2.2); font-size:var(--fs-sm); display:none; }
+  #master.show{ display:block; }
+  .dual{ flex:1; min-height:0; display:flex; gap:var(--gap); }
+  .dual .ta.hana{ border-color:var(--brass); background:#FFFCF4; }
+  .ztag{ display:inline-block; font-size:calc(var(--fs-sm) - 1px); font-weight:800; padding:0 5px; border-radius:4px; margin-left:4px; vertical-align:1px; }
+  .z-need{ background:#E6EEF8; color:#1d4f91; } .z-no{ background:#F1EDE2; color:#777; } .z-keep{ background:#F6EFDD; color:#6b5424; }
+  td.res.hana{ background:#FFFCF4; color:#6b5424; }
+  td.res.na{ color:var(--danger); font-weight:800; }
+  .dual .ta{ flex:1; min-width:0; white-space:pre; overflow:auto; font-size:calc(var(--mono) - 1px); padding:calc(var(--pad)*.5); }
+
+  /* ── 토스트 ── */
+  .toast{ position:fixed; left:50%; bottom:22px; transform:translateX(-50%) translateY(8px); z-index:99; background:var(--accent); color:#fff;
+    font-size:12.5px; font-weight:800; padding:10px 18px; border-radius:12px; box-shadow:0 12px 30px rgba(0,0,0,.25); opacity:0; transition:opacity .2s, transform .2s; pointer-events:none; white-space:nowrap; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  .toast.err{ background:var(--danger); }
+</style>
+</head>
+<body class="sz-m">
+
+<div id="card">
+  <div id="head">
+    <span class="tick"></span>
+    <span class="tt">UPC Converter</span>
+    <span class="ko">UPC 변환 · 바코드 판별</span>
+    <span class="sub">EAN-8 · UPC-E · UPC-A · EAN-13 · GTIN-14 · CODE128 자동 판정</span>
+    <span class="sp"></span>
+    <div class="sml">
+      <button data-s="s">S</button><button data-s="m">M</button><button data-s="l">L</button>
+    </div>
+    <button class="pv-btn" id="backBtn" type="button">← 돌아가기</button>
+  </div>
+
+  <div id="bodyc">
+    <div id="left" class="pane">
+      <div class="lbl"><span>Input<span class="ko">입력 · 줄마다 1개 · Ctrl+Enter</span></span><span class="st" id="ist">0줄</span></div>
+      <textarea class="ta" id="in" placeholder="바코드 번호를 줄마다 입력&#10;예)&#10;07175732&#10;04139344&#10;041390000034&#10;8801234567890"></textarea>
+      <div class="row">
+        <button class="btn" id="paste">붙여넣기</button>
+        <button class="btn tog" id="mtog" title="상품 마스터(UPC-A·EAN·item_code)를 붙여넣으면 확인불가 번호를 마스터 대조로 확정">마스터 대조</button>
+        <button class="btn gold grow" id="conv">변환·판별</button>
+      </div>
+      <textarea class="ta" id="master" placeholder="상품 마스터 붙여넣기 (선택) — 줄마다 UPC-A 12자리 / EAN-13 / HANA item_code&#10;마스터에 존재하는 해석이 있으면 그쪽으로 확정합니다"></textarea>
+      <div class="lbl"><span>Result<span class="ko">변환 결과 · 0 유지 / 0 제거 / HANA</span></span><span class="st" id="ost">0줄</span></div>
+      <div class="dual">
+        <textarea class="ta" id="out" placeholder="0 유지" readonly title="표준 형식 그대로 (앞자리 0 유지)"></textarea>
+        <textarea class="ta" id="out0" placeholder="0 제거" readonly title="앞자리 0 전부 제거"></textarea>
+        <textarea class="ta hana" id="outH" placeholder="HANA" readonly title="HANA 컨버터: 0 불필요 → 제거, 0 필요 → 자동 보정"></textarea>
+      </div>
+      <div class="row">
+        <button class="btn" id="copy" title="0 유지 복사">0유지</button>
+        <button class="btn" id="copy0" title="0 제거 복사">0제거</button>
+        <button class="btn gold grow" id="copyH" title="HANA 컨버터 결과 복사">HANA 복사</button>
+        <button class="btn ghost" id="cboth">지우기</button>
+      </div>
+    </div>
+
+    <div id="right" class="pane">
+      <div class="lbl"><span>Analysis<span class="ko">판별 결과</span></span><span class="st" id="rst"></span></div>
+      <div id="sum"></div>
+      <div id="tblwrap">
+        <table>
+          <thead><tr>
+            <th>#</th><th>입력</th><th>자릿수</th><th>종류</th><th>판정</th><th>체크디짓 (계산/실제)</th><th>변환 (0 유지)</th><th>변환 (0 제거)</th><th class="hana">HANA 컨버터</th><th>표준 형식</th><th>비고</th>
+          </tr></thead>
+          <tbody id="tb"><tr><td colspan="11" class="empty">번호를 입력하고 변환·판별을 누르세요</td></tr></tbody>
+        </table>
+      </div>
+      <div class="row">
+        <button class="btn grow" id="copyTbl">표 복사 (탭 구분)</button>
+        <button class="btn" id="copyRes">HANA 결과만 복사</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   FunctionUpc — 공용 UPC 변환 + 바코드 심볼로지 판별 모듈 (v2)
+   window.FunctionUpc.convert(rawCode, opts)          : 변환 (기존 호환; opts.hana=true → HANA 컨버터 값)
+   window.FunctionUpc.analyze(rawCode, opts)          : 판별 정보 객체
+       opts.master   : Set — 정규화된 마스터 키(아래 masterKeys 참고)
+   window.FunctionUpc.masterKeys(text)                : 마스터 텍스트 → Set
+   window.FunctionUpc.wire(cfg)                       : 화면 연결
+   ============================================================ */
+(function () {
+  'use strict';
+
+  /* ── 체크디짓 ─────────────────────────────────── */
+  // GS1 공통: 오른쪽 끝(체크디짓 자리 앞)부터 3,1,3,1… (UPC-A 11, EAN-13 12, EAN-8 7, GTIN-14 13 자리 모두 동일)
+  function gs1Check(body) {
+    var s = 0, w = 3;
+    for (var i = body.length - 1; i >= 0; i--) { s += (body.charCodeAt(i) - 48) * w; w = (w === 3) ? 1 : 3; }
+    return String((10 - (s % 10)) % 10);
+  }
+  function upcCheckDigit(d11) { return gs1Check(d11); }
+
+  // UPC-E(넘버시스템+6자리) → UPC-A 11자리(체크디짓 제외)
+  function expandE(u) {
+    var ns = u.charAt(0), x1 = u.charAt(1), x2 = u.charAt(2), x3 = u.charAt(3), x4 = u.charAt(4), x5 = u.charAt(5), x6 = u.charAt(6);
+    var man, prod;
+    if (x6 === '0' || x6 === '1' || x6 === '2') { man = x1 + x2 + x6 + '00'; prod = '00' + x3 + x4 + x5; }
+    else if (x6 === '3') { man = x1 + x2 + x3 + '00'; prod = '000' + x4 + x5; }
+    else if (x6 === '4') { man = x1 + x2 + x3 + x4 + '0'; prod = '0000' + x5; }
+    else { man = x1 + x2 + x3 + x4 + x5; prod = '0000' + x6; }
+    return ns + man + prod;
+  }
+  // UPC-E 정규 압축 여부: GS1 규칙상 UPC-A 하나에 UPC-E는 하나뿐.
+  // 패턴3 인데 X3∈{0,1,2} / 패턴4 인데 X4=0 / 패턴5~9 인데 X5=0 이면 더 짧은 패턴으로 눌렸어야 하므로 비정규.
+  function canonicalE(u) {
+    var x3 = u.charAt(3), x4 = u.charAt(4), x5 = u.charAt(5), x6 = u.charAt(6);
+    if (x6 === '3') return !(x3 === '0' || x3 === '1' || x3 === '2');
+    if (x6 === '4') return x4 !== '0';
+    if (x6 >= '5') return x5 !== '0';
+    return true;
+  }
+  // UPC-A 11자리 → UPC-E 6자리(가능하면) — 마스터 대조·정보 표시용
+  function compressA(d11) {
+    var ns = d11.charAt(0); if (ns !== '0' && ns !== '1') return null;
+    var m = d11.substring(1, 6), p = d11.substring(6, 11);
+    if ((m.charAt(2) === '0' || m.charAt(2) === '1' || m.charAt(2) === '2') && m.substring(3) === '00' && p.substring(0, 2) === '00')
+      return ns + m.substring(0, 2) + p.substring(2) + m.charAt(2);
+    if (m.substring(3) === '00' && p.substring(0, 3) === '000') return ns + m.substring(0, 3) + p.substring(3) + '3';
+    if (m.charAt(4) === '0' && p.substring(0, 4) === '0000') return ns + m.substring(0, 4) + p.charAt(4) + '4';
+    if (p.substring(0, 4) === '0000' && p.charAt(4) >= '5') return ns + m + p.charAt(4);
+    return null;
+  }
+  function digitsOnly(raw) {
+    var code = '';
+    for (var i = 0; i < raw.length; i++) { var ch = raw.charAt(i); if (ch >= '0' && ch <= '9') code += ch; }
+    return code;
+  }
+  function stripZ(s) { var t = s.replace(/^0+/, ''); return t === '' ? '0' : t; }
+
+  /* ── GS1 프리픽스 (EAN-8·EAN-13 앞 3자리) ────────── */
+  var PREFIX = [
+    [0,19,'미국·캐나다 (GS1 US)'],[20,29,'매장 내부용(제한유통)'],[30,39,'미국'],[40,49,'매장 내부용(제한유통)'],[50,59,'쿠폰'],[60,139,'미국·캐나다'],
+    [200,299,'매장 내부용(제한유통)'],[300,379,'프랑스'],[380,380,'불가리아'],[383,383,'슬로베니아'],[385,385,'크로아티아'],[387,387,'보스니아'],[389,389,'몬테네그로'],
+    [400,440,'독일'],[450,459,'일본'],[460,469,'러시아'],[470,470,'키르기스스탄'],[471,471,'대만'],[474,474,'에스토니아'],[475,475,'라트비아'],[476,476,'아제르바이잔'],[477,477,'리투아니아'],
+    [478,478,'우즈베키스탄'],[479,479,'스리랑카'],[480,480,'필리핀'],[481,481,'벨라루스'],[482,482,'우크라이나'],[484,484,'몰도바'],[485,485,'아르메니아'],[486,486,'조지아'],[487,487,'카자흐스탄'],
+    [489,489,'홍콩'],[490,499,'일본'],[500,509,'영국'],[520,521,'그리스'],[528,528,'레바논'],[529,529,'키프로스'],[530,530,'알바니아'],[531,531,'마케도니아'],[535,535,'몰타'],[539,539,'아일랜드'],
+    [540,549,'벨기에·룩셈부르크'],[560,560,'포르투갈'],[569,569,'아이슬란드'],[570,579,'덴마크'],[590,590,'폴란드'],[594,594,'루마니아'],[599,599,'헝가리'],[600,601,'남아공'],
+    [611,611,'모로코'],[613,613,'알제리'],[616,616,'케냐'],[618,618,'코트디부아르'],[619,619,'튀니지'],[621,621,'시리아'],[622,622,'이집트'],[624,624,'리비아'],[625,625,'요르단'],[626,626,'이란'],
+    [627,627,'쿠웨이트'],[628,628,'사우디'],[629,629,'UAE'],[640,649,'핀란드'],[690,699,'중국'],[700,709,'노르웨이'],[729,729,'이스라엘'],[730,739,'스웨덴'],[740,740,'과테말라'],
+    [741,741,'엘살바도르'],[742,742,'온두라스'],[743,743,'니카라과'],[744,744,'코스타리카'],[745,745,'파나마'],[746,746,'도미니카'],[750,750,'멕시코'],[754,755,'캐나다'],[759,759,'베네수엘라'],
+    [760,769,'스위스'],[770,771,'콜롬비아'],[773,773,'우루과이'],[775,775,'페루'],[777,777,'볼리비아'],[778,779,'아르헨티나'],[780,780,'칠레'],[784,784,'파라과이'],[786,786,'에콰도르'],
+    [789,790,'브라질'],[800,839,'이탈리아'],[840,849,'스페인'],[850,850,'쿠바'],[858,858,'슬로바키아'],[859,859,'체코'],[860,860,'세르비아'],[865,865,'몽골'],[867,867,'북한'],
+    [868,869,'터키'],[870,879,'네덜란드'],[880,880,'한국'],[884,884,'캄보디아'],[885,885,'태국'],[888,888,'싱가포르'],[890,890,'인도'],[893,893,'베트남'],[896,896,'파키스탄'],[899,899,'인도네시아'],
+    [900,919,'오스트리아'],[930,939,'호주'],[940,949,'뉴질랜드'],[955,955,'말레이시아'],[958,958,'마카오'],[977,977,'정기간행물(ISSN)'],[978,979,'도서(ISBN)'],[980,980,'환불영수증'],[981,984,'쿠폰'],[990,999,'쿠폰']
+  ];
+  function prefixName(code) {
+    var n = parseInt(code.substring(0, 3), 10);
+    for (var i = 0; i < PREFIX.length; i++) if (n >= PREFIX[i][0] && n <= PREFIX[i][1]) return PREFIX[i][2];
+    return '미할당 프리픽스';
+  }
+
+  /* ── 마스터 대조 키 ───────────────────────────────
+     마스터 각 줄 → 숫자만 추출 → 앞자리 0 제거한 값 + 체크디짓 뗀 값 모두 키로 등록.
+     후보 해석도 같은 방식으로 키를 만들어 Set.has 로 대조. */
+  function masterKeys(text) {
+    var set = new Set();
+    if (!text) return set;
+    text.split(/\r?\n/).forEach(function (l) {
+      var d = digitsOnly(l); if (!d) return;
+      set.add(stripZ(d));
+      if (d.length >= 7) set.add(stripZ(d.substring(0, d.length - 1)));
+      if (d.length === 13 && d.charAt(0) === '0') { set.add(stripZ(d.substring(1))); set.add(stripZ(d.substring(1, 12))); }
+    });
+    return set;
+  }
+  function inMaster(set, cands) { // cands: 문자열 배열 → 하나라도 있으면 true
+    if (!set || !set.size) return false;
+    for (var i = 0; i < cands.length; i++) if (set.has(stripZ(cands[i]))) return true;
+    return false;
+  }
+
+  /* ── 판별 ────────────────────────────────────────
+     반환 { code,len,type,label,cls,conf,check,ck,std,note,out }
+       conf : 'sure'(확정) | 'guess'(확인불가) | 'master'(마스터 확정) | 'no'(무효)
+       out  : 변환 결과 (0 유지). 확인불가(AMB)는 '' — 값 대신 '확인불가' 표시
+       ck   : 체크디짓 표시용 [{name,calc,actual,hit}] */
+  function analyzeCore(raw, opts) {
+    opts = opts || {};
+    var master = opts.master;
+    var code = digitsOnly(raw), n = code.length;
+    var r = { code: code, len: n, type: 'NONE', label: '-', cls: 'b-none', conf: 'no', check: 'na', ck: [], std: '', note: '', out: '' };
+    if (n === 0) return r;
+
+    function setE8(c8, tag, noteTxt) {
+      r.type = 'EAN8'; r.label = 'EAN-8' + (tag || ''); r.cls = 'b-ean8'; r.std = 'EAN-8 ' + c8 + ' · ' + prefixName(c8);
+      r.out = c8.substring(0, 7); r.note = noteTxt || '';
+    }
+    function setUE(u8, tag, noteTxt) {
+      var exp = expandE(u8), cd = upcCheckDigit(exp);
+      r.type = 'UPCE'; r.label = 'UPC-E' + (tag || ''); r.cls = 'b-upce'; r.std = 'UPC-E ' + u8.substring(0, 7) + cd + ' → UPC-A ' + exp + cd;
+      r.out = exp; r.note = noteTxt || '';
+    }
+
+    switch (n) {
+      case 8: case 7: {
+        // 8자리: 그대로 / 7자리: 앞 0 누락으로 보고 '0'+code 로 복원 (둘 다 8자리 기준으로 판별)
+        var c8 = (n === 8) ? code : '0' + code, tag = (n === 7) ? ' (0누락)' : '';
+        var actual = c8.charAt(7);
+        var e8c = gs1Check(c8.substring(0, 7)), e8ok = e8c === actual;
+        var canE = (c8.charAt(0) === '0' || c8.charAt(0) === '1');
+        var exp = expandE(c8), uec = upcCheckDigit(exp), ueok = canE && uec === actual, canon = canE && canonicalE(c8);
+        r.ck = [{ name: 'EAN-8', calc: e8c, actual: actual, hit: e8ok }];
+        if (canE) r.ck.push({ name: 'UPC-E', calc: uec, actual: actual, hit: ueok });
+        var e8m = inMaster(master, [c8, c8.substring(0, 7)]);
+        var uem = inMaster(master, [exp, exp + uec]);
+
+        if (e8ok && ueok) {
+          // 둘 다 통과 → 마스터 → 정규성 → 우선순위
+          if (e8m && !uem) { setE8(c8, tag, '마스터에 EAN-8 로 존재 → 확정'); r.conf = 'master'; }
+          else if (uem && !e8m) { setUE(c8, tag, '마스터에 UPC-A ' + exp + uec + ' 로 존재 → 확정'); r.conf = 'master'; }
+          else if (!canon) { setE8(c8, tag, 'UPC-E 체크섬도 통과하지만 비정규 압축(패턴 ' + c8.charAt(6) + ') → EAN-8 우세'); r.conf = 'guess'; }
+          else {
+            r.type = 'AMB'; r.label = '확인불가 (EAN-8 / UPC-E)' + tag; r.cls = 'b-amb'; r.conf = 'guess'; r.out = '';
+            r.std = 'EAN-8 면 ' + c8.substring(0, 7) + ' · UPC-E 면 UPC-A ' + exp + uec;
+            r.note = '두 체크섬 모두 통과 — 숫자만으론 구분 불가. ' + (master && master.size ? ((e8m && uem) ? '마스터에 양쪽 모두 존재. ' : '마스터에도 없음. ') : '마스터 대조 또는 ') +
+                     '실물 바코드(스캐너 심볼로지) 확인 필요';
+          }
+          r.check = 'ok';
+        } else if (ueok) {
+          setUE(c8, tag, '넘버시스템 ' + c8.charAt(0) + ' · 패턴 ' + c8.charAt(6) + (canon ? '' : ' · ⚠ 비정규 압축(정규 UPC-E: ' + (compressA(exp) || '?') + ')'));
+          r.conf = uem ? 'master' : (canon ? 'sure' : 'guess'); r.check = 'ok';
+          if (uem) r.note += ' · 마스터 일치';
+        } else if (e8ok) {
+          setE8(c8, tag, canE ? 'UPC-E 체크섬 불일치(' + uec + '≠' + actual + ') → EAN-8 확정' : '첫 자리 ' + c8.charAt(0) + ' → UPC-E 불가');
+          r.conf = e8m ? 'master' : 'sure'; r.check = 'ok';
+          if (e8m) r.note += ' · 마스터 일치';
+        } else {
+          r.type = 'BAD'; r.label = '무효' + tag; r.cls = 'b-bad'; r.check = 'no'; r.conf = 'no'; r.out = code;
+          var hint = [];
+          hint.push('EAN-8 라면 끝자리 ' + e8c + ' (' + c8.substring(0, 7) + e8c + ')');
+          if (canE) hint.push('UPC-E 라면 끝자리 ' + uec + ' (' + c8.substring(0, 7) + uec + ')');
+          if (n === 7 && code.charAt(0) === '0') { // 넘버시스템0+데이터6(체크 없음) 해석
+            var e2 = expandE(code); hint.push('또는 체크 없는 UPC-E 0' + code.substring(1) + ' → UPC-A ' + e2 + upcCheckDigit(e2));
+          }
+          r.note = '체크섬 모두 불일치 · ' + hint.join(' / ');
+        }
+        return r;
+      }
+      case 6: {
+        var exp6 = expandE('0' + code), cd6 = upcCheckDigit(exp6);
+        r.type = 'UPCE'; r.label = 'UPC-E (데이터6)'; r.cls = 'b-upce'; r.check = 'na'; r.conf = 'guess';
+        r.std = 'UPC-E 0' + code + cd6 + ' → UPC-A ' + exp6 + cd6; r.note = '넘버시스템·체크디짓 없는 6자리 → 넘버시스템 0 가정'; r.out = exp6;
+        if (inMaster(master, [exp6, exp6 + cd6])) { r.conf = 'master'; r.note += ' · 마스터 일치'; }
+        return r;
+      }
+      case 12: {
+        var c12 = gs1Check(code.substring(0, 11)), ok12 = c12 === code.charAt(11);
+        r.ck = [{ name: 'UPC-A', calc: c12, actual: code.charAt(11), hit: ok12 }];
+        r.type = ok12 ? 'UPCA' : 'BAD'; r.label = ok12 ? 'UPC-A' : 'UPC-A (체크 불일치)'; r.cls = ok12 ? 'b-upca' : 'b-bad';
+        r.check = ok12 ? 'ok' : 'no'; r.conf = ok12 ? 'sure' : 'no';
+        var ce = ok12 ? compressA(code.substring(0, 11)) : null;
+        r.std = 'UPC-A ' + code + ' = EAN-13 0' + code + (ce ? ' · UPC-E ' + ce + code.charAt(11) : '');
+        r.note = ok12 ? (ce ? '이 UPC-A는 UPC-E 로도 인쇄될 수 있음' : '') : '체크디짓 ' + code.charAt(11) + ' ≠ 계산값 ' + c12;
+        r.out = code.substring(0, 11);
+        if (ok12 && inMaster(master, [code, code.substring(0, 11)])) { r.conf = 'master'; r.note += (r.note ? ' · ' : '') + '마스터 일치'; }
+        return r;
+      }
+      case 13: {
+        var c13 = gs1Check(code.substring(0, 12)), ok13 = c13 === code.charAt(12), isUpc = code.charAt(0) === '0';
+        r.ck = [{ name: 'EAN-13', calc: c13, actual: code.charAt(12), hit: ok13 }];
+        r.type = ok13 ? (isUpc ? 'UPCA' : 'EAN13') : 'BAD';
+        r.label = ok13 ? (isUpc ? 'EAN-13 (UPC-A)' : 'EAN-13') : 'EAN-13 (체크 불일치)';
+        r.cls = ok13 ? (isUpc ? 'b-upca' : 'b-ean13') : 'b-bad'; r.check = ok13 ? 'ok' : 'no'; r.conf = ok13 ? 'sure' : 'no';
+        r.std = isUpc ? 'UPC-A ' + code.substring(1) : 'EAN-13 ' + code + ' · ' + prefixName(code);
+        r.note = ok13 ? (isUpc ? '0으로 시작 → UPC-A를 13자리로 표기' : '') : '체크디짓 ' + code.charAt(12) + ' ≠ 계산값 ' + c13;
+        r.out = code.substring(0, 12);
+        if (ok13 && inMaster(master, [code, code.substring(0, 12)])) { r.conf = 'master'; r.note += (r.note ? ' · ' : '') + '마스터 일치'; }
+        return r;
+      }
+      case 14: {
+        var c14 = gs1Check(code.substring(0, 13)), ok14 = c14 === code.charAt(13);
+        r.ck = [{ name: 'GTIN-14', calc: c14, actual: code.charAt(13), hit: ok14 }];
+        r.type = ok14 ? 'GTIN14' : 'C128'; r.label = ok14 ? 'GTIN-14 / ITF-14' : '14자리 (CODE128?)'; r.cls = ok14 ? 'b-gtin14' : 'b-c128';
+        r.check = ok14 ? 'ok' : 'no'; r.conf = ok14 ? 'sure' : 'guess';
+        r.std = ok14 ? 'GTIN-14 ' + code + ' (포장지시 ' + code.charAt(0) + ' · 내부 GTIN ' + code.substring(1) + ')' : '';
+        r.note = ok14 ? '' : 'GTIN-14 체크섬 불일치 → CODE128 등 비-GS1 코드로 추정'; r.out = code;
+        return r;
+      }
+      case 10: case 11: {
+        var t = code, note = '';
+        r.type = 'UPCA'; r.label = 'UPC-A (변형)'; r.cls = 'b-upca'; r.conf = 'guess';
+        if (n === 11) {
+          if (code.charAt(0) === '0') { t = code.substring(1); note = '앞 0 포함 11자리 → 0·체크디짓 제거'; }
+          else {
+            var cS = gs1Check('0' + code.substring(0, 10)), okS = cS === code.charAt(10);
+            r.ck = [{ name: 'UPC-A(0+)', calc: cS, actual: code.charAt(10), hit: okS }];
+            note = okS ? '앞 0이 제거된 UPC-A 12자리 (체크섬 일치)' : 'UPC-A 11자리 (체크디짓 없음)로 해석';
+            r.check = okS ? 'ok' : 'na'; if (okS) r.conf = 'sure';
+          }
+        } else { if (code.charAt(0) === '0') t = code.substring(1); note = '10자리 → 앞 0·체크디짓 제거 후 UPC-A 본체'; }
+        r.out = t.length > 1 ? t.substring(0, t.length - 1) : t; r.std = 'UPC-A 본체 ' + r.out; r.note = note;
+        if (inMaster(master, [code, r.out])) { r.conf = 'master'; r.note += ' · 마스터 일치'; }
+        return r;
+      }
+      default: {
+        if (n >= 15) { r.type = 'C128'; r.label = 'CODE128 / 기타'; r.cls = 'b-c128'; r.conf = 'guess'; r.note = n + '자리 — GS1 표준 길이 아님, 그대로 유지'; r.out = code; }
+        else { r.type = 'BAD'; r.label = '알 수 없음 (' + n + '자리)'; r.cls = 'b-bad'; r.check = 'no'; r.note = '표준 바코드 길이(6·7·8·12·13·14)가 아님'; r.out = code; }
+        return r;
+      }
+    }
+  }
+
+  /* ── HANA 컨버터: 앞자리 0 필요 여부 판단 ──────────
+     HANA 는 item_code 앞자리 0을 전부 제거함.
+     zero: 'no'   → 0 불필요 (UPC-A/UPC-E/EAN-13/GTIN-14: 0 제거해도 자릿수 충돌 없음) → 전부 제거
+           'need' → 0 필수  (EAN-8: 0 제거 시 6자리가 되어 UPC-E 데이터와 충돌) → 7자리 본체로 0 자동 보정
+           'keep' → 판단 대상 아님 (CODE128·기타) → 그대로 / 무효·확인불가 → 값 없음 */
+  function hanaRule(r) {
+    r.zero = 'keep'; r.hana = '';
+    if (!r.len || r.type === 'AMB' || r.type === 'BAD') return r;
+    switch (r.type) {
+      case 'EAN8':  r.zero = 'need'; r.hana = ('0000000' + r.out).slice(-7); break;
+      case 'UPCE': case 'UPCA': case 'EAN13': case 'GTIN14': r.zero = 'no'; r.hana = stripZ(r.out); break;
+      default:      r.zero = 'keep'; r.hana = r.out; break;
+    }
+    return r;
+  }
+  function analyze(raw, opts) { return hanaRule(analyzeCore(raw, opts)); }
+
+  /* ── 변환 (기존 호환 API) ───────────────────────── */
+  function convert(rawCode, opts) {
+    var a = analyze(rawCode, opts);
+    if (a.len === 0) return '';
+    if (opts && opts.hana) return a.hana;
+    var out = a.out;
+    if (opts && opts.stripLeadingZeros && out !== '') out = stripZ(out);
+    return out;
+  }
+
+  /* ── UI ───────────────────────────────────────── */
+  var $ = function (id) { return document.getElementById(id); };
+  function toast(msg, type) { if (window.showToast) window.showToast(msg, type); }
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.focus(); ta.select(); try { document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta); toast('✅ 복사되었습니다', 'success');
+  }
+  function copyText(text, okMsg) {
+    if (!text) { toast('복사할 내용이 없습니다', 'error'); return; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { toast(okMsg || '✅ 복사되었습니다', 'success'); }).catch(function () { fallbackCopy(text); });
+    } else { fallbackCopy(text); }
+  }
+  function countLines(text) { return text.split(/\r?\n/).filter(function (l) { return l.trim() !== ''; }).length; }
+  var CONF = { sure: ['확정', 'c-sure'], guess: ['확인불가', 'c-guess'], master: ['마스터 확정', 'c-master'], no: ['무효', 'c-no'] };
+  var NA = '확인불가';
+
+  function wire(cfg) {
+    cfg = cfg || {};
+    var input = $(cfg.input), output = $(cfg.output), output0 = cfg.output0 && $(cfg.output0), outputH = cfg.outputH && $(cfg.outputH);
+    if (!input || !output) return null;
+    var tb = cfg.tableBody && $(cfg.tableBody), sum = cfg.summary && $(cfg.summary), rst = cfg.resultStatus && $(cfg.resultStatus);
+    var masterTa = cfg.masterInput && $(cfg.masterInput), mtog = cfg.masterToggleBtn && $(cfg.masterToggleBtn);
+    var lastRows = [];
+
+    // 마스터 대조 토글 (마스터 텍스트는 세션 내에서만 유지)
+    var masterOn = false;
+    if (mtog && masterTa) {
+      mtog.onclick = function () { masterOn = !masterOn; mtog.classList.toggle('on', masterOn); masterTa.classList.toggle('show', masterOn); if (masterOn) masterTa.focus(); if (input.value.trim()) doConvert(); };
+      masterTa.addEventListener('input', function () { if (input.value.trim()) doConvert(true); });
+    }
+    function curMaster() { return (masterOn && masterTa) ? masterKeys(masterTa.value) : null; }
+
+    function updateInStatus() { if (cfg.inputStatus && $(cfg.inputStatus)) $(cfg.inputStatus).textContent = countLines(input.value) + '줄'; }
+    function updateOutStatus() { if (cfg.outputStatus && $(cfg.outputStatus)) $(cfg.outputStatus).textContent = countLines(output.value) + '줄'; }
+    function outKeep(a) { return a.len ? (a.type === 'AMB' ? NA : a.out) : ''; }
+    function outStrip(a) { return a.len ? (a.type === 'AMB' ? NA : (a.out ? stripZ(a.out) : '')) : ''; }
+    function outHana(a) { return a.len ? (a.type === 'AMB' ? NA : (a.type === 'BAD' ? '무효' : a.hana)) : ''; }
+    var ZT = { need: ['0필요', 'z-need'], no: ['0불필요', 'z-no'], keep: ['그대로', 'z-keep'] };
+    function ztag(a) { if (!a.len || a.type === 'AMB' || a.type === 'BAD') return ''; var z = ZT[a.zero] || ZT.keep; return '<span class="ztag ' + z[1] + '">' + z[0] + '</span>'; }
+    function ckHtml(a) {
+      if (!a.ck.length) return '<span class="ck na">—</span>';
+      return a.ck.map(function (c) { return esc(c.name) + ' <b>' + c.calc + '</b>/' + c.actual + ' <span class="' + (c.hit ? 'hit' : 'miss') + '">' + (c.hit ? '✓' : '✗') + '</span>'; }).join('<br>');
+    }
+    function render(rows) {
+      output.value = rows.map(outKeep).join('\n');
+      if (output0) output0.value = rows.map(outStrip).join('\n');
+      if (outputH) outputH.value = rows.map(outHana).join('\n');
+      updateOutStatus();
+      if (!tb) return;
+      var html = '', cnt = {}, idx = 0, confCnt = {};
+      rows.forEach(function (a) {
+        if (!a.len) return; idx++;
+        var k = a.label.split(' ')[0]; cnt[k] = (cnt[k] || 0) + 1; confCnt[a.conf] = (confCnt[a.conf] || 0) + 1;
+        var cf = CONF[a.conf] || CONF.no;
+        html += '<tr><td class="num">' + idx + '</td><td class="mono">' + esc(a.code) + '</td><td class="num">' + a.len + '</td>' +
+          '<td><span class="badge ' + a.cls + '">' + esc(a.label) + '</span></td><td><span class="conf ' + cf[1] + '">' + cf[0] + '</span></td>' +
+          '<td class="cks">' + ckHtml(a) + '</td><td class="res' + (a.type === 'AMB' ? ' na' : '') + '">' + esc(outKeep(a)) + '</td><td class="res' + (a.type === 'AMB' ? ' na' : '') + '">' + esc(outStrip(a)) + '</td>' +
+          '<td class="res hana' + (a.type === 'AMB' || a.type === 'BAD' ? ' na' : '') + '">' + esc(outHana(a)) + ztag(a) + '</td>' +
+          '<td class="mono std">' + esc(a.std) + '</td><td class="note">' + esc(a.note) + '</td></tr>';
+      });
+      tb.innerHTML = html || '<tr><td colspan="11" class="empty">유효한 번호가 없습니다</td></tr>';
+      if (sum) {
+        var chips = Object.keys(cnt).map(function (k) { return '<span class="chip">' + esc(k) + ' <b>' + cnt[k] + '</b></span>'; });
+        chips.push('<span class="chip" style="margin-left:auto">확정 <b>' + ((confCnt.sure || 0) + (confCnt.master || 0)) + '</b> · 확인불가 <b>' + (confCnt.guess || 0) + '</b> · 무효 <b>' + (confCnt.no || 0) + '</b></span>');
+        sum.innerHTML = chips.join('');
+      }
+      if (rst) rst.textContent = idx + '건';
+    }
+    function doConvert(quiet) {
+      if (!input.value.trim()) { if (!quiet) { toast('변환할 내용을 입력하세요', 'error'); input.focus(); } return; }
+      var o = { master: curMaster() };
+      lastRows = input.value.split(/\r?\n/).map(function (l) { return analyze(l, o); });
+      render(lastRows);
+      if (quiet) return;
+      var amb = lastRows.filter(function (a) { return a.type === 'AMB'; }).length;
+      var bad = lastRows.filter(function (a) { return a.conf === 'no' && a.len; }).length;
+      var n = lastRows.filter(function (a) { return a.len; }).length;
+      toast('✅ ' + n + '개 판별 완료' + (amb ? ' · 확인불가 ' + amb : '') + (bad ? ' · 무효 ' + bad : ''), (bad || amb) ? 'error' : 'success');
+    }
+    function tableTSV() {
+      var lines = ['입력\t자릿수\t종류\t판정\t체크디짓\t변환(0유지)\t변환(0제거)\tHANA\t0필요여부\t표준형식\t비고'];
+      lastRows.forEach(function (a) {
+        if (!a.len) return;
+        var ck = a.ck.map(function (c) { return c.name + ' ' + c.calc + '/' + c.actual + (c.hit ? ' ✓' : ' ✗'); }).join(', ');
+        lines.push([a.code, a.len, a.label, (CONF[a.conf] || CONF.no)[0], ck, outKeep(a), outStrip(a), outHana(a), (a.len && a.type !== 'AMB' && a.type !== 'BAD') ? (ZT[a.zero] || ZT.keep)[0] : '', a.std, a.note].join('\t'));
+      });
+      return lines.length > 1 ? lines.join('\n') : '';
+    }
+
+    if (cfg.convertBtn && $(cfg.convertBtn)) $(cfg.convertBtn).onclick = function () { doConvert(); };
+    input.addEventListener('input', updateInStatus);
+    input.addEventListener('keydown', function (e) { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); doConvert(); } });
+    if (cfg.clearBothBtn && $(cfg.clearBothBtn)) $(cfg.clearBothBtn).onclick = function () {
+      input.value = ''; output.value = ''; if (output0) output0.value = ''; if (outputH) outputH.value = ''; lastRows = []; updateInStatus(); updateOutStatus();
+      if (tb) tb.innerHTML = '<tr><td colspan="11" class="empty">번호를 입력하고 변환·판별을 누르세요</td></tr>';
+      if (sum) sum.innerHTML = ''; if (rst) rst.textContent = ''; input.focus();
+    };
+    if (cfg.copyBtn && $(cfg.copyBtn)) $(cfg.copyBtn).onclick = function () { copyText(output.value, '✅ 0 유지 결과 복사'); };
+    if (cfg.copy0Btn && $(cfg.copy0Btn) && output0) $(cfg.copy0Btn).onclick = function () { copyText(output0.value, '✅ 0 제거 결과 복사 (HANA)'); };
+    if (cfg.copyHBtn && $(cfg.copyHBtn) && outputH) $(cfg.copyHBtn).onclick = function () { copyText(outputH.value, '✅ HANA 컨버터 결과 복사'); };
+    if (cfg.copyResBtn && $(cfg.copyResBtn)) $(cfg.copyResBtn).onclick = function () { copyText((outputH || output0 || output).value, '✅ HANA 결과 복사'); };
+    if (cfg.copyTableBtn && $(cfg.copyTableBtn)) $(cfg.copyTableBtn).onclick = function () { copyText(tableTSV(), '✅ 표 복사 (엑셀에 붙여넣기 가능)'); };
+    if (cfg.pasteBtn && $(cfg.pasteBtn)) $(cfg.pasteBtn).onclick = function () {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        navigator.clipboard.readText().then(function (t) { input.value = t; updateInStatus(); toast('붙여넣기 완료', 'success'); doConvert(); })
+          .catch(function () { toast('직접 Ctrl+V 로 붙여넣어 주세요', 'error'); });
+      } else { toast('직접 Ctrl+V 로 붙여넣어 주세요', 'error'); }
+    };
+    updateInStatus(); updateOutStatus();
+    return { convert: doConvert };
+  }
+
+  window.FunctionUpc = { convert: convert, analyze: analyze, masterKeys: masterKeys, wire: wire };
+})();
+</script>
+<script>
+  window.showToast = function (msg, type) {
+    var t = document.createElement('div'); t.className = 'toast' + (type === 'error' ? ' err' : ''); t.textContent = msg;
+    document.body.appendChild(t); requestAnimationFrame(function () { t.classList.add('show'); });
+    setTimeout(function () { t.classList.remove('show'); setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 250); }, 2000);
+  };
+  (function () {
+    var KEY = 'egmmUpcConvSize';
+    var cur = localStorage.getItem(KEY); if (cur !== 's' && cur !== 'm' && cur !== 'l') cur = 'm';
+    function apply(s) {
+      cur = s; document.body.classList.remove('sz-s', 'sz-m', 'sz-l'); document.body.classList.add('sz-' + s);
+      Array.prototype.forEach.call(document.querySelectorAll('.sml button'), function (b) { b.classList.toggle('on', b.dataset.s === s); });
+      try { localStorage.setItem(KEY, s); } catch (e) {}
+    }
+    document.querySelector('.sml').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) apply(b.dataset.s); });
+    apply(cur);
+  })();
+  document.getElementById('backBtn').onclick=function(){ if(window.opener && !window.opener.closed){ window.close(); return; } if(window.history.length>1){ window.history.back(); return; } window.location.href='../index.html'; };
+  FunctionUpc.wire({ input: 'in', output: 'out', output0: 'out0', outputH: 'outH', convertBtn: 'conv', pasteBtn: 'paste', copyBtn: 'copy', copy0Btn: 'copy0', copyHBtn: 'copyH', clearBothBtn: 'cboth',
+    inputStatus: 'ist', outputStatus: 'ost', tableBody: 'tb', summary: 'sum', resultStatus: 'rst',
+    copyTableBtn: 'copyTbl', copyResBtn: 'copyRes', masterInput: 'master', masterToggleBtn: 'mtog' });
+</script>
+</body>
+</html>
