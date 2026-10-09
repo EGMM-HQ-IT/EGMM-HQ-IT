@@ -502,11 +502,6 @@ try{ document.documentElement.setAttribute('data-theme', localStorage.getItem('p
   .plu-fe-tbl select.fe-align { width:64px; }
   .plu-fe-tbl .fe-opts { padding:4px 6px; }
   /* [MODULE 11 · EXPORT] 내보내기 필드 선택 */
-  .ex-toolrow { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
-  .ex-list { max-height:46vh; overflow:auto; border:1.5px solid var(--border); border-radius:9px; padding:8px 10px; display:flex; flex-direction:column; gap:2px; }
-  .ex-g { font-size:10px; font-weight:800; color:#1e40af; background:#dde8f7; border-radius:6px; padding:3px 7px; margin:6px 0 3px; letter-spacing:.03em; }
-  .ex-item { display:flex; align-items:center; gap:7px; font-size:12.5px; font-weight:600; padding:2px 2px; cursor:pointer; }
-  .ex-item input { width:15px; height:15px; }
   /* 필드명/묶음 색상 지정 + 묶음 구분행 */
   .fe-name-wrap { display:inline-flex; align-items:center; gap:4px; }
   .fe-name-wrap .fe-label { min-width:88px; }
@@ -737,16 +732,61 @@ try{ document.documentElement.setAttribute('data-theme', localStorage.getItem('p
   .fill-cur { background:#f4f7fc; border:1px solid #e3e6ec; border-radius:8px; padding:8px 10px; font-size:12px; color:#3b4a63; }
   .fill-cur b { color:#1c2b4a; }
   /* [내보내기] 프리셋 버튼 바 + 묶음 체크 */
-  .ex-pre-bar { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:9px; }
-  .ex-pre-empty { font-size:11.5px; color:#8a93a6; }
-  .ex-pre-chip { display:inline-flex; align-items:center; border:1.5px solid #cdd6e6; border-radius:999px; overflow:hidden; background:#f6f9ff; }
-  .ex-pre-chip.on { border-color:#1e40af; background:#e6edff; }
-  .ex-pre-apply { border:0; background:transparent; padding:5px 4px 5px 11px; font-size:12px; font-weight:800; color:#1c2b4a; cursor:pointer; }
-  .ex-pre-del { border:0; background:transparent; padding:5px 9px 5px 4px; font-size:13px; color:#8a93a6; cursor:pointer; }
-  .ex-pre-del:hover { color:#b04141; }
-  .ex-g { display:flex; align-items:center; gap:8px; }
-  .ex-g label { display:inline-flex; align-items:center; gap:6px; cursor:pointer; }
-  .ex-gcnt { font-size:11px; color:#8a93a6; font-weight:700; }
+
+  /* ═══ [엑셀 내보내기 · 2026-10-09 리디자인] 넓은 2단 레이아웃 — 왼쪽 설정 · 오른쪽 필드(묶음별 다단, 스크롤 없이 한눈에) ═══ */
+  #exOv { padding:14px; }
+  #exOv .ex-modal { max-width:1480px; width:96vw; height:92vh; max-height:92vh; border-radius:18px; overflow:hidden; border:1px solid #DCD5C6; box-shadow:0 30px 80px rgba(30,27,22,.35); background:#F7F4ED; }
+  #exOv .ex-head { background:linear-gradient(135deg,#1E1B16 0%,#2F5D46 100%); color:#fff; padding:14px 22px; border-bottom:0; display:flex; align-items:center; justify-content:space-between; }
+  #exOv .ex-head b { font-size:17px; letter-spacing:.08em; text-transform:uppercase; }
+  #exOv .ex-head-sub { margin-left:14px; font-size:11.5px; font-weight:700; letter-spacing:.14em; color:#D8C9A6; }
+  #exOv .plu-fe-x { color:#fff; opacity:.85; }
+  #exOv .ex-body { padding:0; overflow:hidden; display:flex; flex-direction:column; }
+  .ex-wrap { flex:1 1 auto; min-height:0; display:grid; grid-template-columns:330px 1fr; }
+  .ex-side { background:#EDEAE3; border-right:1px solid #DCD5C6; padding:12px 14px; display:flex; flex-direction:column; gap:9px; overflow:auto; }
+  .ex-sec { background:#FFFDFA; border:1px solid #E4DFD4; border-radius:12px; padding:9px 12px; box-shadow:0 1px 2px rgba(30,27,22,.05); }
+  .ex-sec-t { font-size:10.5px; font-weight:900; letter-spacing:.16em; text-transform:uppercase; color:#8C8578; margin-bottom:6px; display:flex; align-items:center; gap:8px; }
+  .ex-sec-t b { color:#2F5D46; font-size:12px; letter-spacing:.02em; text-transform:none; }
+  .ex-side .plu-imp-hint { margin:0 0 4px !important; color:#4C463C; font-size:11.5px; line-height:1.4; }
+  .ex-side #exCatSubs label { font-size:12px; }
+  .ex-side .icp-sel { background:#FFFDFA; border:1.5px solid #E4DFD4; border-radius:9px; font-weight:700; }
+  .ex-side .plu-tool-btn { border-radius:9px; font-weight:800; }
+  .ex-pre-bar { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+  .ex-pre-empty { font-size:11.5px; color:#8C8578; }
+  .ex-pre-chip { display:inline-flex; align-items:center; border:1.5px solid #DCD5C6; border-radius:999px; overflow:hidden; background:#FFFDFA; }
+  .ex-pre-chip.on { border-color:#A98A55; background:#F6EFDD; }
+  .ex-pre-apply { border:0; background:transparent; padding:5px 4px 5px 11px; font-size:12px; font-weight:800; color:#1E1B16; cursor:pointer; }
+  .ex-pre-del { border:0; background:transparent; padding:5px 9px 5px 4px; font-size:13px; color:#8C8578; cursor:pointer; }
+  .ex-pre-del:hover { color:#9C3327; }
+  .ex-toolrow { display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+  .ex-radio label { display:inline-flex; align-items:center; gap:5px; cursor:pointer; font-weight:700; font-size:12px; margin-right:8px; }
+  .ex-main { display:flex; flex-direction:column; min-height:0; padding:14px 20px 12px; }
+  .ex-main-top { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .ex-main-top .ex-cnt { margin-left:auto; font-size:12.5px; font-weight:900; color:#2F5D46; background:#E9EFEA; border:1px solid #C9DBD0; border-radius:999px; padding:5px 12px; }
+  .ex-main-top .plu-tool-btn { border-radius:9px; }
+  .ex-list { flex:1 1 auto; min-height:0; border:0; padding:0; display:block; overflow:hidden; column-width:178px; column-gap:12px; column-fill:auto; }
+  .ex-grp { break-inside:avoid; -webkit-column-break-inside:avoid; background:#FFFDFA; border:1px solid #E4DFD4; border-radius:12px; padding:7px 9px 5px; margin:0 0 10px; box-shadow:0 1px 2px rgba(30,27,22,.05); }
+  .ex-grp.cont .ex-g { color:#8C8578; }
+  .ex-list.dense { column-width:160px; column-gap:10px; } .ex-list.dense .ex-item { font-size:11px; padding:0 2px; line-height:1.25; } .ex-list.dense .ex-grp { padding:5px 7px 4px; margin-bottom:8px; }
+  .ex-list.xscroll { overflow-x:auto; overflow-y:hidden; }
+  .ex-g { display:flex; align-items:center; gap:8px; font-size:10.5px; font-weight:900; letter-spacing:.06em; color:#2F5D46; background:transparent; padding:0 0 5px; margin:0 0 3px; border-bottom:1px solid #EFEAE0; border-radius:0; white-space:nowrap; }
+  .ex-g label { display:inline-flex; align-items:center; gap:7px; cursor:pointer; }
+  .ex-gcnt { margin-left:auto; font-size:10.5px; color:#A98A55; font-weight:800; letter-spacing:0; }
+  .ex-item { display:flex; align-items:center; gap:6px; font-size:11.8px; font-weight:600; padding:1px 3px; border-radius:6px; cursor:pointer; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ex-item:hover { background:#F1EDE2; }
+  .ex-item input, .ex-g input { width:14px; height:14px; accent-color:#2F5D46; }
+  .ex-foot { flex:0 0 auto; display:flex; align-items:center; gap:10px; padding:12px 20px; border-top:1px solid #DCD5C6; background:#FFFDFA; }
+  .ex-foot .ex-foot-info { font-size:12px; color:#4C463C; font-weight:700; }
+  .ex-foot .sp { flex:1 1 auto; }
+  .ex-foot .plu-tool-btn { border-radius:10px; padding:9px 16px; font-weight:800; }
+  .ex-foot .plu-imp-go { background:#2F5D46; border-color:#2F5D46; color:#fff; }
+  .ex-foot .plu-imp-go.alt { background:#1E1B16; border-color:#1E1B16; }
+  @media (max-width:1100px){ .ex-wrap { grid-template-columns:290px 1fr; } .ex-list { columns:3 180px; } }
+  html[data-theme=night] #exOv .ex-modal { background:#12151c; border-color:#2a3140; }
+  html[data-theme=night] .ex-side { background:#161a23; border-color:#2a3140; }
+  html[data-theme=night] .ex-sec, html[data-theme=night] .ex-grp, html[data-theme=night] .ex-foot { background:#1a1f2a; border-color:#2a3140; }
+  html[data-theme=night] .ex-side .plu-imp-hint { color:#a3acbf; }
+  html[data-theme=night] .ex-g { color:#6fd39a; border-color:#2a3140; } html[data-theme=night] .ex-item:hover { background:#222a3a; }
+  html[data-theme=night] .ex-main-top .ex-cnt { background:#1c2b22; border-color:#2e5a3e; color:#6fd39a; }
   /* ═══ [MODULE 18 · PRINT] 리스트 출력 ═══ */
   #printBody { display:flex; flex-direction:column; gap:7px; }
   #printBody .pr-opt { width:100%; text-align:left; font-size:12.5px; padding:11px 12px !important; display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
@@ -921,13 +961,12 @@ html[data-theme=night] #palPop .pal-sw { border-color:rgba(255,255,255,0.18); }
 html[data-theme=night] #palPop .pal-none { background:#222a38; border-color:#3c4557; color:var(--text-dim); }
 html[data-theme=night] #palPop .pal-none:hover { background:#2a3344; }
 /* 내보내기 프리셋·묶음 */
-html[data-theme=night] .ex-pre-chip { border-color:#3c4a66; background:#1c2434; }
-html[data-theme=night] .ex-pre-chip.on { border-color:#4d8bea; background:#1e2c4a; }
-html[data-theme=night] .ex-pre-apply { color:#dbe3f5; }
+html[data-theme=night] .ex-pre-chip { border-color:#3c4557; background:#1c2434; }
+html[data-theme=night] .ex-pre-chip.on { border-color:#d4af6a; background:#2a2516; }
+html[data-theme=night] .ex-pre-apply { color:#e7eaf2; }
 html[data-theme=night] .ex-pre-del { color:#7f8798; }
 html[data-theme=night] .ex-pre-del:hover { color:#e08a8a; }
-html[data-theme=night] .ex-g { color:#9db8f5; background:#1e2942; }
-html[data-theme=night] .ex-pre-empty, html[data-theme=night] .ex-gcnt { color:#7f8798; }
+html[data-theme=night] .ex-pre-empty, html[data-theme=night] .ex-gcnt { color:#8b93a5; }
 /* 채우기/부분 업데이트/필드FX 안내 박스 */
 html[data-theme=night] .fill-cur { background:#1c2331; border-color:#2a3140; color:#b7c1d6; }
 html[data-theme=night] .fill-cur b { color:#dbe3f5; }
@@ -1148,9 +1187,9 @@ html[data-theme=night] .plu-cm-row.cur { border-color:#4d8bea; background:#1e2c4
 </div>
 
 <div class="plu-fe-ov" id="exOv">
-  <div class="plu-fe-modal" style="max-width:560px;">
-    <div class="plu-fe-head"><b>엑셀 내보내기 — 필드 선택</b><button class="plu-fe-x" id="exX" type="button">✕</button></div>
-    <div class="plu-fe-body" id="exBody"></div>
+  <div class="plu-fe-modal ex-modal">
+    <div class="plu-fe-head ex-head"><div><b>엑셀 내보내기</b><span class="ex-head-sub">EXPORT · 필드 선택 · 프리셋 · 범위 · 정렬</span></div><button class="plu-fe-x" id="exX" type="button">✕</button></div>
+    <div class="plu-fe-body ex-body" id="exBody"></div>
   </div>
 </div>
 
@@ -5668,8 +5707,9 @@ function openPluPicker(){
 }
 function renderExportModal(checked){
   var ex=exStore(), lay=curLayout();
-  var h='';
+  var h='<div class="ex-wrap"><aside class="ex-side">';
   /* [요구 2] 프리셋 = 상단 버튼: 클릭 즉시 적용, ×로 삭제 */
+  h+='<div class="ex-sec"><div class="ex-sec-t">Preset <b>프리셋</b></div>';
   h+='<div class="ex-pre-bar" id="exPreBar">';
   var preNames=Object.keys(ex.presets);
   if(!preNames.length) h+='<span class="ex-pre-empty">저장된 프리셋 없음 — 아래에서 필드 체크 후 이름 입력·저장</span>';
@@ -5677,14 +5717,14 @@ function renderExportModal(checked){
     h+='<span class="ex-pre-chip" data-nm="'+escapeHtml(nm)+'"><button type="button" class="ex-pre-apply" data-nm="'+escapeHtml(nm)+'">'+escapeHtml(nm)+' ('+ex.presets[nm].length+')</button><button type="button" class="ex-pre-del" data-nm="'+escapeHtml(nm)+'" title="프리셋 삭제">×</button></span>';
   });
   h+='</div>';
-  h+='<div class="ex-toolrow"><input type="text" class="icp-sel" id="exPreName" placeholder="프리셋 이름 입력" style="flex:1 1 auto;width:auto;"><button type="button" class="plu-tool-btn" id="exPreSave">저장</button></div>';
+  h+='<div class="ex-toolrow" style="margin-bottom:0"><input type="text" class="icp-sel" id="exPreName" placeholder="프리셋 이름 입력" style="flex:1 1 auto;width:auto;"><button type="button" class="plu-tool-btn" id="exPreSave">저장</button></div></div>';
   /* [요구 2026-09] 내보낼 카테고리 직접 선택 */
   var __cat=window.__exCatSel;
   var __catBig=(__cat&&__cat.big)||curBig();
   var __catTab=null; for(var __ci=0;__ci<S.tabs.length;__ci++){ if(S.tabs[__ci].label===__catBig){ __catTab=S.tabs[__ci]; break; } }
   var __catSubs=(__catTab&&__catTab.subs)||[];
-  h+='<div class="icp-lbl" style="margin-top:6px;">내보낼 카테고리 직접 선택</div>';
-  h+='<div class="ex-toolrow" style="align-items:center;gap:8px;">'
+  h+='<div class="ex-sec"><div class="ex-sec-t">Category <b>내보낼 카테고리</b></div>';
+  h+='<div class="ex-toolrow" style="align-items:flex-start;gap:8px;flex-direction:column;">'
     +'<select class="icp-sel" id="exCatBig">'+S.tabs.map(function(t){ return '<option'+(t.label===__catBig?' selected':'')+'>'+escapeHtml(t.label)+'</option>'; }).join('')+'</select>'
     +'<span id="exCatSubs" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">'
     +'<label style="cursor:pointer;font-weight:800;"><input type="checkbox" class="ex-cat-all"'+((!__cat||!__cat.subs||!__cat.subs.length)?' checked':'')+'> 전체</label>'
@@ -5692,7 +5732,7 @@ function renderExportModal(checked){
     +'</span>'
     +(__cat?'<button type="button" class="plu-tool-btn" id="exCatClr">현재 화면으로</button>':'')
     +'</div>';
-  h+='<div class="plu-imp-hint" style="margin:2px 0 6px;">'+(__cat?('선택 카테고리 기준 (검색·칩 필터 미적용'+(S.curStore?' · '+escapeHtml(S.curStore)+' 매장 행':'')+')'):'현재 화면 그대로 (검색·칩 필터 반영) — 대분류나 소분류를 바꾸면 선택 모드로 전환')+'</div>';
+  h+='<div class="plu-imp-hint" style="margin:2px 0 0;">'+(__cat?('선택 카테고리 기준 (검색·칩 필터 미적용'+(S.curStore?' · '+escapeHtml(S.curStore)+' 매장 행':'')+')'):'현재 화면 그대로 (검색·칩 필터 반영) — 대분류나 소분류를 바꾸면 선택 모드로 전환')+'</div></div>';
   var __exRows=filteredRows(), __exAllRows=curRows();
   /* [요구 2026-09] PLU 선택하기 — 입력한 PLU 만 내보내기 */
   var __pick=window.__exPluPick;
@@ -5702,37 +5742,43 @@ function renderExportModal(checked){
   /* [요구 2026-09] 사용중(체크) 상품만 내보내기 옵션 — 현재 매장 기준 (PLU 선택과 결합) */
   var __uf=fieldByKey(curBig(),'ITEM_USE');
   var __exUseRows=__uf?__exRows.filter(function(r){ return String(getCell(r,__uf))==='1'; }):[];
+  h+='<div class="ex-sec"><div class="ex-sec-t">Rows <b>내보낼 행</b></div>';
   h+='<div class="plu-imp-hint" style="margin-bottom:4px;">내보낼 행: <b id="exRowHint">'+__exRows.length+'행</b>'
     +(__pick?' <span style="color:#1e7a46;font-weight:800;">— 선택 PLU '+__pick.plus.length+'개 중 '+__exRows.length+'행 매칭</span>'
       :(__exRows.length!==__exAllRows.length?' (화면 필터 적용 — 전체 '+__exAllRows.length+'행 중)':' (화면 전체)'))
     +' <button type="button" class="plu-tool-btn" id="exPluPickBtn" style="margin-left:8px;">PLU 선택하기</button>'
     +(__pick?'<button type="button" class="plu-tool-btn" id="exPluPickClr" style="margin-left:4px;">선택 해제</button>':'')
     +'</div>';
-  h+='<div class="plu-imp-hint" style="margin-bottom:8px;"><label style="cursor:pointer;"><input type="checkbox" id="exUseOnly"'+(window.__exUseOnly?' checked':'')+'> 사용중(체크) 상품만 내보내기 <b>('+__exUseRows.length+'행)</b>'+(S.curStore?' — '+escapeHtml(S.curStore)+' 매장 기준':' — 기본(전체) 기준')+'</label></div>';
+  h+='<div class="plu-imp-hint" style="margin-bottom:0;"><label style="cursor:pointer;"><input type="checkbox" id="exUseOnly"'+(window.__exUseOnly?' checked':'')+'> 사용중(체크) 상품만 내보내기 <b>('+__exUseRows.length+'행)</b>'+(S.curStore?' — '+escapeHtml(S.curStore)+' 매장 기준':' — 기본(전체) 기준')+'</label></div></div>';
   /* [요구 2026-09] 내보내기 정렬 선택 — 한글 ㄱㄴㄷ / 영문 ABC / 현재 순서 */
   var __sm=window.__exSortMode||'';
-  h+='<div class="plu-imp-hint" style="margin-bottom:8px;">정렬: '
-    +'<label style="cursor:pointer;margin-right:10px;"><input type="radio" name="exSort" value=""'+(__sm===''?' checked':'')+'> 현재 순서(PLU)</label>'
-    +'<label style="cursor:pointer;margin-right:10px;"><input type="radio" name="exSort" value="kor"'+(__sm==='kor'?' checked':'')+'> 한글명 ㄱㄴㄷ순</label>'
-    +'<label style="cursor:pointer;"><input type="radio" name="exSort" value="eng"'+(__sm==='eng'?' checked':'')+'> 영문명 ABC순</label></div>';
-  h+='<div class="ex-toolrow"><button type="button" class="plu-tool-btn" id="exAll">전체 선택</button><button type="button" class="plu-tool-btn" id="exNone">전체 해제</button><span class="plu-fe-hcnt" id="exCnt"></span></div>';
+  h+='<div class="ex-sec"><div class="ex-sec-t">Sort <b>정렬</b></div><div class="ex-radio">'
+    +'<label><input type="radio" name="exSort" value=""'+(__sm===''?' checked':'')+'> 현재 순서(PLU)</label>'
+    +'<label><input type="radio" name="exSort" value="kor"'+(__sm==='kor'?' checked':'')+'> 한글명 ㄱㄴㄷ순</label>'
+    +'<label><input type="radio" name="exSort" value="eng"'+(__sm==='eng'?' checked':'')+'> 영문명 ABC순</label></div></div>';
+  h+='</aside><section class="ex-main">';
+  h+='<div class="ex-main-top"><span class="ex-sec-t" style="margin:0">Fields <b>내보낼 필드</b></span><button type="button" class="plu-tool-btn" id="exAll">전체 선택</button><button type="button" class="plu-tool-btn" id="exNone">전체 해제</button><span class="ex-cnt" id="exCnt"></span></div>';
   h+='<div class="ex-list">';
-  /* [요구 1] 묶음별 내보내기: 묶음 머리에 체크박스 → 그 묶음 전체 선택/해제 */
-  var lastG=null;
+  /* [요구 1] 묶음별 내보내기: 묶음 머리에 체크박스 → 그 묶음 전체 선택/해제 · [2026-10-09] 묶음마다 카드 → 다단 배치로 스크롤 없이 한눈에 */
+  var lastG=null, __open=false, __inCard=0, EX_CHUNK=10; /* 큰 묶음은 10개씩 카드로 나눠 다단에 흐르게 (카드 머리의 체크는 그 묶음 전체) */
   lay.forEach(function(f){
-    var g=f.group||'';
-    if(g!==lastG){
-      var gid=escapeHtml(g);
-      h+='<div class="ex-g"><label><input type="checkbox" class="ex-gchk" data-g="'+gid+'"> '+(g?gid:'(묶음 없음)')+'</label><span class="ex-gcnt" data-g="'+gid+'"></span></div>';
-      lastG=g;
+    var g=f.group||'', gid=escapeHtml(g);
+    if(g!==lastG||__inCard>=EX_CHUNK){
+      var __contd=(g===lastG);
+      if(__open) h+='</div>';
+      h+='<div class="ex-grp'+(__contd?' cont':'')+'"><div class="ex-g"><label><input type="checkbox" class="ex-gchk" data-g="'+gid+'"> '+(g?gid:'(묶음 없음)')+(__contd?' ›':'')+'</label><span class="ex-gcnt" data-g="'+gid+'"></span></div>';
+      __open=true; lastG=g; __inCard=0;
     }
-    h+='<label class="ex-item"><input type="checkbox" class="ex-chk" data-key="'+escapeHtml(f.key)+'" data-g="'+escapeHtml(g)+'"'+(checked[f.key]?' checked':'')+'> '+escapeHtml(f.label)+(f.hidden?' <span style="color:#b45309;">(숨김)</span>':'')+'</label>';
+    h+='<label class="ex-item" title="'+escapeHtml(f.label)+'"><input type="checkbox" class="ex-chk" data-key="'+escapeHtml(f.key)+'" data-g="'+escapeHtml(g)+'"'+(checked[f.key]?' checked':'')+'> '+escapeHtml(f.label)+(f.hidden?' <span style="color:#b45309;">(숨김)</span>':'')+'</label>'; __inCard++;
   });
-  h+='</div>';
-  h+='<div class="plu-imp-foot"><button class="plu-tool-btn" id="exCancel" type="button">취소</button><button class="plu-tool-btn plu-imp-go" id="exGo" type="button">내보내기 실행</button><button class="plu-tool-btn plu-imp-go" id="exGoFx" type="button" title="수식·쉐어 필드를 실제 엑셀 함수(IF/VALUE/참조)로 기록">내보내기 (함수 포함)</button></div>';
+  if(__open) h+='</div>';
+  h+='</div></section></div>';
+  h+='<div class="ex-foot"><span class="ex-foot-info">'+escapeHtml(curBig())+(__cat?' · 선택 카테고리':' / '+escapeHtml(curSub()))+' · '+__exRows.length+'행</span><span class="sp"></span><button class="plu-tool-btn" id="exCancel" type="button">취소</button><button class="plu-tool-btn plu-imp-go" id="exGo" type="button">내보내기 실행</button><button class="plu-tool-btn plu-imp-go alt" id="exGoFx" type="button" title="수식·쉐어 필드를 실제 엑셀 함수(IF/VALUE/참조)로 기록">내보내기 (함수 포함)</button></div>';
   var __exSc=(function(){ var L=$('exBody')&&$('exBody').querySelector('.ex-list'); return L?L.scrollTop:0; })();
   $('exBody').innerHTML=h;
-  (function(){ var L=$('exBody').querySelector('.ex-list'); if(L) L.scrollTop=__exSc; })(); /* 재렌더 후 목록 위치 유지 */
+  (function(){ var L=$('exBody').querySelector('.ex-list'); if(!L) return; L.scrollTop=__exSc; /* 재렌더 후 목록 위치 유지 */
+    /* [2026-10-09] 화면이 작아 다단이 넘치면 촘촘한 모드로, 그래도 넘치면 가로 스크롤 허용 */
+    function __fit(){ L.classList.remove('dense','xscroll'); if(L.scrollWidth>L.clientWidth+2){ L.classList.add('dense'); if(L.scrollWidth>L.clientWidth+2) L.classList.add('xscroll'); } } __fit(); setTimeout(__fit,0); setTimeout(__fit,120); })();
   function selKeys(){ var ks=[]; $('exBody').querySelectorAll('.ex-chk:checked').forEach(function(c){ ks.push(c.getAttribute('data-key')); }); return ks; }
   function updCnt(){ $('exCnt').textContent=selKeys().length+' / '+lay.length+'개 선택'; }
   /* 묶음 체크 상태 동기화 */
@@ -5742,8 +5788,7 @@ function renderExportModal(checked){
       var items=[...$('exBody').querySelectorAll('.ex-chk')].filter(function(c){ return c.getAttribute('data-g')===g; });
       var on=items.filter(function(c){ return c.checked; }).length;
       gc.checked=on===items.length&&items.length>0;
-      var cntEl=$('exBody').querySelector('.ex-gcnt[data-g="'+(window.CSS&&CSS.escape?CSS.escape(g):g)+'"]');
-      if(cntEl) cntEl.textContent=on+'/'+items.length;
+      $('exBody').querySelectorAll('.ex-gcnt[data-g="'+(window.CSS&&CSS.escape?CSS.escape(g):g)+'"]').forEach(function(cntEl){ cntEl.textContent=on+'/'+items.length; });
     });
   }
   function updAll(){ updCnt(); updG(); }
