@@ -43,7 +43,7 @@
   .btn{ border:none; border-radius:9px; padding:8px 13px; font:inherit; font-size:12.5px; font-weight:800; cursor:pointer; background:var(--accent-warm); color:var(--on-accent); }
   .btn.ghost{ background:var(--bg-elev); color:var(--text-dim); border:1.5px solid var(--border); } .btn.danger{ background:var(--danger); color:#fff; } .btn.sm{ padding:4px 9px; font-size:11.5px; border-radius:7px; }
   .btn:disabled{ opacity:.45; cursor:default; }
-  .grid{ display:grid; grid-template-columns:minmax(230px,300px) minmax(260px,340px) 1fr; gap:14px; align-items:start; }
+  .grid{ display:grid; grid-template-columns:minmax(280px,360px) minmax(300px,400px) 1fr; gap:14px; align-items:start; }
   .panel{ background:var(--bg-elev); border:1.5px solid var(--border); border-radius:14px; padding:12px 14px; }
   .panel h2{ font-size:13.5px; font-weight:800; margin-bottom:8px; display:flex; align-items:center; gap:8px; }
   .panel h2 .cnt{ font-size:11px; color:var(--text-faint); font-weight:700; }
@@ -53,7 +53,11 @@
   .it input{ font:inherit; font-size:12.5px; font-weight:700; padding:4px 7px; border:1.5px solid transparent; border-radius:7px; background:transparent; color:var(--text); min-width:0; }
   .it input:hover,.it input:focus{ border-color:var(--border-bright); background:var(--bg-elev); outline:none; }
   .it input.code{ width:46px; text-align:center; font-variant-numeric:tabular-nums; color:var(--accent); } .it input.code.a{ width:36px; }
-  .it input.name{ flex:1; }
+  .it input.name{ flex:1; } .it input.kor{ flex:1; }
+  .it .tx{ font-size:12.5px; font-weight:700; padding:4px 2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .it .tx.code{ width:46px; text-align:center; color:var(--accent); font-variant-numeric:tabular-nums; flex:none; } .it .tx.code.a{ width:36px; }
+  .it .tx.name{ flex:1 1 auto; min-width:0; } .it .tx.kor{ flex:0 1 auto; min-width:0; max-width:45%; color:var(--text-dim); font-weight:600; }
+  .it.edit{ cursor:default; background:var(--bg-elev); border-color:var(--accent-warm); }
+  .ico.ok{ color:var(--accent-warm); } .ico.ok:hover{ color:var(--accent-warm); background:var(--accent-soft); }
   .it .full{ font-size:11px; color:var(--text-faint); font-weight:700; white-space:nowrap; font-variant-numeric:tabular-nums; }
   .it .sub{ font-size:11px; color:var(--text-faint); font-weight:700; white-space:nowrap; }
   .ico{ border:none; background:transparent; cursor:pointer; font-size:12px; color:var(--text-faint); padding:2px 5px; border-radius:5px; } .ico:hover{ background:var(--bg); color:var(--danger); }
@@ -80,7 +84,7 @@
   <div class="topbar">
     <h1>🏷 CATEGORY CODE</h1>
     <span class="chip" id="chipCloud">CLOUD …</span><span class="chip" id="chipCnt"></span>
-    <input class="search" id="q" type="text" placeholder="이름 · 코드 검색" autocomplete="off">
+    <input class="search" id="q" type="text" placeholder="영문 · 한글 · 코드 검색" autocomplete="off">
     <div class="chips">
       <span class="dirty" id="dirty"></span>
       <button class="btn ghost" id="btnGuide" type="button">규칙 가이드</button>
@@ -147,8 +151,8 @@ window.__CC_SEED={"bigs":[{"a":"1","name":"GROCERY","mids":[{"bb":"10","name":"K
   function code(a,bb,cc){ return String(a)+'-'+pad2(bb)+'-'+pad2(cc); }
   function counts(){ var m=0,c=0; D.bigs.forEach(function(b){ m+=b.mids.length; b.mids.forEach(function(x){ c+=x.subs.length; }); }); return {a:D.bigs.length,b:m,c:c}; }
   function sortAll(){ D.bigs.sort(function(x,y){ return (parseInt(x.a,10)||0)-(parseInt(y.a,10)||0); }); D.bigs.forEach(function(b){ b.mids.sort(function(x,y){ return x.bb<y.bb?-1:x.bb>y.bb?1:0; }); b.mids.forEach(function(m){ m.subs.sort(function(x,y){ return x.cc<y.cc?-1:x.cc>y.cc?1:0; }); }); }); }
-  function normalize(o){ var bigs=[]; (o&&o.bigs||[]).forEach(function(b){ if(!b) return; var nb={ a:String(b.a==null?'':b.a).replace(/[^0-9]/g,''), name:String(b.name||'').trim(), mids:[] };
-      (b.mids||[]).forEach(function(m){ if(!m) return; var nm={ bb:pad2(m.bb), name:String(m.name||'').trim(), subs:[] }; (m.subs||[]).forEach(function(s){ if(!s) return; nm.subs.push({ cc:pad2(s.cc), name:String(s.name||'').trim() }); }); nb.mids.push(nm); });
+  function normalize(o){ var bigs=[]; (o&&o.bigs||[]).forEach(function(b){ if(!b) return; var nb={ a:String(b.a==null?'':b.a).replace(/[^0-9]/g,''), name:String(b.name||'').trim(), kor:String(b.kor||'').trim(), mids:[] };
+      (b.mids||[]).forEach(function(m){ if(!m) return; var nm={ bb:pad2(m.bb), name:String(m.name||'').trim(), kor:String(m.kor||'').trim(), subs:[] }; (m.subs||[]).forEach(function(s){ if(!s) return; nm.subs.push({ cc:pad2(s.cc), name:String(s.name||'').trim(), kor:String(s.kor||'').trim() }); }); nb.mids.push(nm); });
       bigs.push(nb); });
     var link={ 'PLU-LIST':'CATEGORY_NUMBER', 'UPC-LIST':'CATEGORY_NUMBER' }; if(o&&o.link){ for(var k in link){ if(o.link[k]) link[k]=String(o.link[k]); } }
     return { bigs:bigs, link:link }; }
@@ -195,47 +199,54 @@ window.__CC_SEED={"bigs":[{"a":"1","name":"GROCERY","mids":[{"bb":"10","name":"K
 
   /* ── 렌더 ── */
   function hitTxt(s){ if(!q) return esc(s); var k=nameKey(s), i=k.indexOf(q); if(i<0) return esc(s); return esc(s.slice(0,i))+'<span class="hit">'+esc(s.slice(i,i+q.length))+'</span>'+esc(s.slice(i+q.length)); }
-  function matchB(b){ if(!q) return true; if(nameKey(b.name).indexOf(q)>=0||String(b.a)===q) return true; return b.mids.some(matchM.bind(null,b)); }
-  function matchM(b,m){ if(!q) return true; if(nameKey(m.name).indexOf(q)>=0||(String(b.a)+'-'+m.bb).indexOf(q)===0) return true; return m.subs.some(function(s){ return matchS(b,m,s); }); }
-  function matchS(b,m,s){ if(!q) return true; return nameKey(s.name).indexOf(q)>=0||code(b.a,m.bb,s.cc).indexOf(q)===0; }
+  function matchB(b){ if(!q) return true; if(nameKey(b.name).indexOf(q)>=0||nameKey(b.kor).indexOf(q)>=0||String(b.a)===q) return true; return b.mids.some(matchM.bind(null,b)); }
+  function matchM(b,m){ if(!q) return true; if(nameKey(m.name).indexOf(q)>=0||nameKey(m.kor).indexOf(q)>=0||(String(b.a)+'-'+m.bb).indexOf(q)===0) return true; return m.subs.some(function(s){ return matchS(b,m,s); }); }
+  function matchS(b,m,s){ if(!q) return true; return nameKey(s.name).indexOf(q)>=0||nameKey(s.kor).indexOf(q)>=0||code(b.a,m.bb,s.cc).indexOf(q)===0; }
   function render(){ var c=counts(); $('chipCnt').textContent='대분류 '+c.a+' · 중분류 '+c.b+' · 소분류 '+c.c; renderA(); renderB(); renderC(); }
-  function bindIt(el,arr,i,onCode,onName){ var ci=el.querySelector('input.code'), ni=el.querySelector('input.name');
-    [ci,ni].forEach(function(inp){ if(!inp) return; inp.onclick=function(ev){ ev.stopPropagation(); }; inp.onmousedown=function(ev){ ev.stopPropagation(); };
-      inp.onkeydown=function(ev){ if(ev.key==='Enter'){ ev.preventDefault(); inp.blur(); } if(ev.key==='Escape'){ inp.value=inp.getAttribute('data-v'); inp.blur(); } }; });
-    if(ci) ci.onchange=function(){ onCode(ci.value); }; if(ni) ni.onchange=function(){ onName(ni.value); }; }
-  function renderA(){ var h=''; D.bigs.forEach(function(b,i){ if(!matchB(b)) return; var n=0; b.mids.forEach(function(m){ n+=m.subs.length; });
-      h+='<div class="it'+(i===selA?' on':'')+'" data-i="'+i+'"><input class="code a" data-v="'+esc(b.a)+'" value="'+esc(b.a)+'" title="대분류 번호"><input class="name" data-v="'+esc(b.name)+'" value="'+esc(b.name)+'" placeholder="이름"><span class="sub">'+b.mids.length+' · '+n+'</span><button class="ico" data-act="del" title="삭제">✕</button></div>'; });
+  var editA=-1, editB=-1; /* 대분류/중분류: 보기 모드(클릭 = 선택) ↔ ✎ 수정 모드(번호 · 영문 · 한글 입력) */
+  function bindIt(el,onCode,onName,onKor){ var ci=el.querySelector('input.code'), ni=el.querySelector('input.name'), ki=el.querySelector('input.kor');
+    [ci,ni,ki].forEach(function(inp){ if(!inp) return; inp.onclick=function(ev){ ev.stopPropagation(); }; inp.onmousedown=function(ev){ ev.stopPropagation(); };
+      inp.onkeydown=function(ev){ if(ev.key==='Enter'){ ev.preventDefault(); inp.blur(); var ok=el.querySelector('[data-act=ok]'); if(ok) ok.click(); } if(ev.key==='Escape'){ inp.value=inp.getAttribute('data-v'); inp.blur(); var ok2=el.querySelector('[data-act=ok]'); if(ok2) ok2.click(); } }; });
+    if(ci) ci.onchange=function(){ onCode(ci.value); }; if(ni) ni.onchange=function(){ onName(ni.value); }; if(ki&&onKor) ki.onchange=function(){ onKor(ki.value); }; }
+  function viewHtml(codeCls,codeV,name,kor,pre){ return (pre?'<span class="full">'+esc(pre)+'</span>':'')+'<span class="tx code'+codeCls+'">'+esc(codeV)+'</span><span class="tx name" title="'+esc(name)+'">'+esc(name)+'</span>'+(kor?'<span class="tx kor" title="'+esc(kor)+'">'+esc(kor)+'</span>':''); }
+  function editHtml(codeCls,codeV,name,kor,pre,codeTitle){ return (pre?'<span class="full">'+esc(pre)+'</span>':'')+'<input class="code'+codeCls+'" data-v="'+esc(codeV)+'" value="'+esc(codeV)+'" title="'+esc(codeTitle)+'"><input class="name" data-v="'+esc(name)+'" value="'+esc(name)+'" placeholder="영문 이름"><input class="kor" data-v="'+esc(kor)+'" value="'+esc(kor)+'" placeholder="한글 이름"><button class="ico ok" data-act="ok" title="수정 끝">✓</button>'; }
+  function renderA(){ var h=''; D.bigs.forEach(function(b,i){ if(!matchB(b)) return; var n=0; b.mids.forEach(function(m){ n+=m.subs.length; }); var ed=(i===editA);
+      h+='<div class="it'+(i===selA?' on':'')+(ed?' edit':'')+'" data-i="'+i+'">'+(ed?editHtml(' a',b.a,b.name,b.kor,'','대분류 번호'):viewHtml(' a',b.a,b.name,b.kor,''))+'<span class="sub">'+b.mids.length+' · '+n+'</span>'+(ed?'':'<button class="ico" data-act="edit" title="수정">✎</button>')+'<button class="ico" data-act="del" title="삭제">✕</button></div>'; });
     $('listA').innerHTML=h||'<div class="hint">대분류 없음 — ＋ 추가</div>'; $('cntA').textContent=D.bigs.length?D.bigs.length+'개':'';
     Array.prototype.forEach.call($('listA').querySelectorAll('.it'),function(el){ var i=parseInt(el.getAttribute('data-i'),10), b=D.bigs[i];
-      el.onclick=function(ev){ if(ev.target.closest('button')) return; selA=i; selB=-1; render(); };
+      el.onclick=function(ev){ if(ev.target.closest('button')||ev.target.tagName==='INPUT') return; if(editA===i) return; if(selA!==i){ selA=i; selB=-1; } editA=-1; render(); };
+      var eb=el.querySelector('[data-act=edit]'); if(eb) eb.onclick=function(ev){ ev.stopPropagation(); editA=i; editB=-1; renderA(); var ni=$('listA').querySelector('.it.edit input.name'); if(ni) ni.focus(); };
+      var okb=el.querySelector('[data-act=ok]'); if(okb) okb.onclick=function(ev){ ev.stopPropagation(); editA=-1; render(); };
       el.querySelector('[data-act=del]').onclick=function(ev){ ev.stopPropagation(); var n=0; b.mids.forEach(function(m){ n+=m.subs.length; });
-        ask('대분류 삭제','"'+b.a+' '+b.name+'" 과 그 안의 중분류 '+b.mids.length+'개 · 소분류 '+n+'개를 삭제할까요?\n(상품에 이미 기록된 코드는 그대로 남습니다)').then(function(ok){ if(!ok) return; D.bigs.splice(i,1); if(selA===i){ selA=-1; selB=-1; } else if(selA>i) selA--; setDirty(true); render(); }); };
-      bindIt(el,D.bigs,i,function(v){ v=String(v).replace(/[^0-9]/g,''); if(!v){ toast('번호는 숫자','error'); render(); return; } if(D.bigs.some(function(x,j){ return j!==i&&x.a===v; })){ toast('대분류 번호 '+v+' 이미 있음','error'); render(); return; } b.a=v; setDirty(true); sortAll(); selA=D.bigs.indexOf(b); render(); },
-        function(v){ b.name=String(v).trim(); setDirty(true); render(); }); }); }
-  function renderB(){ var b=D.bigs[selA], h=''; $('titleB').firstChild.textContent=b?('중분류 — '+b.a+' '+b.name+' '):'중분류 '; $('hintB').style.display=b?'none':''; $('btnAddB').disabled=!b;
-    if(b) b.mids.forEach(function(m,i){ if(!matchM(b,m)) return; h+='<div class="it'+(i===selB?' on':'')+'" data-i="'+i+'"><span class="full">'+esc(b.a)+'-</span><input class="code" data-v="'+esc(m.bb)+'" value="'+esc(m.bb)+'" title="중분류 코드 BB"><input class="name" data-v="'+esc(m.name)+'" value="'+esc(m.name)+'" placeholder="이름"><span class="sub">'+m.subs.length+'</span><button class="ico" data-act="del" title="삭제">✕</button></div>'; });
+        ask('대분류 삭제','"'+b.a+' '+b.name+'" 과 그 안의 중분류 '+b.mids.length+'개 · 소분류 '+n+'개를 삭제할까요?\n(상품에 이미 기록된 코드는 그대로 남습니다)').then(function(ok){ if(!ok) return; D.bigs.splice(i,1); editA=-1; if(selA===i){ selA=-1; selB=-1; } else if(selA>i) selA--; setDirty(true); render(); }); };
+      if(i===editA) bindIt(el,function(v){ v=String(v).replace(/[^0-9]/g,''); if(!v){ toast('번호는 숫자','error'); renderA(); return; } if(D.bigs.some(function(x,j){ return j!==i&&x.a===v; })){ toast('대분류 번호 '+v+' 이미 있음','error'); renderA(); return; } b.a=v; setDirty(true); sortAll(); selA=D.bigs.indexOf(b); editA=selA; render(); },
+        function(v){ b.name=String(v).trim(); setDirty(true); renderB(); }, function(v){ b.kor=String(v).trim(); setDirty(true); }); }); }
+  function renderB(){ var b=D.bigs[selA], h=''; $('titleB').firstChild.textContent=b?('중분류 — '+b.a+' '+b.name+(b.kor?' '+b.kor:'')+' '):'중분류 '; $('hintB').style.display=b?'none':''; $('btnAddB').disabled=!b;
+    if(b) b.mids.forEach(function(m,i){ if(!matchM(b,m)) return; var ed=(i===editB); h+='<div class="it'+(i===selB?' on':'')+(ed?' edit':'')+'" data-i="'+i+'">'+(ed?editHtml('',m.bb,m.name,m.kor,b.a+'-','중분류 코드 BB'):viewHtml('',m.bb,m.name,m.kor,b.a+'-'))+'<span class="sub">'+m.subs.length+'</span>'+(ed?'':'<button class="ico" data-act="edit" title="수정">✎</button>')+'<button class="ico" data-act="del" title="삭제">✕</button></div>'; });
     $('listB').innerHTML=h||(b?'<div class="hint">중분류 없음 — ＋ 추가</div>':''); $('cntB').textContent=b&&b.mids.length?b.mids.length+'개':'';
     if(!b) return;
     Array.prototype.forEach.call($('listB').querySelectorAll('.it'),function(el){ var i=parseInt(el.getAttribute('data-i'),10), m=b.mids[i];
-      el.onclick=function(ev){ if(ev.target.closest('button')) return; selB=i; renderB(); renderC(); };
-      el.querySelector('[data-act=del]').onclick=function(ev){ ev.stopPropagation(); ask('중분류 삭제','"'+code(b.a,m.bb,'00').slice(0,-3)+' '+m.name+'" 과 소분류 '+m.subs.length+'개를 삭제할까요?').then(function(ok){ if(!ok) return; b.mids.splice(i,1); if(selB===i) selB=-1; else if(selB>i) selB--; setDirty(true); render(); }); };
-      bindIt(el,b.mids,i,function(v){ v=pad2(v); if(v==='00'&&!String(v).length){ render(); return; } if(b.mids.some(function(x,j){ return j!==i&&x.bb===v; })){ toast('중분류 코드 '+v+' 이미 있음','error'); renderB(); return; } m.bb=v; setDirty(true); sortAll(); selB=b.mids.indexOf(m); renderB(); renderC(); },
-        function(v){ m.name=String(v).trim(); setDirty(true); renderB(); renderC(); }); }); }
+      el.onclick=function(ev){ if(ev.target.closest('button')||ev.target.tagName==='INPUT') return; if(editB===i) return; selB=i; editB=-1; renderB(); renderC(); };
+      var eb=el.querySelector('[data-act=edit]'); if(eb) eb.onclick=function(ev){ ev.stopPropagation(); editB=i; editA=-1; renderA(); renderB(); var ni=$('listB').querySelector('.it.edit input.name'); if(ni) ni.focus(); };
+      var okb=el.querySelector('[data-act=ok]'); if(okb) okb.onclick=function(ev){ ev.stopPropagation(); editB=-1; renderB(); renderC(); };
+      el.querySelector('[data-act=del]').onclick=function(ev){ ev.stopPropagation(); ask('중분류 삭제','"'+code(b.a,m.bb,'00').slice(0,-3)+' '+m.name+'" 과 소분류 '+m.subs.length+'개를 삭제할까요?').then(function(ok){ if(!ok) return; b.mids.splice(i,1); editB=-1; if(selB===i) selB=-1; else if(selB>i) selB--; setDirty(true); render(); }); };
+      if(i===editB) bindIt(el,function(v){ v=pad2(v); if(b.mids.some(function(x,j){ return j!==i&&x.bb===v; })){ toast('중분류 코드 '+v+' 이미 있음','error'); renderB(); return; } m.bb=v; setDirty(true); sortAll(); selB=b.mids.indexOf(m); editB=selB; renderB(); renderC(); },
+        function(v){ m.name=String(v).trim(); setDirty(true); renderC(); }, function(v){ m.kor=String(v).trim(); setDirty(true); }); }); }
   function dupNames(){ var cnt={}; D.bigs.forEach(function(b){ b.mids.forEach(function(m){ m.subs.forEach(function(s){ var k=nameKey(s.name); if(k) cnt[k]=(cnt[k]||0)+1; }); }); }); return cnt; }
-  function renderC(){ var b=D.bigs[selA], m=b&&b.mids[selB], h=''; $('titleC').firstChild.textContent=m?('소분류 — '+b.a+'-'+m.bb+' '+m.name+' '):'소분류 '; $('hintC').style.display=m?'none':''; $('btnAddC').disabled=!m;
-    if(m){ var dn=dupNames(); m.subs.forEach(function(s,i){ if(!matchS(b,m,s)) return; var multi=(dn[nameKey(s.name)]||0)>1; h+='<div class="it" data-i="'+i+'"><span class="full">'+esc(b.a)+'-'+esc(m.bb)+'-</span><input class="code" data-v="'+esc(s.cc)+'" value="'+esc(s.cc)+'" title="소분류 코드 CC"><input class="name" data-v="'+esc(s.name)+'" value="'+esc(s.name)+'" placeholder="이름"><span class="sub" title="'+(multi?'같은 이름이 다른 중분류에도 있음 — 상품에서는 직접 선택':'전체에서 하나뿐인 이름 — CATEGORY ENG 가 같으면 자동 생성')+'">'+(multi?'중복명':'자동')+'</span><button class="ico" data-act="del" title="삭제">✕</button></div>'; }); }
+  function renderC(){ var b=D.bigs[selA], m=b&&b.mids[selB], h=''; $('titleC').firstChild.textContent=m?('소분류 — '+b.a+'-'+m.bb+' '+m.name+(m.kor?' '+m.kor:'')+' '):'소분류 '; $('hintC').style.display=m?'none':''; $('btnAddC').disabled=!m;
+    if(m){ var dn=dupNames(); m.subs.forEach(function(s,i){ if(!matchS(b,m,s)) return; var multi=(dn[nameKey(s.name)]||0)>1; h+='<div class="it" data-i="'+i+'" style="cursor:default"><span class="full">'+esc(b.a)+'-'+esc(m.bb)+'-</span><input class="code" data-v="'+esc(s.cc)+'" value="'+esc(s.cc)+'" title="소분류 코드 CC"><input class="name" data-v="'+esc(s.name)+'" value="'+esc(s.name)+'" placeholder="영문 이름"><input class="kor" data-v="'+esc(s.kor)+'" value="'+esc(s.kor)+'" placeholder="한글 이름"><span class="sub" title="'+(multi?'같은 이름이 다른 중분류에도 있음 — 상품에서는 직접 선택':'전체에서 하나뿐인 이름 — CATEGORY ENG 가 같으면 자동 생성')+'">'+(multi?'중복명':'자동')+'</span><button class="ico" data-act="del" title="삭제">✕</button></div>'; }); }
     $('listC').innerHTML=h||(m?'<div class="hint">소분류 없음 — ＋ 추가</div>':''); $('cntC').textContent=m&&m.subs.length?m.subs.length+'개':'';
     if(!m) return;
     Array.prototype.forEach.call($('listC').querySelectorAll('.it'),function(el){ var i=parseInt(el.getAttribute('data-i'),10), s=m.subs[i];
-      el.querySelector('[data-act=del]').onclick=function(ev){ ev.stopPropagation(); ask('소분류 삭제','"'+code(b.a,m.bb,s.cc)+' '+s.name+'" 을 삭제할까요?').then(function(ok){ if(!ok) return; m.subs.splice(i,1); setDirty(true); renderC(); $('chipCnt').textContent=''; render(); }); };
-      bindIt(el,m.subs,i,function(v){ v=pad2(v); if(m.subs.some(function(x,j){ return j!==i&&x.cc===v; })){ toast('소분류 코드 '+v+' 이미 있음','error'); renderC(); return; } s.cc=v; setDirty(true); sortAll(); renderC(); },
-        function(v){ s.name=String(v).trim(); setDirty(true); renderC(); }); }); }
+      el.querySelector('[data-act=del]').onclick=function(ev){ ev.stopPropagation(); ask('소분류 삭제','"'+code(b.a,m.bb,s.cc)+' '+s.name+'" 을 삭제할까요?').then(function(ok){ if(!ok) return; m.subs.splice(i,1); setDirty(true); render(); }); };
+      bindIt(el,function(v){ v=pad2(v); if(m.subs.some(function(x,j){ return j!==i&&x.cc===v; })){ toast('소분류 코드 '+v+' 이미 있음','error'); renderC(); return; } s.cc=v; setDirty(true); sortAll(); renderC(); },
+        function(v){ s.name=String(v).trim(); setDirty(true); renderC(); }, function(v){ s.kor=String(v).trim(); setDirty(true); }); }); }
 
   /* ── 추가 ── */
   function nextNum(arr,key,start,width){ var used={}; arr.forEach(function(x){ used[String(parseInt(x[key],10))]=1; }); var n=start; while(used[String(n)]) n++; return width?pad2(n):String(n); }
-  $('btnAddA').onclick=function(){ ask('대분류 추가','이름 (번호는 비어 있는 다음 번호 '+nextNum(D.bigs,'a',1)+' — 저장 전 수정 가능)',true,'').then(function(v){ if(v==null) return; v=String(v).trim(); if(!v) return; D.bigs.push({ a:nextNum(D.bigs,'a',1), name:v, mids:[] }); sortAll(); selA=D.bigs.findIndex(function(x){ return x.name===v; }); selB=-1; setDirty(true); render(); }); };
-  $('btnAddB').onclick=function(){ var b=D.bigs[selA]; if(!b) return; ask('중분류 추가 — '+b.a+' '+b.name,'이름 (코드는 비어 있는 다음 번호 '+nextNum(b.mids,'bb',10,true)+' — 수정 가능). 「전체 00」 소분류가 함께 만들어집니다.',true,'').then(function(v){ if(v==null) return; v=String(v).trim(); if(!v) return; var m={ bb:nextNum(b.mids,'bb',10,true), name:v, subs:[{cc:'00',name:'전체'}] }; b.mids.push(m); sortAll(); selB=b.mids.indexOf(m); setDirty(true); render(); }); };
-  $('btnAddC').onclick=function(){ var b=D.bigs[selA], m=b&&b.mids[selB]; if(!m) return; ask('소분류 추가 — '+b.a+'-'+m.bb+' '+m.name,'이름 (코드는 비어 있는 다음 번호 '+nextNum(m.subs,'cc',1,true)+' — 수정 가능)',true,'').then(function(v){ if(v==null) return; v=String(v).trim(); if(!v) return; m.subs.push({ cc:nextNum(m.subs,'cc',1,true), name:v }); sortAll(); setDirty(true); render(); }); };
+  $('btnAddA').onclick=function(){ ask('대분류 추가','이름 (번호는 비어 있는 다음 번호 '+nextNum(D.bigs,'a',1)+' — 저장 전 수정 가능)',true,'').then(function(v){ if(v==null) return; v=String(v).trim(); if(!v) return; D.bigs.push({ a:nextNum(D.bigs,'a',1), name:v, kor:'', mids:[] }); sortAll(); selA=D.bigs.findIndex(function(x){ return x.name===v; }); selB=-1; setDirty(true); render(); }); };
+  $('btnAddB').onclick=function(){ var b=D.bigs[selA]; if(!b) return; ask('중분류 추가 — '+b.a+' '+b.name,'이름 (코드는 비어 있는 다음 번호 '+nextNum(b.mids,'bb',10,true)+' — 수정 가능). 「전체 00」 소분류가 함께 만들어집니다.',true,'').then(function(v){ if(v==null) return; v=String(v).trim(); if(!v) return; var m={ bb:nextNum(b.mids,'bb',10,true), name:v, kor:'', subs:[{cc:'00',name:'전체',kor:''}] }; b.mids.push(m); sortAll(); selB=b.mids.indexOf(m); setDirty(true); render(); }); };
+  $('btnAddC').onclick=function(){ var b=D.bigs[selA], m=b&&b.mids[selB]; if(!m) return; ask('소분류 추가 — '+b.a+'-'+m.bb+' '+m.name,'이름 (코드는 비어 있는 다음 번호 '+nextNum(m.subs,'cc',1,true)+' — 수정 가능)',true,'').then(function(v){ if(v==null) return; v=String(v).trim(); if(!v) return; m.subs.push({ cc:nextNum(m.subs,'cc',1,true), name:v, kor:'' }); sortAll(); setDirty(true); render(); }); };
 
   /* ── 엑셀 ── */
   function parseWorkbook(wb){ var ws=wb.Sheets[wb.SheetNames[0]]; var rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:''}).map(function(r){ return r.map(function(v){ return String(v==null?'':v).trim(); }); });
@@ -243,10 +254,10 @@ window.__CC_SEED={"bigs":[{"a":"1","name":"GROCERY","mids":[{"bb":"10","name":"K
     var head=rows[0].map(nameKey);
     /* 형식 ② 평면: A | 대분류 | BB | 중분류 | CC | 소분류 (내보내기 형식) */
     var iA=head.indexOf('A'), iBB=head.indexOf('BB'), iCC=head.indexOf('CC');
-    if(iA>=0&&iBB>=0&&iCC>=0){ var iAN=head.indexOf('대분류'), iBN=head.indexOf('중분류'), iCN=head.indexOf('소분류'); var bigs=[], byA={};
-      rows.slice(1).forEach(function(r){ var a=String(r[iA]||'').replace(/[^0-9]/g,''); if(!a) return; var b=byA[a]; if(!b){ b={a:a,name:iAN>=0?r[iAN]:'',mids:[]}; byA[a]=b; bigs.push(b); } if(iAN>=0&&r[iAN]&&!b.name) b.name=r[iAN];
-        var bb=r[iBB]; if(bb==='') return; bb=pad2(bb); var m=null; for(var i=0;i<b.mids.length;i++){ if(b.mids[i].bb===bb){ m=b.mids[i]; break; } } if(!m){ m={bb:bb,name:iBN>=0?r[iBN]:'',subs:[]}; b.mids.push(m); } if(iBN>=0&&r[iBN]&&!m.name) m.name=r[iBN];
-        var cc=r[iCC]; if(cc==='') return; cc=pad2(cc); if(m.subs.some(function(s){ return s.cc===cc; })) return; m.subs.push({cc:cc,name:iCN>=0?r[iCN]:''}); });
+    if(iA>=0&&iBB>=0&&iCC>=0){ var iAN=head.indexOf('대분류'), iBN=head.indexOf('중분류'), iCN=head.indexOf('소분류'), iAK=head.indexOf('대분류(한글)'), iBK=head.indexOf('중분류(한글)'), iCK=head.indexOf('소분류(한글)'); var bigs=[], byA={};
+      rows.slice(1).forEach(function(r){ var a=String(r[iA]||'').replace(/[^0-9]/g,''); if(!a) return; var b=byA[a]; if(!b){ b={a:a,name:iAN>=0?r[iAN]:'',kor:iAK>=0?r[iAK]:'',mids:[]}; byA[a]=b; bigs.push(b); } if(iAN>=0&&r[iAN]&&!b.name) b.name=r[iAN]; if(iAK>=0&&r[iAK]&&!b.kor) b.kor=r[iAK];
+        var bb=r[iBB]; if(bb==='') return; bb=pad2(bb); var m=null; for(var i=0;i<b.mids.length;i++){ if(b.mids[i].bb===bb){ m=b.mids[i]; break; } } if(!m){ m={bb:bb,name:iBN>=0?r[iBN]:'',kor:iBK>=0?r[iBK]:'',subs:[]}; b.mids.push(m); } if(iBN>=0&&r[iBN]&&!m.name) m.name=r[iBN]; if(iBK>=0&&r[iBK]&&!m.kor) m.kor=r[iBK];
+        var cc=r[iCC]; if(cc==='') return; cc=pad2(cc); if(m.subs.some(function(s){ return s.cc===cc; })) return; m.subs.push({cc:cc,name:iCN>=0?r[iCN]:'',kor:iCK>=0?r[iCK]:''}); });
       return {bigs:bigs}; }
     /* 형식 ① ITEM_CATEGORY.xlsx 원본: '대분류' 블록(번호·이름) → '중분류' 블록("N - 이름" 줄 아래 번호·이름·코드 + E열부터 (소분류명, 코드) 3열 간격, 이어지는 줄은 A열 비움) */
     var mode='big', bigs2=[], byA2={}, curBig=null, curMid=null;
@@ -266,8 +277,8 @@ window.__CC_SEED={"bigs":[{"a":"1","name":"GROCERY","mids":[{"bb":"10","name":"K
         ask('엑셀 불러오기','"'+f.name+'" — 대분류 '+o.bigs.length+' · 중분류 '+n+' · 소분류 '+c+'\n\n현재 화면의 코드 전체를 이 파일 내용으로 바꿉니다 (CLOUD 는 「CLOUD 저장」을 눌러야 기록). 진행할까요?').then(function(ok){ if(!ok) return; D.bigs=o.bigs; sortAll(); selA=-1; selB=-1; setDirty(true); render(); toast('불러옴 — 저장을 누르세요','success'); }); }
       catch(e){ ask('불러오기 실패',String(e&&e.message||e),false); } };
     rd.readAsArrayBuffer(f); };
-  $('btnExport').onclick=function(){ var aoa=[['A','대분류','BB','중분류','CC','소분류','CODE']]; D.bigs.forEach(function(b){ if(!b.mids.length) aoa.push([b.a,b.name,'','','','','']); b.mids.forEach(function(m){ if(!m.subs.length) aoa.push([b.a,b.name,m.bb,m.name,'','','']); m.subs.forEach(function(s){ aoa.push([b.a,b.name,m.bb,m.name,s.cc,s.name,code(b.a,m.bb,s.cc)]); }); }); });
-    var ws=XLSX.utils.aoa_to_sheet(aoa); ws['!cols']=[{wch:4},{wch:14},{wch:5},{wch:22},{wch:5},{wch:22},{wch:10}]; var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'CATEGORY CODE'); XLSX.writeFile(wb,'CATEGORY_CODE_'+new Date().toISOString().slice(0,10)+'.xlsx'); };
+  $('btnExport').onclick=function(){ var aoa=[['A','대분류','대분류(한글)','BB','중분류','중분류(한글)','CC','소분류','소분류(한글)','CODE']]; D.bigs.forEach(function(b){ if(!b.mids.length) aoa.push([b.a,b.name,b.kor,'','','','','','','']); b.mids.forEach(function(m){ if(!m.subs.length) aoa.push([b.a,b.name,b.kor,m.bb,m.name,m.kor,'','','','']); m.subs.forEach(function(s){ aoa.push([b.a,b.name,b.kor,m.bb,m.name,m.kor,s.cc,s.name,s.kor,code(b.a,m.bb,s.cc)]); }); }); });
+    var ws=XLSX.utils.aoa_to_sheet(aoa); ws['!cols']=[{wch:4},{wch:14},{wch:12},{wch:5},{wch:22},{wch:14},{wch:5},{wch:22},{wch:14},{wch:10}]; var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'CATEGORY CODE'); XLSX.writeFile(wb,'CATEGORY_CODE_'+new Date().toISOString().slice(0,10)+'.xlsx'); };
 
   /* ── 기타 ── */
   $('q').oninput=function(){ q=nameKey(this.value); render(); };
@@ -276,12 +287,12 @@ window.__CC_SEED={"bigs":[{"a":"1","name":"GROCERY","mids":[{"bb":"10","name":"K
   window.addEventListener('beforeunload',function(e){ if(dirty){ e.preventDefault(); e.returnValue=''; } });
   $('guideText').textContent=[
     '1. 코드 형태는 A-BB-CC 입니다. A = 대분류 번호(1 GROCERY · 2 ALCOHOL · 3 ETC · 4 PRODUCE · 5 FISH · 6 MEAT · 7 DELI · 8 HOUSEWARE …), BB = 중분류 코드(KOREA FOOD · JAPAN FOOD · BEER …), CC = 소분류 코드(RICE · NOODLE · CHIP …). 00 은 「전체」입니다.',
-    '2. 각 단계에서 ＋ 추가 / 칸을 눌러 번호·이름 수정 / ✕ 삭제. 번호·코드는 같은 단계 안에서 겹칠 수 없습니다. 변경은 「CLOUD 저장」을 눌러야 기록됩니다.',
+    '2. 각 단계에서 ＋ 추가 / ✎ 로 번호·영문·한글 이름 수정(Enter 또는 ✓ 로 끝) / ✕ 삭제. 대분류·중분류는 줄을 클릭해 선택합니다. 검색은 영문·한글·코드 모두 됩니다. 번호·코드는 같은 단계 안에서 겹칠 수 없습니다. 변경은 「CLOUD 저장」을 눌러야 기록됩니다.',
     '3. PLU · UPC MANAGER 자동 생성: 상품의 CATEGORY ENG 값이 등록된 소분류 이름과 같고, 그 이름이 전체 소분류 중 하나뿐이면 연결 필드(기본 CATEGORY NO)에 A-BB-CC 가 자동으로 들어갑니다. (소분류 목록의 「자동」 표시)',
     '4. 같은 이름이 여러 중분류에 있으면(예: RICE · ETC — 「중복명」 표시) 상품의 연결 필드 셀을 눌러 대분류 › 중분류 › 소분류 드롭다운에서 직접 고릅니다. 고르면 CATEGORY ENG 도 그 소분류 이름으로 맞춰집니다.',
     '5. 등록되지 않은 이름(오타, 예: RIEC)을 CATEGORY ENG 에 넣으면 가장 비슷한 소분류 이름(RICE)으로 고칠지 물어봅니다. 엑셀 불러오기 뒤에는 맞지 않은 이름 목록을 한 번에 보여줍니다.',
     '6. 연결 필드는 리스트(PLU LIST · UPC LIST)별로 바꿀 수 있습니다. 감지(매칭)에 쓰는 값은 CATEGORY ENG 로 고정입니다.',
-    '7. 엑셀 불러오기는 ITEM_CATEGORY.xlsx 원본 형식과, 「엑셀 내보내기」 평면 형식(A · 대분류 · BB · 중분류 · CC · 소분류) 둘 다 읽습니다. 불러오면 화면의 코드 전체가 파일 내용으로 바뀝니다.',
+    '7. 엑셀 불러오기는 ITEM_CATEGORY.xlsx 원본 형식과, 「엑셀 내보내기」 평면 형식(A · 대분류 · 대분류(한글) · BB · 중분류 · 중분류(한글) · CC · 소분류 · 소분류(한글)) 둘 다 읽습니다. 불러오면 화면의 코드 전체가 파일 내용으로 바뀝니다.',
     '8. 삭제해도 상품에 이미 기록된 코드 값은 지워지지 않습니다.'
   ].join('\n');
   $('btnGuide').onclick=function(){ $('guideBg').classList.add('show'); }; $('guideX').onclick=function(){ $('guideBg').classList.remove('show'); };
