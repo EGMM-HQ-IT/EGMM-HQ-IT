@@ -181,7 +181,7 @@
   }
   /* ── CATEGORY CODE (CATEGORY/_CODE) — 하위 번호 자동 연결 ── */
   var ccode=null, ccIdx=null; /* ccIdx: byName(대문자 이름 → [항목]) · list */
-  function loadCode(){ return F.getDoc(F.doc(db,'CATEGORY','_CODE')).then(function(sn){ var d=(sn.exists()&&sn.data())?sn.data():null; if(!d){ ccode=null; ccIdx=null; return; } var o=d; if(d.fmt==='GZ'&&d.d){ o=JSON.parse(ungz(String(d.d))); } ccode=o; ccIdx=null; }).catch(function(){ ccode=null; ccIdx=null; }); }
+  function loadCode(){ var dl=$('ccList'); if(dl) dl.remove(); return F.getDoc(F.doc(db,'CATEGORY','_CODE')).then(function(sn){ var d=(sn.exists()&&sn.data())?sn.data():null; if(!d){ ccode=null; ccIdx=null; return; } var o=d; if(d.fmt==='GZ'&&d.d){ o=JSON.parse(ungz(String(d.d))); } ccode=o; ccIdx=null; }).catch(function(){ ccode=null; ccIdx=null; }); }
   function pad2(v){ v=String(v==null?'':v).replace(/[^0-9]/g,''); return v.length>=2?v:('00'+v).slice(-2); }
   function ccIndex(){ if(ccIdx) return ccIdx; var byName={}, list=[]; ((ccode&&ccode.bigs)||[]).forEach(function(b){ (b.mids||[]).forEach(function(m){ (m.subs||[]).forEach(function(sb){ var e={ code:String(b.a)+'-'+pad2(m.bb)+'-'+pad2(sb.cc), name:String(sb.name||'').trim(), kor:String(sb.kor||'').trim(), big:String(b.name||''), mid:String(m.name||'') }; var k=normKey(e.name), kk=normKey(e.kor); if(k) (byName[k]=byName[k]||[]).push(e); if(kk&&kk!==k) (byName[kk]=byName[kk]||[]).push(e); list.push(e); }); }); }); ccIdx={byName:byName,list:list}; return ccIdx; }
   function isCodeForm(v){ return /^\d+-\d{2}-\d{2}$/.test(String(v==null?'':v).trim()); }
@@ -306,11 +306,11 @@
   function deleteBig(big){ if(!needPack()) return; var b=metaTree(curSrc).filter(function(x){ return x.name===big; })[0]; var n=b?(b.subs||[]).reduce(function(a,s){ return a+(s.count||0); },0):0; if(n>0){ toast('상품이 '+n+'건 있어 삭제할 수 없습니다 — 먼저 상품을 옮기거나 삭제하세요','error'); return; }
     ask('상위 카테고리 삭제','"'+big+'" 을 삭제할까요? (상품 0건)').then(function(ok){ if(!ok) return; applyListChange('상위 삭제 — '+big,function(st,meta){ var t=st.tabs.filter(function(x){ return x.label===big; })[0]; if(!t) throw new Error('상위 없음'); var dels=(t.subs||[]).map(function(sb){ return [big,sb]; }); st.tabs=st.tabs.filter(function(x){ return x.label!==big; }); delete st.data[big]; if(st.tabs.length===0) throw new Error('마지막 상위 카테고리는 삭제할 수 없습니다'); return {delPacks:dels}; }); }); }
   function moveBig(i,d){ if(!needPack()) return; applyListChange('상위 순서 변경',function(st){ var j=i+d; if(j<0||j>=st.tabs.length) throw new Error('이동 불가'); var t=st.tabs[i]; st.tabs[i]=st.tabs[j]; st.tabs[j]=t; return {}; }); }
-  function addMid(big){ if(!needPack()) return; ask('중간 카테고리 추가','"'+big+'" 아래 새 중간 카테고리 이름'+(curSrc==='UPC'?' (= VENDER 값)':''),true,'').then(function(name){ if(name==null) return; name=String(name).trim(); if(!name) return;
+  function addMid(big){ if(!needPack()) return; ask('중간 카테고리 추가','"'+big+'" 아래 새 중간 카테고리 이름',true,'').then(function(name){ if(name==null) return; name=String(name).trim(); if(!name) return;
     applyListChange('중간 추가 — '+big+' / '+name,function(st){ var t=st.tabs.filter(function(x){ return x.label===big; })[0]; if(!t) throw new Error('상위 없음'); if(t.subs.some(function(s){ return normKey(s)===normKey(name); })) throw new Error('이미 있는 이름'); t.subs.push(name); if(!st.data[big]) st.data[big]={}; st.data[big][name]=[]; return {newPacks:[[big,name,[]]]}; }); }); }
-  function renameMid(big,mid){ if(!needPack()) return; ask('중간 카테고리 이름 변경','"'+big+' / '+mid+'" 의 새 이름'+(curSrc==='UPC'?'\n(UPC: 이 업체 상품의 VENDER 값도 새 이름으로 바뀜)':''),true,mid).then(function(name){ if(name==null) return; name=String(name).trim(); if(!name||name===mid) return;
+  function renameMid(big,mid){ if(!needPack()) return; ask('중간 카테고리 이름 변경','"'+big+' / '+mid+'" 의 새 이름\n(상품 행의 CATEGORY_SUB 값도 새 이름으로 바뀜)',true,mid).then(function(name){ if(name==null) return; name=String(name).trim(); if(!name||name===mid) return;
     applyListChange('중간 이름 변경 — '+big+' / '+mid+' → '+name,function(st){ var t=st.tabs.filter(function(x){ return x.label===big; })[0]; if(!t) throw new Error('상위 없음'); if(t.subs.some(function(s){ return normKey(s)===normKey(name); })) throw new Error('이미 있는 이름'); var si=t.subs.indexOf(mid); if(si<0) throw new Error('중간 없음'); t.subs[si]=name; st.data[big]=st.data[big]||{}; st.data[big][name]=st.data[big][mid]||[]; delete st.data[big][mid]; if(st.deptSubMap&&st.deptSubMap[big]&&st.deptSubMap[big][mid]!=null){ st.deptSubMap[big][name]=st.deptSubMap[big][mid]; delete st.deptSubMap[big][mid]; }
-      var mv=[{oldBig:big,oldMid:mid,newBig:big,newMid:name,setVender:(curSrc==='UPC')}]; renameTreeKeys(mv); return {moves:mv}; }); }); }
+      var mv=[{oldBig:big,oldMid:mid,newBig:big,newMid:name}]; /* [2026-10-09] VENDER 는 별개 필드 — 바꾸지 않음 (행의 CATEGORY_SUB 만) */ renameTreeKeys(mv); return {moves:mv}; }); }); }
   function deleteMid(big,mid){ if(!needPack()) return; var b=metaTree(curSrc).filter(function(x){ return x.name===big; })[0]; var s=b&&(b.subs||[]).filter(function(x){ return x.name===mid; })[0]; if(s&&s.count>0){ toast('상품이 '+s.count+'건 있어 삭제할 수 없습니다','error'); return; }
     ask('중간 카테고리 삭제','"'+big+' / '+mid+'" 을 삭제할까요? (상품 0건)').then(function(ok){ if(!ok) return; applyListChange('중간 삭제 — '+big+' / '+mid,function(st){ var t=st.tabs.filter(function(x){ return x.label===big; })[0]; if(!t) throw new Error('상위 없음'); if(t.subs.length<=1) throw new Error('마지막 중간 카테고리는 삭제할 수 없습니다'); t.subs=t.subs.filter(function(x){ return x!==mid; }); if(st.data[big]) delete st.data[big][mid]; return {delPacks:[[big,mid]]}; }); }); }
   function moveMid(big,i,d){ if(!needPack()) return; applyListChange('중간 순서 변경',function(st){ var t=st.tabs.filter(function(x){ return x.label===big; })[0]; if(!t) throw new Error('상위 없음'); var j=i+d; if(j<0||j>=t.subs.length) throw new Error('이동 불가'); var x=t.subs[i]; t.subs[i]=t.subs[j]; t.subs[j]=x; return {}; }); }
@@ -323,10 +323,11 @@
     return F.getDoc(F.doc(db,root,'_META')).then(function(ms){ meta=(ms.exists()&&ms.data())?ms.data():null; if(!meta) throw new Error('_META 없음'); log('1) 설정 읽기…'); return readConfig(root,meta); })
     .then(function(cfg){ st=cfg; st.tabs=st.tabs||[]; st.data=st.data||{}; res=mutate(st,meta)||{}; log('2) 구조 변경 적용');
       var jobs=[];
-      /* 이동/이름변경: 묶음 읽어서 새 경로로 (UPC: VENDER 값 교체) */
+      /* 이동/이름변경: 묶음 읽어서 새 경로로 — [2026-10-09] 행의 CATEGORY_MAIN / CATEGORY_SUB 를 새 이름으로 (상위 = MAIN · 중간 = SUB 규칙) */
       (res.moves||[]).forEach(function(m){ var ob=idFor(m.oldBig,meta.names), om=idFor(m.oldMid,meta.names), nb=idFor(m.newBig,meta.names), nm=idFor(m.newMid,meta.names);
-        if(ob===nb&&om===nm&&!m.setVender) return;
-        jobs.push(window.EgmmFB.packReadSub(F,db,root,ob,om).then(function(rows){ rows=rows||[]; if(m.setVender){ rows.forEach(function(r){ if(r&&r.v){ r.v.VENDER_VENDER=m.newMid; r.m=savedAt.slice(0,16)+':00.000Z'; } }); }
+        var __ren=(m.oldBig!==m.newBig||m.oldMid!==m.newMid);
+        if(ob===nb&&om===nm&&!__ren) return;
+        jobs.push(window.EgmmFB.packReadSub(F,db,root,ob,om).then(function(rows){ rows=rows||[]; if(__ren){ rows.forEach(function(r){ if(r&&r.v){ r.v.CATEGORY_MAIN=m.newBig; r.v.CATEGORY_SUB=m.newMid; r.m=savedAt.slice(0,16)+':00.000Z'; if(r.sv){ for(var s2 in r.sv){ if(r.sv[s2]){ delete r.sv[s2].CATEGORY_MAIN; delete r.sv[s2].CATEGORY_SUB; } } } } }); }
           return { write:[nb,nm,rows], del:(ob!==nb||om!==nm)?[ob,om]:null }; })); });
       (res.newPacks||[]).forEach(function(p){ jobs.push(Promise.resolve({ write:[idFor(p[0],meta.names),idFor(p[1],meta.names),p[2]||[]] })); });
       (res.delPacks||[]).forEach(function(p){ jobs.push(Promise.resolve({ del:[idFor(p[0],meta.names),idFor(p[1],meta.names)] })); });
@@ -369,12 +370,12 @@
 
   /* ── 가이드 ── */
   $('guideText').textContent=[
-    '1. 카테고리는 상위(대분류) → 중간(소분류 · UPC 는 업체/VENDER) → 하위(NO · KOR · ENG) 3단계입니다.',
+    '1. 카테고리는 상위(대분류) → 중간(소분류) → 하위(NO · KOR · ENG) 3단계입니다. 상품 행의 CATEGORY_MAIN / CATEGORY_SUB 가 상위/중간 이름이며 여기서만 바꿀 수 있습니다 (UPC 의 VENDER 는 별개 필드).',
     '2. 하위 카테고리는 상품 행의 CATEGORY NO · KOR · ENG 값 그 자체이고, PLU LIST 와 UPC LIST 가 하나의 트리(CATEGORY/_TREE)를 공유합니다.',
     '3. 하위를 추가·수정하고 「트리 저장」을 누르면 PLU/UPC MANAGER 에 바로 반영됩니다: CATEGORY NO 셀이 그 중간 카테고리의 하위 목록 드롭다운이 되고, 번호를 고르면 KOR · ENG 가 자동으로 채워집니다. 엑셀 불러오기도 NO 만 있으면 KOR · ENG 를 채웁니다.',
     '4. 하위 번호(NO)를 바꾸면 변경 기록이 남아, 매니저가 그 번호를 가진 상품 행의 NO 를 새 번호로 바꿉니다. KOR · ENG 이름을 바꾸면 그 번호의 상품 행 값도 맞춰집니다.',
     '5. 하위 삭제는 트리에서만 지워지고 상품 행의 값은 남습니다. "상품에는 있으나 트리에 없는 번호" 버튼으로 기존 값을 트리에 바로 등록할 수 있습니다.',
-    '6. 상위 · 중간 추가/이름 변경/순서/삭제는 해당 리스트의 CLOUD 에 바로 기록됩니다 (압축 묶음 방식일 때만). 상품이 있는 카테고리는 삭제할 수 없습니다. UPC 에서 중간 이름을 바꾸면 그 업체 상품의 VENDER 값도 새 이름으로 바뀝니다.',
+    '6. 상위 · 중간 추가/이름 변경/순서/삭제는 해당 리스트의 CLOUD 에 바로 기록됩니다 (압축 묶음 방식일 때만). 상품이 있는 카테고리는 삭제할 수 없습니다. 상위/중간 이름을 바꾸면 그 안 상품 행의 CATEGORY_MAIN / CATEGORY_SUB 값도 새 이름으로 바뀝니다.',
     '7. 상품 건수는 압축 묶음에서 읽습니다. 행 문서 방식이면 건수가 표시되지 않습니다 (읽기 비용 절약).',
     '8. DEPARTMENT: 상위·중간 카테고리 옆 DEPT 칸에 번호를 넣고 「DEPARTMENT 저장」. 엑셀 불러오기에서 DEPARTMENT 열 값이 중간 번호와 같으면 그 상위+중간으로, 상위 번호와 같으면 그 상위로 들어갑니다 (청과 2 는 PLU 범위로 중간 자동 배치). PLU/UPC MANAGER 의 DEPARTMENT 설정 메뉴는 여기로 합쳐졌습니다.',
     '9. Firestore 규칙에 match /CATEGORY/{document=**} { allow read, write: if request.auth != null; } 가 있어야 트리를 저장할 수 있습니다.',

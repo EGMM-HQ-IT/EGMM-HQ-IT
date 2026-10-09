@@ -1493,6 +1493,7 @@ function saveUi(){
 var __lsIdle=false, __lsSyncOnly=false;
 function saveState(){
   if(!S) return;
+  if(!__fbMuting){ try{ catPosSync(S); }catch(e){} } /* [카테고리 필드 규칙] 사용자 쪽 저장(행 이동 뒤 포함)마다 위치 → MAIN/SUB. CLOUD 반영 중(__fbMuting)엔 기준선 뒤 catAfterPull 이 담당 */
   notifySaved();
   if(!__lsTimer) __lsTimer=setTimeout(__lsWriteNow,600);
   fbSyncTouch(); /* [MODULE 26] 수정 발생 → Firebase 자동 전송 예약 */
@@ -1795,7 +1796,7 @@ function migrate(st){
       if(!has.CATEGORY_MAIN) add.push({key:'CATEGORY_MAIN',label:'CATEGORY_MAIN',group:'CATEGORY',w:72,type:'text',fmt:'text',align:'',store:false,hidden:false});
       if(!has.CATEGORY_SUB) add.push({key:'CATEGORY_SUB',label:'CATEGORY_SUB',group:'CATEGORY',w:72,type:'text',fmt:'text',align:'',store:false,hidden:false});
       if(!add.length) return; var at=-1; for(var i=0;i<m.length;i++){ if(normKey(m[i].key)==='CATEGORY_ENGLISH'||(at<0&&normKey(m[i].group)==='CATEGORY')){ at=i; break; } }
-      if(at<0) at=m.length; Array.prototype.splice.apply(m,[at,0].concat(add)); st.layouts['델리']=m; st.dirtySinceSync=true; })(); }
+      if(at<0) at=m.length; Array.prototype.splice.apply(m,[at,0].concat(add)); st.layouts['델리']=m; st.dirtySinceSync=true; __cfgForce=true; })(); }
   unifyLayouts(st); unifyGColors(st); /* [공유 필드 셋팅] 매 로드마다 전 대분류를 하나의 레이아웃/색상으로 통일 */
   if(st.flags&&(st.flags.__posRecalc||st.flags.__posV3Recalc)){ /* [POS 이관] 전 카테고리 재계산 — 기존 POS 값 새 규칙으로 덮어쓰기 */
     delete st.flags.__posRecalc; delete st.flags.__posV3Recalc;
@@ -3325,7 +3326,7 @@ function startCellEdit(td,id,fs){
     var nv=inp.value;
     if(nv!==raw){ undoMarkRows('셀 수정 '+(f.label||f.key),rowBigOfRow(r),[r]); setCell(r,f,nv); refreshCalcCells(td,r,fs); histLog('edit',curBig(),curSub(),[r.id]);
       if(normKey(f.key)==='CATEGORY_NUMBER'&&!gsActive()){ var __ce2=catFind(curBig(),curSub(),nv); if(__ce2&&catApplyRow(curBig(),r,__ce2,true)){ saveState(); renderContent(); showToast('카테고리 '+nv+' — '+(__ce2.kor||'')+' / '+(__ce2.eng||'')+' 채움','success'); return true; } }
-      if(normKey(f.key)==='CATEGORY_KOREA'){ var __bk=catFindByName(rowBigOfRow(r),rowSubOfRow(r),nv); if(__bk&&catApplyEntry(rowBigOfRow(r),r,__bk)){ saveState(); renderContent(); showToast('하위 카테고리 "'+(__bk.kor||'')+'" — NO '+(__bk.no||'')+' / '+(__bk.eng||'')+' 채움','success'); return true; } }
+      if(normKey(f.key)==='CATEGORY_KOREA'){ var __bk=catFindByName(rowBigOfRow(r),rowSubOfRow(r),nv,getCell(r,catFields(rowBigOfRow(r)).no||f,'')); if(__bk&&catApplyEntry(rowBigOfRow(r),r,__bk)){ saveState(); renderContent(); showToast('하위 카테고리 "'+(__bk.kor||'')+'" — NO '+(__bk.no||'')+' / '+(__bk.eng||'')+' 채움','success'); return true; } }
       if(__catCode&&normKey(f.key)===normKey(ccDetectKey())){ if(ccAfterEngEdit(rowBigOfRow(r),r,td,fs)) return true; }
       saveState();
       /* [UPC] VENDER 수정 → 그 이름의 중간 카테고리로 이동 */
@@ -3706,10 +3707,10 @@ async function fbPurgeCorruptAndPush(){
     catch(e){ cfgBad=String((e&&e.message)||e); }
     log('설정 문서(_CONFIG) — '+(cfgBad?('손상: '+cfgBad+' → 이 화면 설정으로 다시 기록'):'정상'));
     for(var bi=0;bi<(meta.tree||[]).length;bi++){ var b=meta.tree[bi]; for(var si=0;si<(b.subs||[]).length;si++){ var sb=b.subs[si];
-      try{ var sn=await M.fs.getDoc(M.fs.doc(db,FB_ROOT,'_PACK',b.id,sb.id)); if(!sn.exists()){ continue; } var d0=sn.data()||{}, n=parseInt(d0.parts||1,10)||1, ps=[];
+      var d0=null, pds=null; try{ var sn=await M.fs.getDoc(M.fs.doc(db,FB_ROOT,'_PACK',b.id,sb.id)); if(!sn.exists()){ continue; } d0=sn.data()||{}; var n=parseInt(d0.parts||1,10)||1, ps=[];
         for(var p=2;p<=n;p++) ps.push(M.fs.getDoc(M.fs.doc(db,FB_ROOT,'_PACK',b.id,sb.id+'__P'+p)).then(function(x){ return x.exists()?x.data():null; }));
-        var pds=await Promise.all(ps); fbPackDecode(d0,pds); okN++; }
-      catch(e){ bad.push({b:b,sb:sb,d0:d0,pds:pds,err:String((e&&e.message)||e)}); } } }
+        pds=await Promise.all(ps); fbPackDecode(d0,pds); okN++; }
+      catch(e){ if(d0) bad.push({b:b,sb:sb,d0:d0,pds:pds||[],err:String((e&&e.message)||e)}); else log('  '+b.name+'/'+sb.name+' 읽기 실패: '+String((e&&e.message)||e)); } } }
     log('묶음 점검 — 정상 '+okN+'개 · 손상 '+bad.length+'개'+(bad.length?': '+bad.map(function(x){ return x.b.name+'/'+x.sb.name; }).join(', '):''));
     var localN=fbRowsTotal(S);
     if(!(await uiConfirm('손상 묶음 '+bad.length+'개를 삭제(원본 조각은 _PACKRAW 에 보존)하고, 이 화면의 상품 '+localN+'건 전체를 CLOUD 에 기록합니다.\n\n'+(bad.length?bad.map(function(x){ return '· '+x.b.name+'/'+x.sb.name+' — '+x.err; }).join('\n')+'\n\n':'')+'진행할까요?','깨진 묶음 삭제 후 전체 푸시'))){ log('취소됨'); fbRunDone(); return; }
@@ -3718,7 +3719,7 @@ async function fbPurgeCorruptAndPush(){
         batch.set(M.fs.doc(db,FB_ROOT,'_PACKRAW',x.b.id,x.sb.id),Object.assign({},x.d0||{},{rawAt:new Date().toISOString()})); n2++;
         (x.pds||[]).forEach(function(pd,i){ if(pd){ batch.set(M.fs.doc(db,FB_ROOT,'_PACKRAW',x.b.id,x.sb.id+'__P'+(i+2)),pd); n2++; } });
         batch.delete(M.fs.doc(db,FB_ROOT,'_PACK',x.b.id,x.sb.id)); n2++;
-        for(var q=2;q<=6;q++){ batch.delete(M.fs.doc(db,FB_ROOT,'_PACK',x.b.id,x.sb.id+'__P'+q)); n2++; }
+        var __np=Math.max(6,parseInt((x.d0&&x.d0.parts)||1,10)||1); for(var q=2;q<=__np;q++){ batch.delete(M.fs.doc(db,FB_ROOT,'_PACK',x.b.id,x.sb.id+'__P'+q)); n2++; }
         if(n2>=400){ await batch.commit(); batch=M.fs.writeBatch(db); n2=0; } }
       if(n2) await batch.commit();
       log('손상 묶음 '+bad.length+'개 삭제 완료 (원본 조각 _PACKRAW 보존)'); }
@@ -4858,6 +4859,7 @@ function openPartialUpdate(fname,aoa){
   $('puGo').onclick=function(){
     var tf=fieldByKey(big,$('puField').value);
     if(!tf){ showToast('필드를 선택하세요','error'); return; }
+    if(fieldLocked(tf)||catIsPosField(tf)){ showToast(catIsPosField(tf)?'CATEGORY_MAIN / CATEGORY_SUB 는 CATEGORY MANAGER 에서만 변경할 수 있습니다':'고정된 필드 — 필드편집에서 고정을 풀어야 넣을 수 있습니다','error'); return; }
     var pix=pluIndexFor(big);
     if(!pix.pf){ uiAlert('이 대분류에서 PLU 필드를 찾지 못했습니다'); return; }
     var stCtx=S.curStore, okN=0, miss=[];
@@ -5295,10 +5297,11 @@ function applyImport(opts){
         var mv=matchNorm(r.v?r.v[mF.key]:'');
         if(mv&&!index[mv]) index[mv]={sub:sb,row:r};
         if(mv){ (index['*'+mv]=index['*'+mv]||[]).push({sub:sb,row:r}); } /* [2026-10-08] 같은 UPC/PLU 행 전부 (겹치는 항목 모두 덮어쓰기) */
-        if(__icF0){ var __cc=normKey(getCell(r,__icF0,'')); if(__cc){ (index['#'+__cc]=index['#'+__cc]||[]).push({sub:sb,row:r}); (index['#'+__cc+'@'+sb]=index['#'+__cc+'@'+sb]||[]).push({sub:sb,row:r}); } } /* [2026-10-08] ITEM CODE 키 */
-        if(mv&&SUB_BY_VENDER&&!index[mv+'@'+sb]) index[mv+'@'+sb]={sub:sb,row:r}; /* [UPC] 업체별 매칭 키 */
-        if(mv&&SUB_BY_VENDER){ (index['*'+mv+'@'+sb]=index['*'+mv+'@'+sb]||[]).push({sub:sb,row:r}); } /* [UPC 기준만 업데이트] 업체+UPC 가 같은 행 전부 */
-        if(mv&&SUB_BY_VENDER&&__icF0){ var __ck0=mv+'@'+sb+'#'+normKey(getCell(r,__icF0,'')); if(!index[__ck0]) index[__ck0]={sub:sb,row:r}; } /* [UPC] 업체 + UPC + ITEM CODE 키 */
+        if(__icF0){ var __cc=normKey(getCell(r,__icF0,'')); if(__cc){ (index['#'+__cc]=index['#'+__cc]||[]).push({sub:sb,row:r}); } } /* [2026-10-08] ITEM CODE 키 */
+        var __vs=VSCOPE?normKey(getCell(r,__vfI,'')):''; /* [2026-10-09 · UPC] 업체 범위 = VENDER 필드 값 (중간 카테고리와 별개) */
+        if(mv&&VSCOPE&&__vs&&!index[mv+'@'+__vs]) index[mv+'@'+__vs]={sub:sb,row:r}; /* [UPC] 업체별 매칭 키 */
+        if(mv&&VSCOPE&&__vs){ (index['*'+mv+'@'+__vs]=index['*'+mv+'@'+__vs]||[]).push({sub:sb,row:r}); } /* [UPC 기준만 업데이트] 업체+UPC 가 같은 행 전부 */
+        if(__icF0&&VSCOPE&&__vs){ var __cc9=normKey(getCell(r,__icF0,'')); if(__cc9){ (index['#'+__cc9+'@'+__vs]=index['#'+__cc9+'@'+__vs]||[]).push({sub:sb,row:r}); } }
       });
     });
   }
@@ -5316,14 +5319,14 @@ function applyImport(opts){
   function ensureSub(bg,name){ var tt=tabOf(bg); if(!tt) return false; if(tt.subs.indexOf(name)<0){ tt.subs.push(name); } if(!S.data[bg]) S.data[bg]={}; if(!S.data[bg][name]) S.data[bg][name]=[]; return true; }
   /* [요구 2026-09 · UPC 모드] 업체 지정: 축약어 이름의 대분류가 없으면 생성 (소분류 = 축약어) */
   /* [확정 2026-09-30] 업체 지정: 대분류는 현재 카테고리 그대로, 중간 카테고리 = 축약어 (없으면 생성) · VENDER = 축약어 */
-  var venderBig=''; var __histIds={};
+  var venderBig=''; var __histIds={}; var VSCOPE=(APP_MODE==='UPC'), __vfI=fieldByKey(big,'VENDER_VENDER');
   if(opts.vender){ venderBig=String(opts.vender).toUpperCase(); if(SUB_BY_VENDER) ensureSub(big,venderBig); } /* [2026-10-09] 업체 지정 = VENDER 필드 값만 (중간 카테고리는 CATEGORY_SUB / 선택한 중간) */
   var idxByBig={}; idxByBig[big]=null; /* import 대분류 인덱스는 아래 index 재사용 */
   function getIdx(bg){
     if(bg===big) return index;
     if(idxByBig[bg]) return idxByBig[bg];
     var ix={}; var tt=tabOf(bg);
-    if(mF&&tt){ (tt.subs||[]).forEach(function(sb){ rowsFor(bg,sb).forEach(function(r){ var mv=matchNorm(r.v?r.v[mF.key]:''); if(mv&&!ix[mv]) ix[mv]={sub:sb,row:r}; if(mv){ (ix['*'+mv]=ix['*'+mv]||[]).push({sub:sb,row:r}); } if(__icF0){ var __cc1=normKey(getCell(r,__icF0,'')); if(__cc1){ (ix['#'+__cc1]=ix['#'+__cc1]||[]).push({sub:sb,row:r}); (ix['#'+__cc1+'@'+sb]=ix['#'+__cc1+'@'+sb]||[]).push({sub:sb,row:r}); } } if(mv&&SUB_BY_VENDER&&!ix[mv+'@'+sb]) ix[mv+'@'+sb]={sub:sb,row:r}; if(mv&&SUB_BY_VENDER){ (ix['*'+mv+'@'+sb]=ix['*'+mv+'@'+sb]||[]).push({sub:sb,row:r}); } if(mv&&SUB_BY_VENDER&&__icF0){ var __ck1=mv+'@'+sb+'#'+normKey(getCell(r,__icF0,'')); if(!ix[__ck1]) ix[__ck1]={sub:sb,row:r}; } }); }); }
+    if(mF&&tt){ (tt.subs||[]).forEach(function(sb){ rowsFor(bg,sb).forEach(function(r){ var mv=matchNorm(r.v?r.v[mF.key]:''); if(mv&&!ix[mv]) ix[mv]={sub:sb,row:r}; if(mv){ (ix['*'+mv]=ix['*'+mv]||[]).push({sub:sb,row:r}); } if(__icF0){ var __cc1=normKey(getCell(r,__icF0,'')); if(__cc1){ (ix['#'+__cc1]=ix['#'+__cc1]||[]).push({sub:sb,row:r}); } } if(mv&&SUB_BY_VENDER&&!ix[mv+'@'+sb]) ix[mv+'@'+sb]={sub:sb,row:r}; if(mv&&SUB_BY_VENDER){ (ix['*'+mv+'@'+sb]=ix['*'+mv+'@'+sb]||[]).push({sub:sb,row:r}); } if(mv&&SUB_BY_VENDER&&__icF0){ var __ck1=mv+'@'+sb+'#'+normKey(getCell(r,__icF0,'')); if(!ix[__ck1]) ix[__ck1]={sub:sb,row:r}; } }); }); }
     idxByBig[bg]=ix; return ix;
   }
 
@@ -5428,8 +5431,7 @@ function applyImport(opts){
       }
       /* [카테고리 필드 규칙 2026-10-09] 파일의 CATEGORY_MAIN 이 기존 상위 이름과 같으면 그 상위로 */
       var __fMain=String(vals.CATEGORY_MAIN==null?'':vals.CATEGORY_MAIN).trim(), __fSub=String(vals.CATEGORY_SUB==null?'':vals.CATEGORY_SUB).trim(), __fieldSub=false;
-      if(__fMain&&!tabOf(__fMain)){ /* [2026-10-09] 없는 상위 이름 → 새 상위 자동 생성 (중간은 파일의 CATEGORY_SUB 또는 '기본') */
-        var __nb={label:__fMain, doc:__fMain, subs:[]}; S.tabs.push(__nb); S.data[__fMain]={}; unifyLayouts(S); unifyGColors(S); stats.newBig=(stats.newBig||0)+1; }
+      var __mkBig=(__fMain&&!tabOf(__fMain))?__fMain:''; /* [2026-10-09] 없는 상위 이름 → 새 행일 때만 새 상위 생성 (기존 행 제자리 업데이트면 만들지 않음) */
       var __cmFlag=false, __csFlag=false; if(__fMain&&tabOf(__fMain)&&__fMain!==rowBig){ rowBig=__fMain; __deptSub=''; deptMatched=false; stats.bigs[rowBig]=1; __cmFlag=true; }
       var rowTab=tabOf(rowBig), rowSubs=(rowTab&&rowTab.subs)||[];
 
@@ -5443,14 +5445,14 @@ function applyImport(opts){
          행은 선택한 소분류로 들어가고, 카테고리 값은 필드리스트 위 칩으로 필터.
          (청과 PLU 범위 · DEPARTMENT 라우팅은 별개 확정 규칙으로 유지) */
       if(rowSubs.indexOf(dest)<0) dest=rowSubs[0];
-      if(!dest&&__fSub){ ensureSub(rowBig,__fSub); rowSubs=(tabOf(rowBig).subs)||rowSubs; dest=__fSub; stats.newSub=(stats.newSub||0)+1; } else if(!dest){ ensureSub(rowBig,'기본'); rowSubs=(tabOf(rowBig).subs)||rowSubs; dest='기본'; }
+      if(!dest){ ensureSub(rowBig,'기본'); rowSubs=(tabOf(rowBig).subs)||rowSubs; dest='기본'; }
       /* [2026-10-02] DEPARTMENT 번호가 중간 카테고리와 일치 → 그 중간 카테고리로 (UPC: VENDER 값도 그 이름으로, 파일에 VENDER 가 없을 때) */
       if(__deptSub){ ensureSub(rowBig,__deptSub); dest=__deptSub; rowSubs=(tabOf(rowBig).subs)||rowSubs; if(SUB_BY_VENDER&&!__fileVend) vals.VENDER_VENDER=__deptSub; }
 
       var rIdx=getIdx(rowBig);
       var hit=null, __hitAll=null;
       /* [확정 2026-10-01 · UPC] 같은 상품이 STI-WA 에도 JFC 에도 있어도 됨 — UPC 매칭은 목적지 업체(중간 카테고리) 안에서만. 다른 업체의 같은 UPC 행은 건드리지 않고 새 행으로 들어감 */
-      var __vendScope=(SUB_BY_VENDER&&!venderRow)?String(vals.VENDER_VENDER==null?'':vals.VENDER_VENDER).trim():venderRow;
+      var __vendScope=VSCOPE?normKey(venderRow||(vals.VENDER_VENDER==null?'':vals.VENDER_VENDER)):''; /* [UPC] 업체 범위 = 파일/지정 VENDER 값 — 같은 UPC 라도 업체가 다르면 다른 행 */
       /* [요구 2026-09 ①] PLU/UPC 값이 없는 행은 건너뜀 (기준 없이 새 행을 만들지 않음) */
       if(mF&&!matchNorm(vals[mF.key])){ stats.skipped=(stats.skipped||0)+1; continue; }
       /* [확정 2026-10-01 · UPC] 유일한 제외 규칙: UPC 숫자가 6자리 이하 */
@@ -5461,8 +5463,8 @@ function applyImport(opts){
         var __mv=matchNorm(vals[mF.key]), __cd=normKey(vals.VENDER_ITEM_CODE==null?'':vals.VENDER_ITEM_CODE), __seenH={};
         __hitAll=[];
         var __addHits=function(list){ (list||[]).forEach(function(h){ if(h&&h.row&&!__seenH[h.row.id]){ __seenH[h.row.id]=1; __hitAll.push(h); } }); };
-        if(__matchUpc){ __addHits((SUB_BY_VENDER&&__vendScope)?rIdx['*'+__mv+'@'+__vendScope]:rIdx['*'+__mv]); }
-        if(__matchCode&&__cd){ __addHits((SUB_BY_VENDER&&__vendScope)?rIdx['#'+__cd+'@'+__vendScope]:rIdx['#'+__cd]); }
+        if(__matchUpc){ __addHits((VSCOPE&&__vendScope)?rIdx['*'+__mv+'@'+__vendScope]:rIdx['*'+__mv]); }
+        if(__matchCode&&__cd){ __addHits((VSCOPE&&__vendScope)?rIdx['#'+__cd+'@'+__vendScope]:rIdx['#'+__cd]); }
         /* [2026-10-09 · PLU] 파일의 PLU 가 리스트 어디에든(다른 상위 포함) 이미 있으면 그 행을 제자리에서 파일 필드만 업데이트 — 새 행 추가·이동 없음 */
         if(APP_MODE!=='UPC'&&__matchUpc&&!__hitAll.length){ for(var __ti=0;__ti<S.tabs.length;__ti++){ var __ob=S.tabs[__ti].label; if(__ob===rowBig) continue; var __oi=getIdx(__ob); (__oi['*'+__mv]||[]).forEach(function(h){ if(h&&h.row&&!__seenH[h.row.id]){ __seenH[h.row.id]=1; __hitAll.push({sub:h.sub,row:h.row,big:__ob}); } }); } }
         hit=__hitAll[0]||null;
@@ -5477,8 +5479,7 @@ function applyImport(opts){
       }
 
       /* [카테고리 필드 규칙 2026-10-09] 파일의 CATEGORY_SUB 가 그 상위의 기존 중간 이름과 같으면 그 중간으로 (없는 이름은 무시) */
-      if(__fSub&&rowSubs.indexOf(__fSub)<0){ ensureSub(rowBig,__fSub); rowSubs=(tabOf(rowBig).subs)||rowSubs; stats.newSub=(stats.newSub||0)+1; } /* [2026-10-09] 없는 중간 이름 → 새 중간 자동 생성 */
-      else if(!__fSub&&!rowSubs.length){ ensureSub(rowBig,'기본'); rowSubs=(tabOf(rowBig).subs)||rowSubs; }
+      var __mkSub=(__fSub&&!__mkBig&&rowSubs.indexOf(__fSub)<0)?__fSub:''; /* 없는 중간 이름 → 새 행일 때만 생성 */
       if(__fSub&&rowSubs.indexOf(__fSub)>=0){ if(__fSub!==dest) __csFlag=true; dest=__fSub; __fieldSub=true; }
       /* [카테고리 필드 규칙] 하위 = KOR 이름 — 파일의 CATEGORY_KOR 이 그 중간의 하위와 같으면 NO(코드) · ENG 채움 */
       var __korV=(vals.CATEGORY_KOREA!=null)?String(vals.CATEGORY_KOREA).trim():''; /* 하위 = KOR 이름 → 행이 실제로 놓이는 중간의 하위 목록에서 찾아 NO(코드) · ENG (새 행: 목적지 · 기존 행: 제자리) */
@@ -5501,7 +5502,7 @@ function applyImport(opts){
           var __vv=vals[k]; var __sf=selSrcSelect(f); if(__sf) __vv=optResolve(__sf,__vv); /* [영구 규칙] 목록 값 정규화 */
           setCell(r0,f,__vv,rowStore); /* 모든 필드 매장별 저장 (기본은 자동 시드) — 수식 필드 값은 재계산이 확정 */
         }
-        if(__korV){ var __bk3=catFindByName(hb,ht.sub,__korV); if(__bk3) catApplyEntry(hb,r0,__bk3); } /* 기존 행: 그 행이 있는 중간의 하위 목록으로 KOR → NO · ENG */
+        if(__korV){ var __bk3=catFindByName(hb,ht.sub,__korV,(vals.CATEGORY_NUMBER!=null?vals.CATEGORY_NUMBER:getCell(r0,catFields(hb).no||mF,''))); if(__bk3) catApplyEntry(hb,r0,__bk3); } /* 기존 행: 그 행이 있는 중간의 하위 목록으로 KOR → NO · ENG */
         if(venderRow){ var __vf=fieldByKey(hb,'VENDER_VENDER'); if(__vf) setCell(r0,__vf,venderRow,''); } /* 업체 지정: VENDER 는 기본값으로 확정 */
         applyRowDefaults(hb,r0); /* [UPC 기본값] 비어 있는 LOCATION/USE 채움 */
         /* 매칭된 기존 행도 목적지 소분류로 이동 (UPC · 같은 상위 안에서만) */
@@ -5514,6 +5515,9 @@ function applyImport(opts){
         dest=dest0;
         });
       }else{
+        /* [2026-10-09] 새 행일 때만: 파일의 CATEGORY_MAIN / CATEGORY_SUB 가 없는 이름이면 지금 생성 */
+        if(__mkBig){ if(!tabOf(__mkBig)){ S.tabs.push({label:__mkBig, doc:__mkBig, subs:[]}); S.data[__mkBig]={}; unifyLayouts(S); unifyGColors(S); stats.newBig=(stats.newBig||0)+1; } rowBig=__mkBig; stats.bigs[rowBig]=1; __cmFlag=true; var __ns=__fSub||'기본'; if((tabOf(rowBig).subs||[]).indexOf(__ns)<0&&__fSub) stats.newSub=(stats.newSub||0)+1; ensureSub(rowBig,__ns); dest=__ns; }
+        else if(__mkSub){ ensureSub(rowBig,__mkSub); stats.newSub=(stats.newSub||0)+1; dest=__mkSub; __csFlag=true; }
         var nr={id:newId(),v:{},sv:{},m:rowStamp()};
         for(var k2 in vals){
           var f2=fieldByKey(rowBig,k2); if(!f2) continue; if(fieldLocked(f2)){ stats.locked=(stats.locked||0)+1; continue; } if(catIsPosField(f2)) continue;
@@ -5522,7 +5526,7 @@ function applyImport(opts){
         }
         if(venderRow){ var __vf2=fieldByKey(rowBig,'VENDER_VENDER'); if(__vf2) setCell(nr,__vf2,venderRow,''); }
         applyRowDefaults(rowBig,nr); /* [UPC 기본값] LOCATION 99 · USE 1 */
-        if(__korV){ var __bk4=catFindByName(rowBig,dest,__korV); if(__bk4) catApplyEntry(rowBig,nr,__bk4); } /* 새 행: 목적지 중간의 하위 목록 */
+        if(__korV){ var __bk4=catFindByName(rowBig,dest,__korV,vals.CATEGORY_NUMBER); if(__bk4) catApplyEntry(rowBig,nr,__bk4); } /* 새 행: 목적지 중간의 하위 목록 */
         rowsFor(rowBig,dest).push(nr); if(__cmFlag) stats.catMain=(stats.catMain||0)+1; if(__csFlag) stats.catSub=(stats.catSub||0)+1;
         if(mF&&vals[mF.key]!=null&&rIdx){ var mv2=matchNorm(vals[mF.key]); if(mv2&&!rIdx[mv2]) rIdx[mv2]={sub:dest,row:nr}; if(mv2){ (rIdx['*'+mv2]=rIdx['*'+mv2]||[]).push({sub:dest,row:nr}); } if(__icF0){ var __nc2=normKey(vals.VENDER_ITEM_CODE==null?'':vals.VENDER_ITEM_CODE); if(__nc2){ (rIdx['#'+__nc2]=rIdx['#'+__nc2]||[]).push({sub:dest,row:nr}); (rIdx['#'+__nc2+'@'+dest]=rIdx['#'+__nc2+'@'+dest]||[]).push({sub:dest,row:nr}); } } if(mv2&&SUB_BY_VENDER&&!rIdx[mv2+'@'+dest]) rIdx[mv2+'@'+dest]={sub:dest,row:nr}; if(mv2&&SUB_BY_VENDER){ (rIdx['*'+mv2+'@'+dest]=rIdx['*'+mv2+'@'+dest]||[]).push({sub:dest,row:nr}); } if(mv2&&SUB_BY_VENDER&&__icF0){ var __ck2=mv2+'@'+dest+'#'+normKey(vals.VENDER_ITEM_CODE==null?'':vals.VENDER_ITEM_CODE); if(!rIdx[__ck2]) rIdx[__ck2]={sub:dest,row:nr}; } }
         stats.add++; (__histIds[rowBig+'\u0000'+dest]=__histIds[rowBig+'\u0000'+dest]||[]).push(nr.id);
@@ -7903,7 +7907,7 @@ async function fbReadAll(conn){
   var st=null, got=0, mismatch=[];
   try{ st=fbConfigJoin(chunks,fmt); }
   catch(e){ /* [2026-10-08] _CONFIG(설정 문서) 손상(incorrect data check 등): 읽기를 중단하지 않고 이 컴퓨터의 설정(탭·필드·업체)으로 대체 → 다음 전송 때 _CONFIG 를 다시 기록 */
-    if(S&&S.tabs&&S.tabs.length){ st=JSON.parse(JSON.stringify(S)); st.data={}; __fbConfigCorrupt=true; mismatch.push('CONFIG(설정 문서) 손상 → 이 컴퓨터 설정으로 대체 ('+((e&&e.message)||e)+')'); }
+    if(S&&S.tabs&&S.tabs.length){ st=JSON.parse(JSON.stringify(S)); st.data={}; __fbConfigCorrupt=true; if(meta&&Array.isArray(meta.tree)&&meta.tree.length){ var __lt={}; (st.tabs||[]).forEach(function(t){ __lt[t.label]=t; }); st.tabs=meta.tree.map(function(b){ var o=__lt[b.name]||{label:b.name,doc:b.name,subs:[]}; o.subs=(b.subs||[]).map(function(x){ return x.name; }); return o; }); unifyLayouts(st); } /* 상위/중간 구조는 CLOUD 목차(_META.tree) 기준 — 이 컴퓨터에 없는 카테고리도 유지 */ mismatch.push('CONFIG(설정 문서) 손상 → 이 컴퓨터 설정으로 대체 ('+((e&&e.message)||e)+')'); }
     else throw new Error('CONFIG 해석 실패 — CLOUD 설정 문서가 손상됨 ('+((e&&e.message)||e)+') · 이 컴퓨터에 설정 사본이 없어 대체 불가'); }
   if(!st||typeof st!=='object') throw new Error('CONFIG 해석 실패 — CLOUD 설정 문서가 손상됨');
   if(!st.data||typeof st.data!=='object') st.data={}; /* [2026-10-08] CONFIG 에 data 틀이 없어도 읽기 중단 없음 */
@@ -8065,7 +8069,7 @@ async function fbDeltaApply(conn,meta){
   } finally { __fbMuting=false; }
   renderAll();
   __fbLast=fbDocsMap(fbBuildPlan(S));
-  try{ if(!__fbBooting) catAfterPull('CLOUD 변경분'); else __catAfterBoot=true; }catch(e){}
+  try{ if(!__fbBooting) catAfterPull('CLOUD 변경분'); }catch(e){}
   __fbState='ok'; renderSaveChip();
   return { got:got, del:dl.length, delta:true };
 }
@@ -8096,7 +8100,7 @@ function catReconcile(){
       if(!L.length&&!ren.length) return;
       rowsFor(big,sb).forEach(function(r){
         /* [카테고리 필드 규칙 2026-10-09] 하위 = KOR 이름 — KOR 이 트리의 하위와 같으면 NO(코드) · ENG 를 그 항목으로 */
-        var korV=F.kor?String(getCell(r,F.kor,'')||'').trim():''; var byK=korV?catFindByName(big,sb,korV):null;
+        var korV=F.kor?String(getCell(r,F.kor,'')||'').trim():''; var byK=korV?catFindByName(big,sb,korV,getCell(r,F.no,'')):null;
         if(byK){ if(catApplyEntry(big,r,byK)) n++; return; }
         var no=String(getCell(r,F.no,'')||'').trim(); if(!no) return;
         ren.forEach(function(e){ if(normKey(no)===normKey(e.no)){ setCell(r,F.no,String(e.newNo),''); no=String(e.newNo); n++; } });
@@ -8173,10 +8177,11 @@ function catFillNo(){ if(!S||!S.tabs) return 0; var n=0, hasCode=!!(__catCode&&c
   (S.tabs||[]).forEach(function(t){ var big=t.label, F=catFields(big); if(!F.no) return;
     (t.subs||[]).forEach(function(sb){ var L=catSubsOf(big,sb); rowsFor(big,sb).forEach(function(r){ var cur=String(getCell(r,F.no,'')||'').trim(); if(catIsCodeForm(cur)) return;
       var kor=F.kor?String(getCell(r,F.kor,'')||'').trim():'', eng=F.eng?String(getCell(r,F.eng,'')||'').trim():'';
-      var e=(L.length&&kor)?catFindByName(big,sb,kor):null; if(!e&&L.length&&eng) e=catFindByName(big,sb,eng);
+      var e=(L.length&&kor)?catFindByName(big,sb,kor,cur):null; if(!e&&L.length&&eng) e=catFindByName(big,sb,eng,cur);
       if(e&&catIsCodeForm(e.no)){ if(catApplyEntry(big,r,e)) n++; return; }
       if(!hasCode) return; var ix=ccIndex(), hits=(kor?ix.byName[normKey(kor)]:null)||[]; if(hits.length!==1&&eng) hits=ix.byName[normKey(eng)]||[];
-      if(hits.length===1&&hits[0].code!==cur){ setCell(r,F.no,hits[0].code,''); n++; } }); }); });
+      var fl=ccLinkField(big)||F.no, curL=String(getCell(r,fl,'')||'').trim(); if(fl!==F.no&&catIsCodeForm(curL)) return;
+      if(hits.length===1&&hits[0].code!==curL){ setCell(r,fl,hits[0].code,''); n++; } }); }); });
   return n; }
 function rowSubOfRow(r){ if(gsActive()&&r&&__gsMap[r.id]) return __gsMap[r.id].sub; return curSub(); }
 function catIsPosField(f){ var k=normKey(f&&f.key); return k===CAT_MAIN_KEY||k===CAT_SUB_KEY; }
@@ -8193,10 +8198,11 @@ function catPosCommit(f,r,nv){ var big=rowBigOfRow(r), sub=rowSubOfRow(r), k=nor
   if(!toSub||!catMoveRow(big,sub,r,toBig,toSub)) return '';
   histLog('edit',toBig,toSub,[r.id]); return toBig+' › '+toSub; }
 /* 하위 = KOR 이름: 그 중간의 하위 목록에서 KOR(또는 ENG) 이름으로 찾기 */
-function catFindByName(big,sub,name){ var k=normKey(name); if(!k) return null; var L=catSubsOf(big,sub); for(var i=0;i<L.length;i++){ if(normKey(L[i].kor)===k) return L[i]; } for(var j=0;j<L.length;j++){ if(normKey(L[j].eng)===k) return L[j]; } return null; }
+function catFindByName(big,sub,name,curNo){ var k=normKey(name); if(!k) return null; var L=catSubsOf(big,sub), hits=[]; for(var i=0;i<L.length;i++){ if(normKey(L[i].kor)===k) hits.push(L[i]); } if(!hits.length){ for(var j=0;j<L.length;j++){ if(normKey(L[j].eng)===k) hits.push(L[j]); } }
+  if(!hits.length) return null; if(hits.length===1) return hits[0]; var cn=normKey(curNo); for(var q=0;q<hits.length;q++){ if(cn&&normKey(hits[q].no)===cn) return hits[q]; } return null; /* 같은 이름이 여러 개(예: 기타) → 현재 NO 와 같은 항목만, 없으면 건드리지 않음 */ }
 /* 하위 항목 전체 적용 (NO · KOR · ENG) → 바뀐 값 있으면 true */
 function catApplyEntry(big,row,e){ var F=catFields(big); if(!e) return false; var ch=false;
-  if(F.no&&e.no!=null&&String(getCell(row,F.no,'')||'').trim()!==String(e.no||'').trim()){ setCell(row,F.no,String(e.no||''),''); ch=true; }
+  var __curNo=F.no?String(getCell(row,F.no,'')||'').trim():''; if(F.no&&e.no!=null&&__curNo!==String(e.no||'').trim()&&!(catIsCodeForm(__curNo)&&!catIsCodeForm(e.no))){ setCell(row,F.no,String(e.no||''),''); ch=true; } /* 코드(A-BB-CC)가 이미 있으면 번호형 트리 NO 로 되돌리지 않음 */
   if(F.kor&&e.kor!=null&&String(getCell(row,F.kor,'')||'').trim()!==String(e.kor||'').trim()){ setCell(row,F.kor,String(e.kor||''),''); ch=true; }
   if(F.eng&&e.eng!=null&&String(getCell(row,F.eng,'')||'').trim()!==String(e.eng||'').trim()){ setCell(row,F.eng,String(e.eng||''),''); ch=true; }
   return ch; }
@@ -8279,7 +8285,7 @@ async function fbPullApply(conn){
   __fbMuting=false;
   renderAll();
   __fbLast=(__kept>0&&__pre)?__pre:fbDocsMap(fbBuildPlan(S));
-  try{ if(!__fbBooting) catAfterPull('CLOUD 반영'); else __catAfterBoot=true; }catch(e){}
+  try{ if(!__fbBooting) catAfterPull('CLOUD 반영'); }catch(e){}
   if(__fbConfigCorrupt){ __fbConfigCorrupt=false; Object.keys(__fbLast).forEach(function(k){ if(k.indexOf(FB_ROOT+'/_CONFIG')===0) delete __fbLast[k]; }); fbLogSync('pull',0,'CLOUD 설정 문서(_CONFIG) 손상 — 이 컴퓨터 설정으로 다시 기록');
     __fbMuting=true; S.dirtySinceSync=true; S.dirtyAt=new Date().toISOString(); saveState(); __fbMuting=false; fbSyncQueue(800); }
   if(__fbCorruptPacks&&__fbCorruptPacks.length){ /* [확정 2026-10-08] 깨진 묶음은 복구본(CLOUD 복구행 + 이 컴퓨터·캐시·이전 문서 최신행)으로 다시 기록해 초기화 — 원본 조각은 _PACKRAW 에 보존 */
@@ -8348,9 +8354,10 @@ async function fbAutoStart(){
   __fbBooting=false; fbBootOverlay(false);
   renderSaveChip();
   try{ catReconcile(); }catch(e){}
-  try{ catAfterPull('시작'); }catch(e){} /* [카테고리 필드 규칙] 시작 때 위치 → MAIN/SUB · CATEGORY NO 자동 채움 (CLOUD 기준선 뒤 → 바뀐 행만 전송) */
+  try{ if(__fbState!=='err') catAfterPull('시작'); }catch(e){} /* [카테고리 필드 규칙] 시작 때 위치 → MAIN/SUB · CATEGORY NO 자동 채움 (CLOUD 기준선 뒤 → 바뀐 행만 전송 · 가져오기 실패 땐 안 함) */
+  if(__cfgForce){ __cfgForce=false; if(__fbLast&&__fbState!=='err'){ Object.keys(__fbLast).forEach(function(k){ if(k.indexOf(FB_ROOT+'/_CONFIG')===0) delete __fbLast[k]; }); __fbMuting=true; S.dirtySinceSync=true; saveState(); __fbMuting=false; fbSyncQueue(900); } } /* 필드 추가(1회 이관) 뒤 설정 문서도 전송 */
 }
-var __catAfterBoot=false;
+var __cfgForce=false;
 /* 저장 칩 연동 */
 function fbSyncChipInfo(){
   var st=__fbState;
