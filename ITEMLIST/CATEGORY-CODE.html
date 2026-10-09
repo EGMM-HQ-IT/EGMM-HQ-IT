@@ -193,9 +193,10 @@ window.__CC_SEED={"bigs":[{"a":"1","name":"GROCERY","mids":[{"bb":"10","name":"K
       return Promise.all(ps).then(function(ds){ if(ds.some(function(d){ return !d; })) return null; var fmt=ds[0].fmt||'JS', payload=ds.map(function(d){ return d.d||''; }).join(''); var st=JSON.parse(fmt==='GZ'?ungz(payload):payload);
         var L=(st&&st.layouts)||{}, m=L['델리']; if(!m||!m.length){ for(var k in L){ if(L[k]&&L[k].length){ m=L[k]; break; } } }
         return (m||[]).map(function(f){ return { key:String(f.key||''), label:String(f.label||f.key||''), group:String(f.group||'') }; }).filter(function(f){ return f.key; }); }); })
-      .then(function(fs){ listFields[root]=fs; renderLink(); }).catch(function(){ listFields[root]=null; renderLink(); });
+      .then(function(fs){ listFields[root]=(fs&&fs.length)?fs:null; if(!listFields[root]) toast(root+' 설정 문서(_CONFIG)를 읽지 못해 기본 필드 목록을 표시합니다','error'); renderLink(); }).catch(function(){ listFields[root]=null; toast(root+' 설정 문서(_CONFIG)를 읽지 못해 기본 필드 목록을 표시합니다','error'); renderLink(); });
   }
-  function renderLink(){ [['PLU-LIST','linkPlu','link','CATEGORY_NUMBER'],['UPC-LIST','linkUpc','link','CATEGORY_NUMBER'],['PLU-LIST','detPlu','detect','CATEGORY_ENGLISH'],['UPC-LIST','detUpc','detect','CATEGORY_ENGLISH']].forEach(function(p){ var root=p[0], sel=$(p[1]), bag=p[2], fs=listFields[root], cur=D[bag][root]||p[3], h='', seen=false;
+  var DEF_FIELDS=[{key:'CATEGORY_NUMBER',label:'CATEGORY NO',group:'CATEGORY'},{key:'CATEGORY_ENGLISH',label:'CATEGORY ENG',group:'CATEGORY'},{key:'CATEGORY_KOREA',label:'CATEGORY KOR',group:'CATEGORY'},{key:'CATEGORY_FLAVOR',label:'ORIGIN',group:'CATEGORY'},{key:'ITEM_DEPARTMENT',label:'DEPARTMENT',group:'ITEM'}]; /* 설정 문서를 읽지 못할 때의 기본 목록 */
+  function renderLink(){ [['PLU-LIST','linkPlu','link','CATEGORY_NUMBER'],['UPC-LIST','linkUpc','link','CATEGORY_NUMBER'],['PLU-LIST','detPlu','detect','CATEGORY_ENGLISH'],['UPC-LIST','detUpc','detect','CATEGORY_ENGLISH']].forEach(function(p){ var root=p[0], sel=$(p[1]), bag=p[2], fs=listFields[root]||DEF_FIELDS, cur=D[bag][root]||p[3], h='', seen=false;
       (fs||[]).forEach(function(f){ var on=f.key===cur; if(on) seen=true; h+='<option value="'+esc(f.key)+'"'+(on?' selected':'')+'>'+esc((f.group?f.group+' · ':'')+f.label)+'</option>'; });
       if(!seen) h='<option value="'+esc(cur)+'" selected>'+esc(cur)+(fs?' (리스트에 없는 필드)':'')+'</option>'+h;
       sel.innerHTML=h; sel.onchange=function(){ D[bag][root]=sel.value; setDirty(true); }; }); }

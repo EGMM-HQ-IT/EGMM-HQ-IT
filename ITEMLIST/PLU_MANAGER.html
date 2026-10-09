@@ -3267,7 +3267,7 @@ function startCellEdit(td,id,fs){
   var raw=String(getCell(r,f));
   td.classList.add('editing'); __editBegin();
   var __catL=(normKey(f.key)==='CATEGORY_NUMBER'&&!gsActive())?catSubsOf(curBig(),curSub()):[];
-  var __ccSel=(ccIsLinkField(f)&&!gsActive()&&ccIndex().list.length>0); if(__ccSel) __catL=[]; /* [CATEGORY CODE] 연결 필드 = 코드 드롭다운 (코드가 등록돼 있을 때 우선) */
+  var __ccSel=(ccIsLinkField(f)&&ccIndex().list.length>0); if(__ccSel) __catL=[]; /* 검색(전체 찾기) 중에도 동작 — 행의 대분류 기준 */ /* [CATEGORY CODE] 연결 필드 = 코드 드롭다운 (코드가 등록돼 있을 때 우선) */
   if(f.type==='select'||__catL.length||__ccSel){ /* 드롭다운(데이터 유효성) 필드 · [2026-10-02] CATEGORY_NO = 공유 트리의 하위 카테고리 목록 */
     var sh='<select class="plu-cell-input"><option value=""></option>';
     if(__ccSel){ sh+=ccSelectHtml(raw); }
@@ -3282,7 +3282,7 @@ function startCellEdit(td,id,fs){
       if(sdone) return; sdone=true; __editEnd();
       var nv=sel.value;
       if(nv!==raw){ undoMarkRows('셀 수정 '+(f.label||f.key),rowBigOfRow(r),[r]); setCell(r,f,nv); refreshCalcCells(td,r,fs); histLog('edit',curBig(),curSub(),[r.id]);
-        if(__ccSel){ var __cce=ccIndex().byCode[String(nv).trim()]; if(__cce){ ccApplyCode(curBig(),r,nv); saveState(); renderContent(); showToast('CATEGORY CODE '+__cce.code+' — '+__cce.name+(__cce.mid?' ('+__cce.big+' › '+__cce.mid+')':''),'success'); return; } }
+        if(__ccSel){ var __cce=ccIndex().byCode[String(nv).trim()]; if(__cce){ ccApplyCode(rowBigOfRow(r),r,nv); saveState(); renderContent(); showToast('CATEGORY CODE '+__cce.code+' — '+__cce.name+(__cce.mid?' ('+__cce.big+' › '+__cce.mid+')':''),'success'); return; } }
         if(__catL.length){ var __ce=catFind(curBig(),curSub(),nv); if(__ce&&catApplyRow(curBig(),r,__ce,true)){ saveState(); renderContent(); showToast('카테고리 '+nv+' — '+(__ce.kor||'')+' / '+(__ce.eng||'')+' 채움','success'); return; } }
         saveState();
         if(SUB_BY_VENDER&&normKey(f.key)==='VENDER_VENDER'&&!gsActive()){ if(syncSubsByVenderLive(curBig())){ saveState(); renderContent(); showToast('VENDER '+nv+' → "'+nv+'" 중간 카테고리로 이동됨','success'); return; } } }
@@ -3305,7 +3305,7 @@ function startCellEdit(td,id,fs){
     var nv=inp.value;
     if(nv!==raw){ undoMarkRows('셀 수정 '+(f.label||f.key),rowBigOfRow(r),[r]); setCell(r,f,nv); refreshCalcCells(td,r,fs); histLog('edit',curBig(),curSub(),[r.id]);
       if(normKey(f.key)==='CATEGORY_NUMBER'&&!gsActive()){ var __ce2=catFind(curBig(),curSub(),nv); if(__ce2&&catApplyRow(curBig(),r,__ce2,true)){ saveState(); renderContent(); showToast('카테고리 '+nv+' — '+(__ce2.kor||'')+' / '+(__ce2.eng||'')+' 채움','success'); return true; } }
-      if(__catCode&&normKey(f.key)===normKey(ccDetectKey())&&!gsActive()){ if(ccAfterEngEdit(curBig(),r,td,fs)) return true; }
+      if(__catCode&&normKey(f.key)===normKey(ccDetectKey())){ if(ccAfterEngEdit(rowBigOfRow(r),r,td,fs)) return true; }
       saveState();
       /* [UPC] VENDER 수정 → 그 이름의 중간 카테고리로 이동 */
       if(SUB_BY_VENDER&&normKey(f.key)==='VENDER_VENDER'&&!gsActive()){ if(syncSubsByVenderLive(curBig())){ saveState(); renderContent(); showToast('VENDER '+nv+' → "'+String(nv).trim()+'" 중간 카테고리로 이동됨','success'); return true; } }
@@ -8205,6 +8205,7 @@ async function fbAutoStart(){
     var conn=await Promise.race([ fbConnect(),
       new Promise(function(_,rj){ setTimeout(function(){ rj(new Error('접속 시간 초과 — 인터넷 확인')); },15000); }) ]);
     var M=conn.M, db=conn.db;
+    try{ catTreeStart(conn); deptListStart(conn); catCodeStart(conn); }catch(e0){} /* [2026-10-08] 가져오기 결과와 무관하게 공유 트리·DEPARTMENT·CATEGORY CODE 구독 시작 */
     await fbPackFlag(conn,true);
     var ms=await M.fs.getDoc(M.fs.doc(db,FB_ROOT,'_META'));
     var meta=(ms.exists()&&ms.data()&&ms.data().ver==='v3')?ms.data():null;
