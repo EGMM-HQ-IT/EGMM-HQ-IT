@@ -401,6 +401,9 @@ try{ document.documentElement.setAttribute('data-theme', localStorage.getItem('p
   /* [2026-10-08] 엑셀 불러오기 팝업 레이아웃 */
   #impOv .plu-imp-modal { max-width:820px; }
   #impOv .plu-imp-body { padding:14px 20px 16px; }
+  .imp-drop { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; padding:18px 12px; border:2px dashed #c9c4b6; border-radius:12px; background:#fbfaf6; color:#6b665c; font-size:12.5px; cursor:pointer; margin-bottom:12px; text-align:center; }
+  .imp-drop b { font-size:13.5px; color:#1E1B16; } .imp-drop.over { border-color:#1e7a46; background:#e6f4ec; } .imp-drop.has { border-style:solid; border-color:#bfe0cc; background:#f1f8f3; }
+  html[data-theme=night] .imp-drop { background:#161a23; border-color:#3c4557; color:#a3acbf; } html[data-theme=night] .imp-drop b { color:#e7eaf2; }
   .imp-file { display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid #e5e5e0; border-radius:10px; background:#fafaf7; margin-bottom:12px; }
   .imp-file-ic { font-size:10px; font-weight:900; letter-spacing:.08em; color:#1e7a46; background:#e6f4ec; border-radius:6px; padding:3px 7px; }
   .imp-file b { font-size:13.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
@@ -2730,7 +2733,7 @@ var PLU_MENU=[
   /* 숨은 항목 — 메뉴에는 없지만 __pluMenuRun(id) 로 실행 가능 (CATEGORY MANAGER 가 압축 묶음이 아닐 때 안내용) */
   { id:'cats',    label:'카테고리 관리', hidden:true, run:function(){ openCatMgr(); } },
   { id:'dept',    label:'DEPARTMENT 설정', hidden:true, run:function(){ openDeptModal(); } },
-  { id:'import',  label:'엑셀 불러오기', hidden:true, run:function(){ $('pluImportInput').value=''; $('pluImportInput').click(); } },
+  { id:'import',  label:'엑셀 불러오기', hidden:true, run:function(){ openImportSetup(); } },
   { id:'export',  label:'엑셀 내보내기', hidden:true, run:function(){ openExportModal(); } },
   { id:'print',   label:'리스트 출력',   hidden:true, run:function(){ openPrintModal(); } },
   { id:'backup',  label:'백업',          hidden:true, run:function(){ backupJson(); } },
@@ -3683,7 +3686,7 @@ function __menuPopup(id,title,items){
 }
 function openExcelMenu(){
   __menuPopup('mpExcel','엑셀 · 출력',[
-    { label:'엑셀 불러오기', desc:'1행 필드명 파일'+(APP_MODE==='UPC'?' 또는 업체 리스트 파일':'')+' — 같은 번호는 업데이트, 없으면 추가', run:function(){ $('pluImportInput').value=''; $('pluImportInput').click(); } },
+    { label:'엑셀 불러오기', desc:'1행 필드명 파일'+(APP_MODE==='UPC'?' 또는 업체 리스트 파일':'')+' — 같은 번호는 업데이트, 없으면 추가', run:function(){ openImportSetup(); } },
     { label:'엑셀 내보내기', desc:'내보낼 필드 선택 · 프리셋 — 그대로 수정해 다시 불러올 수 있음', run:function(){ openExportModal(); } },
     { label:'리스트 출력',   desc:'현재 리스트를 인쇄용으로', run:function(){ openPrintModal(); } }
   ]);
@@ -4981,9 +4984,10 @@ function onImportFile(file){
       __listMode=sheets.every(function(sh){ return isVendorListSheet(sh.aoa,sh.headers); });
     }
     /* [요구 2026-09 ①] 모든 시트에 PLU/UPC 열 필수 — 상품 정보 변경은 반드시 PLU/UPC 로 행을 찾아 수정 (리스트 파일은 A열이 UPC) */
+    var __ib=(impCtx&&impCtx.big&&S.layouts[impCtx.big])?impCtx.big:curBig(), __il=S.layouts[__ib]||curLayout();
     if(!__listMode) (function(){
-      var __pk=fieldByKey(curBig(),'ITEM_PLU')||fieldByKey(curBig(),'PLU'); var __bad=[];
-      sheets.forEach(function(sh){ var mp=buildMapping(sh.headers,curLayout()); if(!__pk||!mp.some(function(m){ return m.key===__pk.key; })) __bad.push(sh.name); });
+      var __pk=fieldByKey(__ib,'ITEM_PLU')||fieldByKey(__ib,'PLU'); var __bad=[];
+      sheets.forEach(function(sh){ var mp=buildMapping(sh.headers,__il); if(!__pk||!mp.some(function(m){ return m.key===__pk.key; })) __bad.push(sh.name); });
       if(__bad.length){ sheets=[]; uiAlert('엑셀에 '+(__pk?__pk.label:'PLU')+' 열이 없습니다 — 상품 정보는 '+(__pk?__pk.label:'PLU')+' 기준으로 해당 행을 찾아 수정하므로 불러올 수 없습니다.\n1행 필드명에 "'+(__pk?__pk.label:'PLU')+'" 열을 넣어 주세요.\n(시트: '+__bad.join(', ')+')','불러오기 불가'); }
     })();
     if(!sheets.length) return;
@@ -4991,9 +4995,11 @@ function onImportFile(file){
     /* [수정 2026-10-01] 2열 파일이라도 1행 두 열이 모두 필드명과 매칭되면(예: UPC · ITEM CODE) 일반 불러오기 — 새 행 추가됨.
        부분 업데이트(기존 행만 갱신)는 2열 제목이 필드명이 아닐 때만 */
     var __twoColMapped=false;
-    if(!__listMode && sheets.length===1){ var __mp2=buildMapping(sheets[0].headers,curLayout()).filter(function(m){ return !!m.key; }); __twoColMapped=__mp2.length>=2; }
-    if(!__listMode && sheets.length===1 && !__twoColMapped && isPartialSheet(sheets[0].aoa)){ openPartialUpdate(file.name,sheets[0].aoa); return; }
-    impCtx={fname:file.name,sheets:sheets,listMode:__listMode,big:curBig(),sub:'',cat:''};
+    if(!__listMode && sheets.length===1){ var __mp2=buildMapping(sheets[0].headers,__il).filter(function(m){ return !!m.key; }); __twoColMapped=__mp2.length>=2; }
+    if(!__listMode && sheets.length===1 && !__twoColMapped && isPartialSheet(sheets[0].aoa)){ $('impOv').classList.remove('show'); openPartialUpdate(file.name,sheets[0].aoa); return; }
+    /* [2026-10-09] 셋팅 먼저 → 파일: 팝업에서 정한 상위/중간/하위·옵션은 그대로 두고 파일만 채움 */
+    if(!impCtx||!impCtx.setup||!$('impOv').classList.contains('show')) impCtx={big:curBig(),sub:'',cat:'',setup:true}; /* 팝업이 닫힌 상태로 파일이 오면 새 셋팅 */
+    impCtx.fname=file.name; impCtx.sheets=sheets; impCtx.listMode=__listMode;
     /* [요구 2026-09] 불러오기는 현재 셋팅된 필드 그대로 데이터만 채움 —
        필드 추가/변경 없음. 매칭 안 되는 열은 무시(미리보기에 표시만) */
     renderImportModal(); $('impOv').classList.add('show');
@@ -5005,21 +5011,31 @@ function onImportFile(file){
 function impBig(){ return (impCtx&&impCtx.big&&S.layouts[impCtx.big])?impCtx.big:curBig(); }
 function impTab(){ var b=impBig(); for(var i=0;i<S.tabs.length;i++){ if(S.tabs[i].label===b) return S.tabs[i]; } return curTab(); }
 function impLayout(){ return S.layouts[impBig()]||[]; }
+/* [2026-10-09] 불러오기 순서 변경: ① 팝업에서 상위/중간/하위·옵션 셋팅 → ② 파일을 끌어다 놓기(또는 클릭 선택) → ③ 불러오기 */
+function openImportSetup(){ impCtx={big:curBig(),sub:'',cat:'',setup:true,fname:'',sheets:[],listMode:false}; renderImportModal(); $('impOv').classList.add('show'); }
+function __impBindDrop(){ var dz=$('impDrop'); if(!dz) return;
+  dz.onclick=function(){ $('pluImportInput').value=''; $('pluImportInput').click(); };
+  dz.ondragover=function(ev){ ev.preventDefault(); dz.classList.add('over'); }; dz.ondragleave=function(){ dz.classList.remove('over'); };
+  dz.ondrop=function(ev){ ev.preventDefault(); dz.classList.remove('over'); var f=ev.dataTransfer&&ev.dataTransfer.files&&ev.dataTransfer.files[0]; if(f) onImportFile(f); };
+  var body=$('impBody'); body.ondragover=function(ev){ ev.preventDefault(); }; body.ondrop=function(ev){ ev.preventDefault(); var f=ev.dataTransfer&&ev.dataTransfer.files&&ev.dataTransfer.files[0]; if(f) onImportFile(f); }; }
 function renderImportModal(){
   if(!impCtx.big) impCtx.big=curBig();
+  if(!impCtx.sheets) impCtx.sheets=[];
+  var __noFile=!impCtx.sheets.length;
   var big=impBig(), subs=impTab().subs||[], lay=impLayout();
   /* [2026-10-08] 시트 구분 없음 — 모든 시트가 한 곳(선택한 상위/중간/하위)으로 들어감 */
   if(impCtx.sub&&subs.indexOf(impCtx.sub)<0) impCtx.sub=''; /* '' = 중간 선택 안 함 → 기존 행은 제자리, 새 행은 규칙(업체·PLU 범위·현재 화면)대로 */
   var __catAll=function(){ var seen={}, out=[]; (impCtx.sub?[impCtx.sub]:subs).forEach(function(sb){ catSubsOf(big,sb).forEach(function(c){ var k=normKey(c.no); if(!seen[k]){ seen[k]=1; out.push(c); } }); }); return out; };
   if(impCtx.cat&&!__catAll().some(function(c){ return normKey(c.no)===normKey(impCtx.cat); })) impCtx.cat='';
   impCtx.sheets.forEach(function(s){ s.use=true; s.targetSub=impCtx.sub||''; s.targetCat=impCtx.cat||''; });
-  var first=impCtx.sheets[0];
-  var map=buildMapping(first.headers,lay);
+  var first=impCtx.sheets[0]||{headers:[],aoa:[],hIdx:0};
+  var map=__noFile?[]:buildMapping(first.headers,lay);
   var __lblN={}; lay.forEach(function(f){ var k=normKey(f.label); __lblN[k]=(__lblN[k]||0)+1; }); /* 중복 필드명 → 매칭 결과에 묶음 표시 */
   var totalRows=0; impCtx.sheets.forEach(function(s){ if(s.use) totalRows+=Math.max(0,s.aoa.length-(impCtx.listMode?0:s.hIdx+1)); });
   var h='';
   /* ── 파일 ── */
-  h+='<div class="imp-file"><span class="imp-file-ic">XLSX</span><b>'+escapeHtml(impCtx.fname)+'</b><span class="imp-file-n">'+totalRows.toLocaleString('en-US')+'행</span></div>';
+  if(__noFile) h+='<div class="imp-drop" id="impDrop"><b>엑셀 파일을 여기에 끌어다 놓으세요</b><span>또는 클릭해서 선택 · 아래 1·3번을 먼저 정한 뒤 파일을 넣으면 됩니다</span></div>';
+  else h+='<div class="imp-drop has" id="impDrop"><b><span class="imp-file-ic">XLSX</span> '+escapeHtml(impCtx.fname)+' <span class="imp-file-n">'+totalRows.toLocaleString('en-US')+'행</span></b><span>다른 파일을 끌어다 놓거나 클릭하면 바꿉니다</span></div>';
 
   /* ── 1. 대상 카테고리 ── */
   h+='<div class="imp-sec"><div class="imp-sec-t"><span class="imp-num">1</span>대상 카테고리 <small>선택한 한 곳으로 자료가 들어갑니다</small></div>';
@@ -5039,8 +5055,9 @@ function renderImportModal(){
   /* ── 2. 열 → 필드 ── */
   var __miss=impCtx.listMode?[]:map.filter(function(m){ return !m.key&&String(m.header||'').trim()!==''; }).map(function(m){ return m.header; });
   var __okN=impCtx.listMode?3:map.filter(function(m){ return !!m.key; }).length;
-  h+='<div class="imp-sec"><div class="imp-sec-t"><span class="imp-num">2</span>열 → 필드 <small>연결 '+__okN+'개'+(__miss.length?' · <span class="imp-warn">무시 '+__miss.length+'개</span>':'')+'</small></div>';
-  if(impCtx.listMode){
+  h+='<div class="imp-sec"><div class="imp-sec-t"><span class="imp-num">2</span>열 → 필드 <small>'+(__noFile?'파일을 넣으면 표시됩니다':'연결 '+__okN+'개'+(__miss.length?' · <span class="imp-warn">무시 '+__miss.length+'개</span>':''))+'</small></div>';
+  if(__noFile){ h+='<div class="imp-dim" style="padding:4px 2px">— 파일 없음</div>'; map=[]; }
+  else if(impCtx.listMode){
     var __pkL=(fieldByKey(big,'ITEM_PLU')||{}).label||'UPC';
     h+='<div class="plu-imp-map2"><table class="plu-imp-map"><thead><tr><th>엑셀 열</th><th>들어갈 필드</th></tr></thead><tbody>'
       +'<tr><td>A열</td><td class="imp-ok">'+escapeHtml(__pkL)+' <span class="imp-dim">(6자리 이하 제외)</span></td></tr>'
@@ -5104,12 +5121,11 @@ function renderImportModal(){
   h+='<label><input type="checkbox" id="impWipe"'+(impCtx.wipeEmpty===false?'':' checked')+'> 빈 셀도 덮어쓰기 <small>파일에 있는 열은 빈 칸까지 그대로</small></label>';
   h+='<label><input type="checkbox" id="impDupUpc"'+(__dU?' checked':'')+'> 중복 '+(APP_MODE==='UPC'?'UPC':'PLU')+' 허용 <small>끄면 같은 '+(APP_MODE==='UPC'?'UPC':'PLU')+' 기존 행 덮어쓰기</small></label>';
   if(APP_MODE==='UPC') h+='<label><input type="checkbox" id="impDupCode"'+(__dC?' checked':'')+'> 중복 ITEM CODE 허용 <small>끄면 같은 ITEM CODE 기존 행 덮어쓰기</small></label>';
-  if(big==='청과') h+='<label><input type="checkbox" id="impRoute"'+(impCtx.routeByPlu?' checked':'')+'> PLU 번호로 중간 카테고리 자동 배치</label>';
-  h+='</div></div></div>';
+  h+='</div></div><div class="imp-dim" style="margin-top:8px;font-size:11.5px">행의 위치는 파일의 CATEGORY_MAIN / CATEGORY_SUB 이름이 우선(없는 이름은 새로 만듦) · 파일에 없으면 위 1번에서 고른 곳</div></div>';
 
-  h+='<div class="plu-imp-foot"><button class="plu-tool-btn" id="impCancel" type="button">취소</button><button class="plu-tool-btn plu-imp-go" id="impGo" type="button">불러오기</button></div>';
+  h+='<div class="plu-imp-foot"><button class="plu-tool-btn" id="impCancel" type="button">취소</button><button class="plu-tool-btn plu-imp-go" id="impGo" type="button"'+(__noFile?' disabled title="파일을 먼저 넣으세요"':'')+'>불러오기</button></div>';
 
-  $('impBody').innerHTML=h;
+  $('impBody').innerHTML=h; __impBindDrop();
   $('impBigSel').onchange=function(){ impCtx.big=this.value; impCtx.sub=''; impCtx.cat=''; renderImportModal(); };
   $('impSubSel').onchange=function(){ impCtx.sub=this.value; impCtx.cat=''; renderImportModal(); };
   $('impCatSel').onchange=function(){ impCtx.cat=this.value; impCtx.sheets.forEach(function(s){ s.targetCat=impCtx.cat; }); };
@@ -5119,7 +5135,6 @@ function renderImportModal(){
   if($('impDupUpc')) $('impDupUpc').onchange=function(){ impCtx.allowDupUpc=$('impDupUpc').checked; };
   if($('impWipe')) $('impWipe').onchange=function(){ impCtx.wipeEmpty=$('impWipe').checked; };
   if($('impDupCode')) $('impDupCode').onchange=function(){ impCtx.allowDupCode=$('impDupCode').checked; };
-  if($('impRoute')) $('impRoute').onchange=function(){ impCtx.routeByPlu=$('impRoute').checked; };
   if(APP_MODE==='UPC'){
     var __vs=$('impVender');
     if(__vs){
@@ -5130,7 +5145,7 @@ function renderImportModal(){
     }
   }
   /* [요구 2026-09 ③] 실행 전 확인 팝업 */
-  $('impGo').onclick=function(){ confirmImportThenRun(); };
+  $('impGo').onclick=function(){ if(!impCtx.sheets.length){ showToast('파일을 먼저 넣으세요','error'); return; } confirmImportThenRun(); };
 }
 function confirmImportThenRun(){
   var big=impBig(), lay=impLayout();
@@ -5179,7 +5194,7 @@ function runImport(){
     store:($('impStore')?$('impStore').value:''),
     matchKey:($('impMatch')?$('impMatch').value:''),
     wipeEmpty:($('impWipe')?$('impWipe').checked:false),
-    routeByPlu:($('impRoute')?$('impRoute').checked:false),
+    routeByPlu:false, /* [2026-10-09] PLU 번호 대역 배치 안 함 — 위치는 CATEGORY_MAIN / CATEGORY_SUB 이름 */
     vender:(APP_MODE==='UPC'&&$('impVender'))?String($('impVender').value||'').toUpperCase():'',
     listMode:!!impCtx.listMode,
     allowDupUpc:($('impDupUpc')?$('impDupUpc').checked:false),
@@ -5431,11 +5446,7 @@ function applyImport(opts){
       var __noSub=!sh.targetSub; /* [2026-10-08] 중간 카테고리 선택 안 함 — 기존 행은 제자리, 새 행은 현재 화면 소분류(같은 대분류) 또는 첫 소분류 */
       var dest=(venderRow&&SUB_BY_VENDER)?venderRow:((rowBig===big)?(sh.targetSub||((rowBig===curBig()&&rowSubs.indexOf(curSub())>=0)?curSub():rowSubs[0])):rowSubs[0]);
       var destByRule=false;
-      if(rowBig==='청과'&&pluF&&(deptMatched||opts.routeByPlu)){
-        var pv=vals[pluF.key];
-        var rs=routeSubByPlu(pv);
-        if(rs){ ensureSub(rowBig,rs); dest=rs; rowSubs=(tabOf(rowBig).subs)||rowSubs; destByRule=true; }
-      }
+      /* [2026-10-09 제거] 청과 PLU 번호 대역으로 중간 배치 — 불러오기는 파일의 CATEGORY_MAIN / CATEGORY_SUB 이름으로만 위치 결정 */
       /* [제거 2026-09] 카테고리 열 값으로 중간 카테고리 자동 생성·배치 기능 삭제 —
          행은 선택한 소분류로 들어가고, 카테고리 값은 필드리스트 위 칩으로 필터.
          (청과 PLU 범위 · DEPARTMENT 라우팅은 별개 확정 규칙으로 유지) */
@@ -7536,7 +7547,7 @@ try{
   window.__PLU.fbNameFor=fbNameFor; window.__PLU.fbItemId=fbItemId; window.__PLU.fbBuildPlan=fbBuildPlan;
   window.__PLU.fbTestInject=fbTestInject; window.__PLU.fbUploadStart=fbUploadStart;
   window.__PLU.fbRestoreStart=fbRestoreStart; window.__PLU.openFbCfg=openFbCfg; window.__PLU.fbPurgeCorruptAndPush=fbPurgeCorruptAndPush;
-  window.__PLU.catPosSync=catPosSync; window.__PLU.catFillNo=catFillNo; window.__PLU.catAfterPull=catAfterPull; window.__PLU.catMoveRow=catMoveRow; window.__PLU.catFindByName=catFindByName;
+  window.__PLU.openImportSetup=openImportSetup; window.__PLU.catPosSync=catPosSync; window.__PLU.catFillNo=catFillNo; window.__PLU.catAfterPull=catAfterPull; window.__PLU.catMoveRow=catMoveRow; window.__PLU.catFindByName=catFindByName;
   window.__PLU.catCodeApply=catCodeApply; window.__PLU.ccAutoRow=ccAutoRow; window.__PLU.ccSuggest=ccSuggest; window.__PLU.ccAutoRows=ccAutoRows;
   window.__PLU.fbRulesText=FB_RULES; window.__PLU.fbConfigChunks=fbConfigChunks; window.__PLU.fbConfigJoin=fbConfigJoin;
 }catch(e){}
