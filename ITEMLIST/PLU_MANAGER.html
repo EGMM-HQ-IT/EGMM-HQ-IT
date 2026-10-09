@@ -3037,7 +3037,7 @@ function renderContent(){
      이전엔 셀마다 selSrcSelect(수식 정규식 + 필드 검색)·normKey 를 다시 돌려 행×열×열 비용이 들었다. */
   var st0=S.curStore;
   var FP=fs.map(function(f,i){
-    var isCalc=!!f.formula||(!!f.share&&f.share!==f.key);
+    var isCalc=!!f.formula||(!!f.share&&f.share!==f.key)||catIsPosField(f); /* [2026-10-09] CATEGORY_MAIN / SUB 는 잠금 — CATEGORY MANAGER 에서만 변경 */
     var cls=(isCalc?'plu-c-calc':'editable')+gEdge[i]+(f.bold?' plu-c-bold':'')+(normKey(f.key)==='PLU'?' plu-c-no':'')+(i<=__frzIdx?' plu-frz'+(i===__frzIdx?' plu-frz-last':''):'');
     var sf=null; try{ sf=(f.type==='check')?null:selSrcSelect(f); }catch(e){}
     return {
@@ -3275,7 +3275,8 @@ function startCellEdit(td,id,fs){
   td.classList.add('editing'); __editBegin();
   var __catL=(normKey(f.key)==='CATEGORY_NUMBER'&&!gsActive())?catSubsOf(curBig(),curSub()):[];
   var __ccSel=(ccIsLinkField(f)&&ccIndex().list.length>0); if(__ccSel) __catL=[]; /* 검색(전체 찾기) 중에도 동작 — 행의 대분류 기준 */ /* [CATEGORY CODE] 연결 필드 = 코드 드롭다운 (코드가 등록돼 있을 때 우선) */
-  var __posSel=catIsPosField(f); /* [카테고리 필드 규칙] CATEGORY_MAIN / CATEGORY_SUB = 상위/중간 이름 드롭다운 → 고르면 행 이동 */
+  if(catIsPosField(f)){ showToast('CATEGORY_MAIN / CATEGORY_SUB 는 CATEGORY MANAGER 에서만 변경할 수 있습니다','error'); td.classList.remove('editing'); __editEnd(); return; }
+  var __posSel=false; /* [2026-10-09] 셀 잠금 — 위치 변경은 CATEGORY MANAGER 에서만 */
   if(f.type==='select'||__catL.length||__ccSel||__posSel){ /* 드롭다운(데이터 유효성) 필드 · [2026-10-02] CATEGORY_NO = 공유 트리의 하위 카테고리 목록 */
     var sh='<select class="plu-cell-input"><option value=""></option>';
     if(__posSel){ catPosOptions(f,r).forEach(function(o){ sh+='<option value="'+escapeHtml(o)+'"'+(o===raw?' selected':'')+'>'+escapeHtml(o)+'</option>'; }); }
@@ -5177,7 +5178,7 @@ function runImport(){
   renderBigTabs(); renderSubTabs(); /* 부서 라우팅으로 소분류가 자동 생성됐을 수 있음 */
   saveState(); $('impOv').classList.remove('show'); renderStoreBar(); renderContent();
   if(res.excl){ var __ex=[]; for(var __ek in res.excl) __ex.push(__ek+' '+res.excl[__ek]+'행'); uiAlert('규칙에 따라 제외된 행: '+__ex.join(' · ')+'\n(업데이트 '+res.upd+' · 추가 '+res.add+')','업체 리스트 파일 제외 행'); }
-  showToast('불러오기 완료 — 업데이트 '+res.upd+(res.upcMulti?' (UPC 기준 중복 행 포함)':'')+' · 추가 '+res.add+(res.shortUpc?' · UPC 6자리 이하 제외 '+res.shortUpc:'')+(res.trashed?' · TRASH 일치 무시 '+res.trashed:'')+(res.skipped?' · 기준값 없음 건너뜀 '+res.skipped:'')+(res.moved?' · 소분류 이동 '+res.moved:'')+(res.catMain?' · CATEGORY_MAIN 으로 상위 이동 '+res.catMain:'')+(res.catSub?' · CATEGORY_SUB 로 중간 이동 '+res.catSub:'')+(res.dept?' · DEPARTMENT 라우팅 '+res.dept:'')+(res.unhid?' · 숨김 해제 '+res.unhid+'필드':'')+(res.fml?' · 엑셀 함수 적용 '+res.fml:'')+(res.storesAdded?' · 매장 추가 '+res.storesAdded:''),'success');
+  showToast('불러오기 완료 — 업데이트 '+res.upd+(res.upcMulti?' (UPC 기준 중복 행 포함)':'')+' · 추가 '+res.add+(res.shortUpc?' · UPC 6자리 이하 제외 '+res.shortUpc:'')+(res.trashed?' · TRASH 일치 무시 '+res.trashed:'')+(res.skipped?' · 기준값 없음 건너뜀 '+res.skipped:'')+(res.moved?' · 소분류 이동 '+res.moved:'')+(res.catMain?' · CATEGORY_MAIN 으로 상위 이동 '+res.catMain:'')+(res.catSub?' · CATEGORY_SUB 로 중간 이동 '+res.catSub:'')+(res.newBig?' · 새 상위 '+res.newBig:'')+(res.newSub?' · 새 중간 '+res.newSub:'')+(res.dept?' · DEPARTMENT 라우팅 '+res.dept:'')+(res.unhid?' · 숨김 해제 '+res.unhid+'필드':'')+(res.fml?' · 엑셀 함수 적용 '+res.fml:'')+(res.storesAdded?' · 매장 추가 '+res.storesAdded:''),'success');
   if(res.catCode) setTimeout(function(){ ccAutoReport(res.catCode,'엑셀 불러오기'); },50);
   if(res.fmlFail&&res.fmlFail.length) uiAlert('엑셀 함수를 적용하지 못한 열 '+res.fmlFail.length+'건 (기존 수식 유지):\n'+res.fmlFail.slice(0,20).join('\n')+(res.fmlFail.length>20?'\n…':''),'수식 변환 결과');
   /* [디버깅 지원] 매칭 기준을 지정했는데 기존 행 업데이트가 0건 = PLU 값이 하나도 일치하지 않음 */
@@ -5400,6 +5401,8 @@ function applyImport(opts){
       }
       /* [카테고리 필드 규칙 2026-10-09] 파일의 CATEGORY_MAIN 이 기존 상위 이름과 같으면 그 상위로 */
       var __fMain=String(vals.CATEGORY_MAIN==null?'':vals.CATEGORY_MAIN).trim(), __fSub=String(vals.CATEGORY_SUB==null?'':vals.CATEGORY_SUB).trim(), __fieldSub=false;
+      if(__fMain&&!tabOf(__fMain)){ /* [2026-10-09] 없는 상위 이름 → 새 상위 자동 생성 (중간은 파일의 CATEGORY_SUB 또는 '기본') */
+        var __nb={label:__fMain, doc:__fMain, subs:[]}; S.tabs.push(__nb); S.data[__fMain]={}; unifyLayouts(S); unifyGColors(S); stats.newBig=(stats.newBig||0)+1; }
       if(__fMain&&tabOf(__fMain)&&__fMain!==rowBig){ rowBig=__fMain; __deptSub=''; deptMatched=false; stats.bigs[rowBig]=1; stats.catMain=(stats.catMain||0)+1; }
       var rowTab=tabOf(rowBig), rowSubs=(rowTab&&rowTab.subs)||[];
 
@@ -5417,6 +5420,7 @@ function applyImport(opts){
          행은 선택한 소분류로 들어가고, 카테고리 값은 필드리스트 위 칩으로 필터.
          (청과 PLU 범위 · DEPARTMENT 라우팅은 별개 확정 규칙으로 유지) */
       if(rowSubs.indexOf(dest)<0) dest=rowSubs[0];
+      if(!dest&&__fSub){ ensureSub(rowBig,__fSub); rowSubs=(tabOf(rowBig).subs)||rowSubs; dest=__fSub; stats.newSub=(stats.newSub||0)+1; } else if(!dest){ ensureSub(rowBig,'기본'); rowSubs=(tabOf(rowBig).subs)||rowSubs; dest='기본'; }
       /* [2026-10-02] DEPARTMENT 번호가 중간 카테고리와 일치 → 그 중간 카테고리로 (UPC: VENDER 값도 그 이름으로, 파일에 VENDER 가 없을 때) */
       if(__deptSub){ ensureSub(rowBig,__deptSub); dest=__deptSub; rowSubs=(tabOf(rowBig).subs)||rowSubs; if(SUB_BY_VENDER&&!__fileVend) vals.VENDER_VENDER=__deptSub; }
 
@@ -5448,6 +5452,8 @@ function applyImport(opts){
       }
 
       /* [카테고리 필드 규칙 2026-10-09] 파일의 CATEGORY_SUB 가 그 상위의 기존 중간 이름과 같으면 그 중간으로 (없는 이름은 무시) */
+      if(__fSub&&rowSubs.indexOf(__fSub)<0){ ensureSub(rowBig,__fSub); rowSubs=(tabOf(rowBig).subs)||rowSubs; stats.newSub=(stats.newSub||0)+1; } /* [2026-10-09] 없는 중간 이름 → 새 중간 자동 생성 */
+      else if(!__fSub&&!rowSubs.length){ ensureSub(rowBig,'기본'); rowSubs=(tabOf(rowBig).subs)||rowSubs; }
       if(__fSub&&rowSubs.indexOf(__fSub)>=0){ if(__fSub!==dest) stats.catSub=(stats.catSub||0)+1; dest=__fSub; __fieldSub=true; }
       /* [카테고리 필드 규칙] 하위 = KOR 이름 — 파일의 CATEGORY_KOR 이 그 중간의 하위와 같으면 NO(코드) · ENG 채움 */
       if(vals.CATEGORY_KOREA!=null&&String(vals.CATEGORY_KOREA).trim()!==''){ var __bk2=catFindByName(rowBig,dest,vals.CATEGORY_KOREA); if(__bk2){ vals.CATEGORY_NUMBER=String(__bk2.no||''); if(vals.CATEGORY_ENGLISH==null||String(vals.CATEGORY_ENGLISH).trim()==='') vals.CATEGORY_ENGLISH=String(__bk2.eng||''); } }
