@@ -5430,7 +5430,7 @@ function applyImport(opts){
       var __fMain=String(vals.CATEGORY_MAIN==null?'':vals.CATEGORY_MAIN).trim(), __fSub=String(vals.CATEGORY_SUB==null?'':vals.CATEGORY_SUB).trim(), __fieldSub=false;
       if(__fMain&&!tabOf(__fMain)){ /* [2026-10-09] 없는 상위 이름 → 새 상위 자동 생성 (중간은 파일의 CATEGORY_SUB 또는 '기본') */
         var __nb={label:__fMain, doc:__fMain, subs:[]}; S.tabs.push(__nb); S.data[__fMain]={}; unifyLayouts(S); unifyGColors(S); stats.newBig=(stats.newBig||0)+1; }
-      if(__fMain&&tabOf(__fMain)&&__fMain!==rowBig){ rowBig=__fMain; __deptSub=''; deptMatched=false; stats.bigs[rowBig]=1; stats.catMain=(stats.catMain||0)+1; }
+      var __cmFlag=false, __csFlag=false; if(__fMain&&tabOf(__fMain)&&__fMain!==rowBig){ rowBig=__fMain; __deptSub=''; deptMatched=false; stats.bigs[rowBig]=1; __cmFlag=true; }
       var rowTab=tabOf(rowBig), rowSubs=(rowTab&&rowTab.subs)||[];
 
       /* 목적지 소분류: DEPARTMENT 로 청과에 온 행은 항상 PLU 범위 규칙(자동배치 체크와 무관),
@@ -5463,6 +5463,8 @@ function applyImport(opts){
         var __addHits=function(list){ (list||[]).forEach(function(h){ if(h&&h.row&&!__seenH[h.row.id]){ __seenH[h.row.id]=1; __hitAll.push(h); } }); };
         if(__matchUpc){ __addHits((SUB_BY_VENDER&&__vendScope)?rIdx['*'+__mv+'@'+__vendScope]:rIdx['*'+__mv]); }
         if(__matchCode&&__cd){ __addHits((SUB_BY_VENDER&&__vendScope)?rIdx['#'+__cd+'@'+__vendScope]:rIdx['#'+__cd]); }
+        /* [2026-10-09 · PLU] 파일의 PLU 가 리스트 어디에든(다른 상위 포함) 이미 있으면 그 행을 제자리에서 파일 필드만 업데이트 — 새 행 추가·이동 없음 */
+        if(APP_MODE!=='UPC'&&__matchUpc&&!__hitAll.length){ for(var __ti=0;__ti<S.tabs.length;__ti++){ var __ob=S.tabs[__ti].label; if(__ob===rowBig) continue; var __oi=getIdx(__ob); (__oi['*'+__mv]||[]).forEach(function(h){ if(h&&h.row&&!__seenH[h.row.id]){ __seenH[h.row.id]=1; __hitAll.push({sub:h.sub,row:h.row,big:__ob}); } }); } }
         hit=__hitAll[0]||null;
       }
       /* [확정 2026-09-30 · UPC] 중간 카테고리 = VENDER 값 — 파일 VENDER → 기존 행 VENDER → 대분류 기본(STI-WA) 순.
@@ -5477,9 +5479,9 @@ function applyImport(opts){
       /* [카테고리 필드 규칙 2026-10-09] 파일의 CATEGORY_SUB 가 그 상위의 기존 중간 이름과 같으면 그 중간으로 (없는 이름은 무시) */
       if(__fSub&&rowSubs.indexOf(__fSub)<0){ ensureSub(rowBig,__fSub); rowSubs=(tabOf(rowBig).subs)||rowSubs; stats.newSub=(stats.newSub||0)+1; } /* [2026-10-09] 없는 중간 이름 → 새 중간 자동 생성 */
       else if(!__fSub&&!rowSubs.length){ ensureSub(rowBig,'기본'); rowSubs=(tabOf(rowBig).subs)||rowSubs; }
-      if(__fSub&&rowSubs.indexOf(__fSub)>=0){ if(__fSub!==dest) stats.catSub=(stats.catSub||0)+1; dest=__fSub; __fieldSub=true; }
+      if(__fSub&&rowSubs.indexOf(__fSub)>=0){ if(__fSub!==dest) __csFlag=true; dest=__fSub; __fieldSub=true; }
       /* [카테고리 필드 규칙] 하위 = KOR 이름 — 파일의 CATEGORY_KOR 이 그 중간의 하위와 같으면 NO(코드) · ENG 채움 */
-      if(vals.CATEGORY_KOREA!=null&&String(vals.CATEGORY_KOREA).trim()!==''){ var __bk2=catFindByName(rowBig,dest,vals.CATEGORY_KOREA); if(__bk2){ vals.CATEGORY_NUMBER=String(__bk2.no||''); if(vals.CATEGORY_ENGLISH==null||String(vals.CATEGORY_ENGLISH).trim()==='') vals.CATEGORY_ENGLISH=String(__bk2.eng||''); } }
+      var __korV=(vals.CATEGORY_KOREA!=null)?String(vals.CATEGORY_KOREA).trim():''; /* 하위 = KOR 이름 → 행이 실제로 놓이는 중간의 하위 목록에서 찾아 NO(코드) · ENG (새 행: 목적지 · 기존 행: 제자리) */
       /* [2026-10-08] 팝업에서 하위 카테고리를 지정하면 모든 행의 CATEGORY NO · KOR · ENG 를 그 값으로 */
       if(sh.targetCat){ var __tce=catFind(rowBig,sh.targetSub,sh.targetCat)||catFind(rowBig,dest,sh.targetCat); if(!__tce){ for(var __ci=0;__ci<rowSubs.length&&!__tce;__ci++) __tce=catFind(rowBig,rowSubs[__ci],sh.targetCat); } if(__tce){ vals.CATEGORY_NUMBER=String(__tce.no||''); vals.CATEGORY_KOREA=String(__tce.kor||''); vals.CATEGORY_ENGLISH=String(__tce.eng||''); } }
       /* [2026-10-02] 하위 카테고리 번호(CATEGORY_NO)가 있으면 공유 트리에서 KOR · ENG 자동 채움 (파일에 없을 때) */
@@ -5491,33 +5493,37 @@ function applyImport(opts){
         var __targets=(__hitAll&&__hitAll.length)?__hitAll:[hit];
         if(__targets.length>1) stats.upcMulti=(stats.upcMulti||0)+(__targets.length-1);
         __targets.forEach(function(ht){
-        var r0=ht.row;
-        var dest0=dest; if(__noSub&&!(venderRow&&SUB_BY_VENDER)&&!destByRule&&!__deptSub&&!__fieldSub&&!(SUB_BY_VENDER&&__fileVend)) dest=ht.sub; /* 중간 선택 안 함 → 기존 행 제자리 */
+        var r0=ht.row, hb=ht.big||rowBig; /* [PLU] 다른 상위에 있던 기존 행이면 그 상위 기준 */
+        var dest0=dest; if(APP_MODE!=='UPC'||(__noSub&&!(venderRow&&SUB_BY_VENDER)&&!destByRule&&!__deptSub&&!__fieldSub&&!(SUB_BY_VENDER&&__fileVend))) dest=ht.sub; /* [2026-10-09] PLU: 기존 행은 항상 제자리 · UPC: 중간 선택 안 함 → 제자리 */
         for(var k in vals){
-          var f=fieldByKey(rowBig,k); if(!f) continue; if(fieldLocked(f)){ stats.locked=(stats.locked||0)+1; continue; } /* [고정] 고정 필드는 파일 값으로 덮지 않음 */
+          var f=fieldByKey(hb,k); if(!f) continue; if(fieldLocked(f)){ stats.locked=(stats.locked||0)+1; continue; } /* [고정] 고정 필드는 파일 값으로 덮지 않음 */
+          if(catIsPosField(f)) continue; /* CATEGORY_MAIN / SUB 는 위치가 정함 */
           var __vv=vals[k]; var __sf=selSrcSelect(f); if(__sf) __vv=optResolve(__sf,__vv); /* [영구 규칙] 목록 값 정규화 */
           setCell(r0,f,__vv,rowStore); /* 모든 필드 매장별 저장 (기본은 자동 시드) — 수식 필드 값은 재계산이 확정 */
         }
-        if(venderRow){ var __vf=fieldByKey(rowBig,'VENDER_VENDER'); if(__vf) setCell(r0,__vf,venderRow,''); } /* 업체 지정: VENDER 는 기본값으로 확정 */
-        applyRowDefaults(rowBig,r0); /* [UPC 기본값] 비어 있는 LOCATION/USE 채움 */
-        /* 매칭된 기존 행도 목적지 소분류로 이동 */
-        if(ht.sub!==dest){
+        if(__korV){ var __bk3=catFindByName(hb,ht.sub,__korV); if(__bk3) catApplyEntry(hb,r0,__bk3); } /* 기존 행: 그 행이 있는 중간의 하위 목록으로 KOR → NO · ENG */
+        if(venderRow){ var __vf=fieldByKey(hb,'VENDER_VENDER'); if(__vf) setCell(r0,__vf,venderRow,''); } /* 업체 지정: VENDER 는 기본값으로 확정 */
+        applyRowDefaults(hb,r0); /* [UPC 기본값] 비어 있는 LOCATION/USE 채움 */
+        /* 매칭된 기존 행도 목적지 소분류로 이동 (UPC · 같은 상위 안에서만) */
+        if(hb===rowBig&&ht.sub!==dest){
           var arr=rowsFor(rowBig,ht.sub), ix=arr.indexOf(r0);
           if(ix>=0){ arr.splice(ix,1); rowsFor(rowBig,dest).push(r0); ht.sub=dest; stats.moved++; }
         }
-        stats.upd++; (__histIds[rowBig+'\u0000'+dest]=__histIds[rowBig+'\u0000'+dest]||[]).push(r0.id);
+        if(hb!==rowBig) stats.bigs[hb]=1; else if(ht.sub===dest&&__csFlag&&dest!==dest0){ stats.catSub=(stats.catSub||0)+1; }
+        stats.upd++; (__histIds[hb+'\u0000'+(hb===rowBig?dest:ht.sub)]=__histIds[hb+'\u0000'+(hb===rowBig?dest:ht.sub)]||[]).push(r0.id);
         dest=dest0;
         });
       }else{
         var nr={id:newId(),v:{},sv:{},m:rowStamp()};
         for(var k2 in vals){
-          var f2=fieldByKey(rowBig,k2); if(!f2) continue; if(fieldLocked(f2)){ stats.locked=(stats.locked||0)+1; continue; }
+          var f2=fieldByKey(rowBig,k2); if(!f2) continue; if(fieldLocked(f2)){ stats.locked=(stats.locked||0)+1; continue; } if(catIsPosField(f2)) continue;
           var __vv2=vals[k2]; var __sf2=selSrcSelect(f2); if(__sf2) __vv2=optResolve(__sf2,__vv2); /* [영구 규칙] 목록 값 정규화 */
           setCell(nr,f2,__vv2,rowStore);
         }
         if(venderRow){ var __vf2=fieldByKey(rowBig,'VENDER_VENDER'); if(__vf2) setCell(nr,__vf2,venderRow,''); }
         applyRowDefaults(rowBig,nr); /* [UPC 기본값] LOCATION 99 · USE 1 */
-        rowsFor(rowBig,dest).push(nr);
+        if(__korV){ var __bk4=catFindByName(rowBig,dest,__korV); if(__bk4) catApplyEntry(rowBig,nr,__bk4); } /* 새 행: 목적지 중간의 하위 목록 */
+        rowsFor(rowBig,dest).push(nr); if(__cmFlag) stats.catMain=(stats.catMain||0)+1; if(__csFlag) stats.catSub=(stats.catSub||0)+1;
         if(mF&&vals[mF.key]!=null&&rIdx){ var mv2=matchNorm(vals[mF.key]); if(mv2&&!rIdx[mv2]) rIdx[mv2]={sub:dest,row:nr}; if(mv2){ (rIdx['*'+mv2]=rIdx['*'+mv2]||[]).push({sub:dest,row:nr}); } if(__icF0){ var __nc2=normKey(vals.VENDER_ITEM_CODE==null?'':vals.VENDER_ITEM_CODE); if(__nc2){ (rIdx['#'+__nc2]=rIdx['#'+__nc2]||[]).push({sub:dest,row:nr}); (rIdx['#'+__nc2+'@'+dest]=rIdx['#'+__nc2+'@'+dest]||[]).push({sub:dest,row:nr}); } } if(mv2&&SUB_BY_VENDER&&!rIdx[mv2+'@'+dest]) rIdx[mv2+'@'+dest]={sub:dest,row:nr}; if(mv2&&SUB_BY_VENDER){ (rIdx['*'+mv2+'@'+dest]=rIdx['*'+mv2+'@'+dest]||[]).push({sub:dest,row:nr}); } if(mv2&&SUB_BY_VENDER&&__icF0){ var __ck2=mv2+'@'+dest+'#'+normKey(vals.VENDER_ITEM_CODE==null?'':vals.VENDER_ITEM_CODE); if(!rIdx[__ck2]) rIdx[__ck2]={sub:dest,row:nr}; } }
         stats.add++; (__histIds[rowBig+'\u0000'+dest]=__histIds[rowBig+'\u0000'+dest]||[]).push(nr.id);
       }
